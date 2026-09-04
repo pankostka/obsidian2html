@@ -1130,6 +1130,9 @@ def hlavicka_html(web, aktivni=None, filtr=None, dosazitelne=None,
     ktery se s tim aktivnim v zadnem clanku nepotkava, se ztlumi - `dosazitelne`
     je mnozina tagu, ktere s aktivnim filtrem neco vrati. Diky tomu se nedá
     proklikat do prazdna, a to i bez JavaScriptu.
+
+    Ztlumi se i tag, ktery v liste je, ale zadny publikovany clanek ho nema -
+    jeho stranka nevznikne, takze odkaz by nikam nevedl.
     """
     nazev = web['nazev']
     if web.get('logo'):
@@ -1162,7 +1165,16 @@ def hlavicka_html(web, aktivni=None, filtr=None, dosazitelne=None,
         # aktivni je bud nazev tagu, nebo nazev souboru - aby se dala zvyraznit
         # i pevna polozka, treba Hledani.
         je_tu = (tag and tag == aktivni) or adresa == aktivni
-        if je_tu:
+        if tag and tag not in web['tagy']:
+            # Kuratorovana polozka pro tag, ktery zadny publikovany clanek
+            # nema, takze jeho stranka nevznikne. ZTLUMI SE, nezplosti:
+            # zkontroluj_odkazy by z odkazu udelal holy text a v liste by mezi
+            # stylovanymi pilulkami sedelo neostylovane slovo. Ztlumena pilulka
+            # rekne totez a nerozbije radek. Build to navic ohlasi.
+            kusy.append('<span class="zhasnuty" aria-disabled="true"'
+                        ' title="zatím nemá publikovaný článek">%s</span>'
+                        % popis)
+        elif je_tu:
             # Aktivni stitek odbira filtr, tedy vraci na titulku.
             kusy.append('<a href="index.html" aria-current="page">%s</a>' % popis)
         elif tag and filtr:
@@ -1985,6 +1997,19 @@ def main():
                 print('Pridej radek do %s/menu.md, kdyz tam patri:' % KONFIG)
                 for x in chybi:
                     print('  `#%s`  ->  tag-%s.html' % (x, slug(x)))
+
+            # Opacny pripad: lista jmenuje tag, ktery zadny publikovany
+            # clanek nema. Jeho stranka nevznikne, takze se v liste ztlumi
+            # - ale autor by mel vedet proc, jinak vypada lista rozbite.
+            prazdne = [x for x in v_liste if x not in web['tagy']]
+            if prazdne:
+                print('\nStitky v liste bez clanku (%d): stranka nevznika,'
+                      ' v liste jsou ztlumene a nejdou kliknout.'
+                      % len(prazdne))
+                print('Publikuj clanek s timhle tagem, nebo radek z %s/menu.md'
+                      ' odeber:' % KONFIG)
+                for x in sorted(prazdne):
+                    print('  `#%s`' % x)
 
         if velke_nahledy:
             print('\nVelke nahledy (%d): na titulce se zobrazuji ve vysce'
