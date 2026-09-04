@@ -49,7 +49,7 @@ Při ověřování se ukázala drobná vada, opravena hned: kurátorovaná lišt
 
 ### 3. Testy - HOTOVO
 
-41 testů v `test_md2html.py`, spouští se `python test_md2html.py`, běží pod sekundu a nepotřebují nic nad rámec toho, co potřebuje generátor.
+43 testů v `test_md2html.py`, spouští se `python test_md2html.py`, běží pod sekundu a nepotřebují nic nad rámec toho, co potřebuje generátor.
 
 Zadáním jsou konvence z `README.cs.md`, ne implementace. Název testu začíná kódem konvence, takže když spadne, rovnou říká, která věta přestala platit.
 
@@ -81,7 +81,6 @@ Vyrobit `README.md` překladem z `README.cs.md`. Založit repozitář na GitHubu
 
 ## Otevřené otázky
 
-- **Perex u odstavce, který začíná obrázkem.** Dnes je prázdný, protože se přeskočí celý blok. K40 přitom říká, že se obrázek vyhodí a text zůstane. Obrázek uprostřed odstavce i obrázek na vlastním řádku se chovají správně.
 
 - **Vynucovat tagy?** `dokumentace_JD.md` chce PascalCase a jednu variantu na tag, protože se porovnávají jako řetězce a dvě varianty tiše rozpůlí stránku tagu. Skript to nekontroluje ani nehlásí.
 
