@@ -116,6 +116,12 @@ if hasattr(sys.stdout, 'reconfigure'):
 MAX_TRANSKLUZE = 3
 PRILOHY = ('Attachments', 'img', 'assets')
 
+# Slozka se vstupy pro web: menu.md, index.md, styl.css, logo. Tecka na
+# zacatku ji v Obsidianu skryje, coz je zamer - nejsou to clanky a edituji se
+# mimo Obsidian. Nazev rika, ke kteremu nastroji patri, takze vedle .obsidian
+# nevznika nejasnost. posbirej() ji preskoci uz kvuli te tecce.
+KONFIG = '.obsidian2html'
+
 # Priznak publikace je MARKER V NAZVU SOUBORU, ne frontmatter klic. Duvod je
 # viditelnost: ve strome souboru je videt, ktery clanek je verejny, kdezto
 # frontmatter videt neni. Chybejici marker znamena neverejne.
@@ -197,7 +203,7 @@ CSS_CHROM = """
    Obsidianu doporuceno vypnout Readable line length - na tabulky a kod je
    to k nepouziti. Na webu proto 64rem misto 46rem, ktere zustava
    samostatnemu souboru.
-   Prepsat jde v _web/styl.css. */
+   Prepsat jde v .obsidian2html/styl.css. */
 body { max-width: 64rem; padding-top: 1.25rem; }
 /* Zahlavi clanku: nadpis, pod nim tagy, linka az pod obojim. V samostatnem
    souboru zustava linka na h1, protoze tam zadne tagy nejsou. */
@@ -988,7 +994,7 @@ def snizit_nadpisy(text):
 def polozky_menu(text, tagy, bez_tagu=False):
     """Polozky listy jako [(popis, adresa, tag)]. Tag je None u pevneho odkazu.
 
-    Bez _web/menu_webu.md jsou to vsechny tagy abecedne. Kuratorovany seznam je
+    Bez .obsidian2html/menu.md jsou to vsechny tagy abecedne. Kuratorovany seznam je
     potreba proto, ze tagu muze byt dvacet a lista by se rozsypala - a poradi
     tagu abecedne nemusi odpovidat tomu, co je dulezite.
 
@@ -1032,7 +1038,7 @@ def polozky_menu(text, tagy, bez_tagu=False):
         if r.startswith('#') and len(r) > 1 and not r[1].isspace():
             tag = r[1:].strip()
             polozky.append((tag, 'tag-%s.html' % slug(tag), tag))
-    # Kdyz se v menu_webu.md o pseudotagu nikdo nezminil, prida se na konec sam -
+    # Kdyz se v menu.md o pseudotagu nikdo nezminil, prida se na konec sam -
     # jinak by clanky bez tagu nebyly dosazitelne odnikud nez z titulky.
     if bez_tagu and pseudo not in polozky:
         polozky.append(pseudo)
@@ -1042,7 +1048,7 @@ def polozky_menu(text, tagy, bez_tagu=False):
 def wikilinky_v_uvodu(text, davka):
     """V uvodu titulky prevede [[Nota]] a [[Nota|popis]] na markdown odkaz.
 
-    Uvod z `_web/index.md` je jediny rucne psany text na titulce, takze do nej
+    Uvod z `.obsidian2html/index.md` je jediny rucne psany text na titulce, takze do nej
     patri rozcestnik - a ten odkazuje na clanky. Bez tohohle by se do souboru
     musely psat ADRESY (`kostkaaxmain.html`), tedy presne to, cemu se wikilink
     vyhyba: prejmenovani clanku by odkaz tise rozbilo.
@@ -1064,23 +1070,19 @@ def wikilinky_v_uvodu(text, davka):
 
 
 def web_vstupy(vault, davka=None):
-    """Precte _web/menu_webu.md, _web/index.md a _web/styl.css. Vse volitelne.
+    """Precte menu.md, index.md a styl.css ze slozky KONFIG. Vse volitelne.
 
-    Adresar _web/ obchazi posbirej() kvuli podtrzitku, takze se z tech souboru
+    Slozka obchazi posbirej() kvuli tecce na zacatku, takze se z tech souboru
     nikdy nestane stranka - jsou to vstupy pro web, ne clanky.
 
-    Lista se jmenuje menu_webu.md, protoze menu.md je ve vaultu uz obsazene -
-    je to navigacni lista samotneho vaultu a dva soubory stejneho jmena se v
-    Obsidianu pletou. Stary nazev se cte dal, aby to nerozbilo vaulty, ktere
-    ho maji; kdyz jsou tam oba, vyhrava novy.
+    Lista se smi jmenovat proste menu.md. Vault sice ma vlastni menu.md jako
+    navigacni listu, ale ta lezi jinde a tady se s ni nic srazit nemuze.
     """
-    kam = os.path.join(vault, '_web')
+    kam = os.path.join(vault, KONFIG)
     menu = None
-    for nazev in ('menu_webu.md', 'menu.md'):
-        cesta = os.path.join(kam, nazev)
-        if os.path.isfile(cesta):
-            _, menu = oddel_frontmatter(zdroj_text(cesta))
-            break
+    cesta = os.path.join(kam, 'menu.md')
+    if os.path.isfile(cesta):
+        _, menu = oddel_frontmatter(zdroj_text(cesta))
 
     intro, titul = '', None
     cesta = os.path.join(kam, 'index.md')
@@ -1404,7 +1406,7 @@ def stranka_hledani(clanky, web):
     # Poradi prebira lista, aby oko hledalo tag na temze miste jako jinde.
     # Tagy, ktere v liste nejsou, se pripoji za ni abecedne.
     #
-    # LISTA JE KURATOROVANA, FILTR JE UPLNY. Duvod, proc `_web/menu_webu.md`
+    # LISTA JE KURATOROVANA, FILTR JE UPLNY. Duvod, proc `.obsidian2html/menu.md`
     # vybira, je sirka hlavicky - dvacet stitku v ni prestane fungovat. Filtr
     # ale ma vlastni misto na vlastni strance, takze stitky unese vsechny, a
     # tag, ktery ma stranku, musi byt filtrovatelny. Jinak by kuratorovani listy
@@ -1502,13 +1504,13 @@ def rss(clanky, web, adresa):
 
 
 def najdi_logo(vault, kam):
-    """Logo je vstup pro web, tedy _web/logo.svg nebo .png, ne priloha clanku.
+    """Logo je vstup pro web, tedy .obsidian2html/logo.svg nebo .png.
 
     Kdyz neni, hlavicka vysadi nazev webu jako text. Placeholder si skript
     nevymysli - logo je vec autora.
     """
     for pripona in ('.svg', '.png'):
-        zdroj = os.path.join(vault, '_web', 'logo' + pripona)
+        zdroj = os.path.join(vault, KONFIG, 'logo' + pripona)
         if os.path.isfile(zdroj):
             adresar = os.path.join(kam, 'img')
             if not os.path.isdir(adresar):
@@ -1834,6 +1836,15 @@ def main():
             vsechny_tagy = set()
             for _, meta, _ in polozky:
                 vsechny_tagy.update(tagy_z_meta(meta))
+            # Stara slozka _web se uz necte. Mlcet o ni nejde: web by se
+            # postavil bez loga, listy i vlastnich stylu a vypadalo by to
+            # jako chyba generatoru, ne jako neprejmenovana slozka.
+            if (os.path.isdir(os.path.join(vault, '_web'))
+                    and not os.path.isdir(os.path.join(vault, KONFIG))):
+                print('\nPOZOR: vault ma slozku _web, ktera se uz necte.'
+                      ' Prejmenuj ji na %s.' % KONFIG)
+                print('Uvnitr prejmenuj menu_webu.md na menu.md.')
+
             menu_text, intro, titul_titulky, vlastni_css = web_vstupy(vault, davka)
             bez_tagu = any(not tagy_z_meta(m) for _, m, _ in polozky)
             web = {'nazev': args.nazev or os.path.basename(vault),
@@ -1854,12 +1865,13 @@ def main():
             with open(cesta_css, 'w', encoding='utf-8', newline='\n') as f:
                 f.write(CSS_WEB)
                 if vlastni_css:
-                    f.write('\n/* --- _web/styl.css --- */\n')
+                    f.write('\n/* --- ' + KONFIG + '/styl.css --- */\n')
                     f.write(vlastni_css)
             print('  %s' % cesta_css)
             web['logo'] = najdi_logo(vault, kam)
             if not web['logo']:
-                print('  (logo neni: cekam _web/logo.svg nebo .png, hlavicka zatim vysadi nazev)')
+                print('  (logo neni: cekam %s/logo.svg nebo .png,'
+                      ' hlavicka zatim vysadi nazev)' % KONFIG)
 
         prevod = Prevod(vault, davka, web=args.web)
         vyrobene = []
@@ -1961,7 +1973,7 @@ def main():
                     print('  ... a dalsich %d' % (len(zplostene_odkazy) - 10))
 
         if args.web:
-            # Kuratorovany seznam v _web/menu_webu.md rozhoduje, co je v liste. Novy
+            # Kuratorovany seznam v KONFIG/menu.md rozhoduje, co je v liste. Novy
             # tag se tam neprida sam, protoze smysl te kurace je drzet listu
             # kratkou - ale mlcet o tom by znamenalo, ze si autor doplni tag a
             # diva se, proc v liste neni.
@@ -1970,7 +1982,7 @@ def main():
             if chybi:
                 print('\nTagy mimo listu (%d): stranka se generuje a vede na ni'
                       ' odkaz z paticky clanku, ale v liste neni.' % len(chybi))
-                print('Pridej radek do _web/menu_webu.md, kdyz tam patri:')
+                print('Pridej radek do %s/menu.md, kdyz tam patri:' % KONFIG)
                 for x in chybi:
                     print('  `#%s`  ->  tag-%s.html' % (x, slug(x)))
 
