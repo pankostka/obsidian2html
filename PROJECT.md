@@ -49,7 +49,7 @@ Při ověřování se ukázala drobná vada, opravena hned: kurátorovaná lišt
 
 ### 3. Testy - HOTOVO
 
-45 testů v `test_md2html.py`, spouští se `python test_md2html.py`, běží pod sekundu a nepotřebují nic nad rámec toho, co potřebuje generátor.
+52 testů v `test_md2html.py`, spouští se `python test_md2html.py`, běží pod sekundu a nepotřebují nic nad rámec toho, co potřebuje generátor.
 
 Zadáním jsou konvence z `README.cs.md`, ne implementace. Název testu začíná kódem konvence, takže když spadne, rovnou říká, která věta přestala platit.
 
@@ -89,13 +89,15 @@ PKVault zmigrován (`551eea5`, `f520cd2`): deset článků, jen klíč `datum` n
 
 Pětice testů ověřovala české řetězce a správně spadla.
 
-### 6. Lokalizace výstupu
+### 6. Lokalizace výstupu - HOTOVO
 
-Osmnáct řetězců, které vidí návštěvník webu. Hlášky pro toho, kdo build spouští, sem nepatří, ty jsou od kroku 5b anglicky. Výchozí jazyk `cs`, aby PKVault vypadal stejně jako dnes.
+Konvence **K100**, přepínač `--lang`, výchozí `cs` (`31148a2`).
 
-Drobná komplikace je skloňování: čeština má tři tvary, angličtina dvě. V prohlížeči to řeší `Intl.PluralRules`, na straně Pythonu je to pár řádků. Řetězce jsou na dvou místech, v Pythonu i ve vloženém JavaScriptu - mechanismus na propsání do JS už existuje, `@TAGY@` v šabloně hledání.
+Součástí jazyka jsou i **názvy stránek**: český web má dál `hledani.html`, anglický dostane `search.html`. Adresa, která je jednou venku, je závazek.
 
-Vedlejší efekt: když jazyk určí i názvy stránek, zůstane `hledani.html` v češtině `hledani.html` a adresy, které jsou venku, se nezmění.
+Skloňování řeší `Intl.PluralRules` v prohlížeči, takže v kódu nejsou žádná pravidla na počítání - tabulka nese jen tvary. Vedlejším účinkem se opravila čeština: původní kód měl u nalezených výsledků jen dva tvary a říkal „3 nalezených", teď říká „3 nalezené".
+
+Ověřeno: z osmnácti stránek PKVaultu se s výchozím `cs` liší jediná, `hledani.html`, a to jen o nový mechanismus. Obě jazykové verze proklikány v prohlížeči. 52 testů.
 
 ### 7. Publikace
 
