@@ -26,9 +26,9 @@ r"""
    python md2html.py <adresar>                davka, vcetne index.html
    python md2html.py <vstup> -o <kam>         kam to ulozit
    python md2html.py <vstup> --vault <cesta>  kde hledat ![[obrazky]]
-   python md2html.py <soubor.md> --titul "Text"  titulek bez zasahu do zdroje
-   python md2html.py <vstup> --jen-publikovane  jen clanky s markerem v nazvu
-   python md2html.py <vault> --web -o <kam>   web: sdilene styl.css, img/,
+   python md2html.py <soubor.md> --title "Text"  titulek bez zasahu do zdroje
+   python md2html.py <vstup> --published-only  jen clanky s markerem v nazvu
+   python md2html.py <vault> --site -o <kam>  web: sdilene styl.css, img/,
                                               vystup do zadaneho adresare
 
    Zavislost: pip install markdown.
@@ -70,12 +70,17 @@ r"""
    frontmatter videt neni. Do adresy se marker nepropise, slug() ho zahodi.
 
  FRONTMATTER
-   titul    prebije titulek dokumentu, jinak je jim nazev souboru
-   datum    datum vydani. Kdyz chybi, vezme se datum souboru a build to
+   title    prebije titulek dokumentu, jinak je jim nazev souboru
+   date     datum vydani. Kdyz chybi, vezme se datum souboru a build to
             ohlasi. Pri shode dat rozhoduje nazev clanku
+   excerpt  prebije perex, jinak je jim prvni odstavec
    slug     prebije nazev vystupniho souboru. Bezne se NEPOUZIVA: adresa je
             ocisteny nazev souboru a slug se neudrzuje. Je to unikovy vychod
             pro jednu adresu, na ktere zalezi i po prejmenovani clanku
+
+   Klice jsou ANGLICKY, stejne jako prepinace. Obsah clanku je cesky, ale
+   rozhrani nastroje ne - je to to jedine, co cizi uzivatel musi napsat sam.
+   Stare ceske klice datum, titul a perex se necti a build je ohlasi.
 
  VYSTUPY
    <nazev>.html   samostatny HTML, obrazky jako data URI
@@ -688,8 +693,8 @@ def title_of(meta, path):
     je jednoznacny v ramci slozky a da se predpovedet. Kdyz je nazev technicky,
     jako u plnici procedury, prebije ho frontmatter klic titul.
     """
-    if meta.get('titul'):
-        return meta['titul']
+    if meta.get('title'):
+        return meta['title']
     return strip_marker(os.path.splitext(os.path.basename(path))[0])
 
 
@@ -915,7 +920,7 @@ def copy_images(html, base, vault, out_dir, renamed):
     return html
 
 
-def to_html(path, conv, meta=None, titul=None,
+def to_html(path, conv, meta=None, title=None,
             out_dir=None, renamed=None, site=None, date=None):
     """Vrati (titulek, kompletni HTML). S kam= sazi web mode.
 
@@ -932,11 +937,11 @@ def to_html(path, conv, meta=None, titul=None,
 
     base = os.path.dirname(os.path.abspath(path))
     own_meta, body_text = split_frontmatter(read_text(path))
-    if date and not own_meta.get('datum'):
-        own_meta['datum'] = date
+    if date and not own_meta.get('date'):
+        own_meta['date'] = date
     if meta is not None:
         meta.update(own_meta)
-    heading = titul or title_of(own_meta, path)
+    heading = title or title_of(own_meta, path)
 
     body_text = conv.expand_embeds(body_text, base)
     body_text = conv.resolve_wikilinks(body_text)
@@ -954,8 +959,8 @@ def to_html(path, conv, meta=None, titul=None,
         body = copy_images(body, base, conv.vault, out_dir, renamed)
 
     footer = ''
-    if own_meta.get('datum'):
-        footer = '<div class="paticka">%s</div>' % own_meta['datum']
+    if own_meta.get('date'):
+        footer = '<div class="paticka">%s</div>' % own_meta['date']
 
     if out_dir is not None:
         # Titulek clanku je jediny h1 na strance. Sekce z markdownu jsou o
@@ -974,7 +979,7 @@ def to_html(path, conv, meta=None, titul=None,
             head_extra=site.get('hlava', ''),
             header=header_html(site),
             body=''.join(masthead) + body,
-            footer=footer_html(site, own_meta.get('datum'), tags, heading))
+            footer=footer_html(site, own_meta.get('date'), tags, heading))
     return heading, HTML.format(title=heading, css=CSS, body=body, footer=footer)
 
 
@@ -1097,7 +1102,7 @@ def site_inputs(vault, batch=None):
     path = os.path.join(out_dir, 'index.md')
     if os.path.isfile(path):
         meta, body_text = split_frontmatter(read_text(path))
-        titul = meta.get('titul')
+        home_title = meta.get('title')
         body_text = wikilinks_in_intro(body_text, batch)
         if body_text.strip():
             try:
@@ -1298,7 +1303,7 @@ def excerpt(body_text, meta, conv):
     except ImportError:
         raise Error('Chybi balicek markdown. Doinstaluj: pip install markdown')
 
-    source = (meta.get('perex') or '').strip()
+    source = (meta.get('excerpt') or '').strip()
     if not source:
         for block in body_text.strip().split('\n\n'):
             b = block.strip()
@@ -1703,12 +1708,20 @@ def check_links(out_dir):
     return flattened
 
 
-def collect(src, jen_publikovane):
-    """Vrati ([(cesta, meta, telo)], zapomenute) pro soubor nebo adresar.
+# Klice frontmatteru, ktere se prejmenovaly do anglictiny. Kdyz na stary
+# narazime, clanek by tise prisel o datum nebo titulek, takze se to ohlasi.
+STARE_KLICE = {'datum': 'date', 'titul': 'title', 'perex': 'excerpt'}
 
-    zapomenute jsou clanky s frontmatter klicem publish, ktere marker nemaji.
+
+def collect(src, published_only):
+    """Vrati ([(path, meta, body)], forgotten, legacy) pro soubor nebo adresar.
+
+    forgotten jsou clanky s frontmatter klicem publish, ktere marker nemaji.
     Klic uz nic neznamena, takze takovy clanek na web nejde - a autor si
     nejspis mysli opak. Mlcet o tom by znamenalo, ze mu clanek tise nevyjde.
+
+    legacy jsou clanky se starym ceskym klicem. Stejny duvod: klic se necte,
+    takze by clanek tise prisel o datum nebo titulek.
     """
     if os.path.isfile(src):
         paths = [src]
@@ -1719,15 +1732,18 @@ def collect(src, jen_publikovane):
                            if not a.startswith(('.', '_')) and a not in ATTACHMENT_DIRS]
             paths.extend(os.path.join(root, s) for s in sorted(files)
                          if s.lower().endswith('.md'))
-    result, forgotten = [], []
+    result, forgotten, legacy = [], [], []
     for c in paths:
         meta, body_text = split_frontmatter(read_text(c))
-        if jen_publikovane and not is_published(c):
+        if published_only and not is_published(c):
             if 'publish' in meta:
                 forgotten.append(c)
             continue
+        for old, new in sorted(STARE_KLICE.items()):
+            if old in meta and new not in meta:
+                legacy.append((c, old, new))
         result.append((c, meta, body_text))
-    return result, forgotten
+    return result, forgotten, legacy
 
 
 def index_page(items):
@@ -1746,33 +1762,36 @@ def index_page(items):
 
 def main():
     p = argparse.ArgumentParser(
-        description='Prevede Markdown na samostatny HTML. '
-                    'Rozumi Obsidian syntaxi.')
-    p.add_argument('vstup', help='soubor .md nebo adresar')
-    p.add_argument('-o', '--out', help='vystupni soubor nebo adresar')
-    p.add_argument('--vault', help='kde hledat ![[obrazky]] (vychozi: adresar vstupu)')
-    p.add_argument('--titul', help='titulek jednoho souboru, kdyz nechces sahat '
-                                   'do zdroje (jinak frontmatter titul, jinak nazev souboru)')
-    p.add_argument('--jen-publikovane', action='store_true',
-                   help='jen clanky s markerem publikace v nazvu')
-    p.add_argument('--web', action='store_true',
-                   help='web mode: sdilene styl.css, obrazky do img/. '
-                        'Vyzaduje -o a implikuje --jen-publikovane')
-    p.add_argument('--adresa', help='absolutni adresa webu, treba '
-                                   'https://pankostka.cz. Bez ni se negeneruje '
-                                   'rss.xml, protoze feed relativni odkazy nesnese')
-    p.add_argument('--kontrola', action='store_true',
-                   help='jen overi, ze se web postavi: staví do docasneho adresare '
-                        'a NIC nezapisuje do vaultu. Pro git hook')
-    p.add_argument('--uklid', action='store_true',
-                   help='pred buildem zabalit predchozi vystup do _archiv a '
-                        'vyprazdnit vystupni adresar (jen s --web)')
-    p.add_argument('--nazev', help='nazev webu do hlavicky a titulku stranek '
-                                  '(vychozi: jmeno vaultu)')
+        description='Turn an Obsidian vault into HTML.')
+    p.add_argument('input', help='.md file or a directory')
+    p.add_argument('-o', '--out', help='output file or directory')
+    p.add_argument('--vault', help='where to look for ![[images]]'
+                                   ' (default: the input directory)')
+    p.add_argument('--title', help='title for a single file, when editing the'
+                                   ' source is not wanted (otherwise the'
+                                   ' frontmatter title, otherwise the filename)')
+    p.add_argument('--published-only', action='store_true',
+                   help='only articles carrying the publish marker in the name')
+    p.add_argument('--site', action='store_true',
+                   help='site mode: shared styl.css, images into img/.'
+                        ' Requires -o and implies --published-only')
+    p.add_argument('--base-url', help='absolute address of the site, e.g.'
+                                      ' https://pankostka.cz. Without it no'
+                                      ' rss.xml is written, because a feed'
+                                      ' cannot carry relative links')
+    p.add_argument('--check', action='store_true',
+                   help='only verify that the site builds: writes to a temporary'
+                        ' directory and touches nothing else. For a git hook')
+    p.add_argument('--clean', action='store_true',
+                   help='before building, archive the previous output into'
+                        ' _archiv and empty the output directory (site mode only)')
+    p.add_argument('--site-name', help='name of the site, used in the header and'
+                                       ' in page titles (default: the vault'
+                                       ' directory name)')
     args = p.parse_args()
 
-    if not os.path.exists(args.vstup):
-        print('CHYBA: vstup neexistuje: %s' % args.vstup)
+    if not os.path.exists(args.input):
+        print('CHYBA: vstup neexistuje: %s' % args.input)
         return 2
 
     # Web mode bez filtru by vysypal na internet cely vault. Neni to
@@ -1780,27 +1799,27 @@ def main():
     # Kontrolni rezim je web mode, ktery stavi do docasneho adresare a vysledek
     # zahodi. Je pro git hook, ktery chce vedet, jestli se web vubec postavi.
     # Do vaultu uz nezapisuje zadny rezim, viz zaruka Z45.
-    if args.kontrola:
-        args.web = True
-    if args.web:
-        args.jen_publikovane = True
+    if args.check:
+        args.site = True
+    if args.site:
+        args.published_only = True
     # Kam se zapisuje, urcuje parametr - zadna vychozi cesta v kodu. Vystup
     # patri mimo repo i mimo vault a jen autor vi kam, viz zaruka Z50.
-    if args.web and not args.out and not args.kontrola:
+    if args.site and not args.out and not args.check:
         print('CHYBA: --web potrebuje -o, tedy kam se ma web postavit.')
         return 2
 
-    if args.uklid and not args.web:
+    if args.clean and not args.site:
         print('CHYBA: --uklid ma smysl jen s --web.')
         return 2
 
-    davka_rezim = os.path.isdir(args.vstup)
+    batch_mode = os.path.isdir(args.input)
     vault = os.path.abspath(args.vault or
-                            (args.vstup if davka_rezim
-                             else os.path.dirname(os.path.abspath(args.vstup))))
+                            (args.input if batch_mode
+                             else os.path.dirname(os.path.abspath(args.input))))
 
     try:
-        items, forgotten = collect(args.vstup, args.jen_publikovane)
+        items, forgotten, legacy = collect(args.input, args.published_only)
         if not items:
             print('Nic ke prevodu.')
             return 1
@@ -1835,32 +1854,32 @@ def main():
                 # Na webu je adresa zavazek a nesmi se menit podle toho, co se
                 # zrovna publikuje spolu s clankem. Tiche prejmenovani na -2 je
                 # prijatelne u davky do mailu, na web ne.
-                if args.web:
+                if args.site:
                     raise Error('Kolize adresy %s.html - dva clanky se stejnym '
                                 'nazvem. Prejmenuj jeden z nich: %s'
                                 % (base, path))
                 clashes.append('%s -> %s.html' % (path, name))
-            if args.web and not meta.get('datum'):
+            if args.site and not meta.get('date'):
                 # Rozhodnuti publikovat nese marker, takze chybejici datum
                 # build neshodi - vezme se datum souboru. Do zdroje se
                 # nezapisuje, viz zaruka Z45.
-                meta['datum'] = file_date(path)
-                guessed_dates.append((path, meta['datum']))
+                meta['date'] = file_date(path)
+                guessed_dates.append((path, meta['date']))
             used.add(name)
             batch.setdefault(key, name + '.html')
             plan.append((path, meta, body_text, name))
 
         tmp_dir = None
-        if args.kontrola:
+        if args.check:
             tmp_dir = tempfile.mkdtemp(prefix='md2html-kontrola-')
             out_dir = tmp_dir
-        elif args.web:
+        elif args.site:
             out_dir = args.out
-        elif davka_rezim:
+        elif batch_mode:
             out_dir = args.out or 'html'
         else:
             out_dir = None
-        if args.uklid:
+        if args.clean:
             archiv = clean_output(out_dir)
             if archiv:
                 print('  %s  (%.0f kB, predchozi vystup)'
@@ -1870,7 +1889,7 @@ def main():
 
         renamed = {}
         site = None
-        if args.web:
+        if args.site:
             # Lista je z TAGU, ne z adresaru. Adresare by do verejne navigace
             # propsaly strukturu vaultu - v menu by pristal i interni zapis.
             all_tags = set()
@@ -1887,17 +1906,17 @@ def main():
 
             menu_source, intro, home_title, custom_css = site_inputs(vault, batch)
             no_tag = any(not tags_from_meta(m) for _, m, _ in items)
-            site = {'nazev': args.nazev or os.path.basename(vault),
+            site = {'nazev': args.site_name or os.path.basename(vault),
                    'tagy': sorted(all_tags),
                    'menu': menu_items(menu_source, sorted(all_tags), no_tag),
                    'logo': None,
                    'hledani': True,
-                   'rss': bool(args.adresa),
+                   'rss': bool(args.base_url),
                    'popis': text_from_html(intro) if intro else None,
                    'hlava': ('<link rel="alternate" type="application/rss+xml"'
                              ' title="%s" href="rss.xml">'
-                             % (args.nazev or os.path.basename(vault)))
-                            if args.adresa else ''}
+                             % (args.site_name or os.path.basename(vault)))
+                            if args.base_url else ''}
             # Znacka rika, ze adresar patri generatoru. Uklid pred buildem smi
             # mazat jen adresar, ktery ji ma - cizi ani pri preklepu v ceste.
             open(os.path.join(out_dir, OUTPUT_MARKER), 'w').close()
@@ -1913,14 +1932,14 @@ def main():
                 print('  (logo neni: cekam %s/logo.svg nebo .png,'
                       ' hlavicka zatim vysadi nazev)' % CONFIG_DIR)
 
-        conv = Conversion(vault, batch, site=args.web)
+        conv = Conversion(vault, batch, site=args.site)
         produced = []
         for path, meta, body_text, name in plan:
             heading, html = to_html(
                 path, conv,
-                titul=None if davka_rezim else args.titul,
-                out_dir=out_dir if args.web else None, renamed=renamed,
-                site=site, date=meta.get('datum'))
+                title=None if batch_mode else args.title,
+                out_dir=out_dir if args.site else None, renamed=renamed,
+                site=site, date=meta.get('date'))
             # -o je zaklad cesty, priponu doplnujeme.
             if out_dir:
                 base_path = os.path.join(out_dir, name)
@@ -1931,13 +1950,13 @@ def main():
                 f.write(html)
             print('  %s  (%.0f kB)' % (html_soubor,
                                        os.path.getsize(html_soubor) / 1024.0))
-            produced.append({'nadpis': heading, 'datum': meta.get('datum', ''),
+            produced.append({'nadpis': heading, 'datum': meta.get('date', ''),
                              'tagy': tags_from_meta(meta),
                              'soubor': os.path.basename(html_soubor),
-                             'perex': excerpt(body_text, meta, conv) if args.web else '',
-                             'text': text_from_html(html) if args.web else '',
+                             'perex': excerpt(body_text, meta, conv) if args.site else '',
+                             'text': text_from_html(html) if args.site else '',
                              'obrazek': None})
-            if args.web:
+            if args.site:
                 zdroj_obr = excerpt_image(path)
                 if zdroj_obr:
                     produced[-1]['obrazek'] = copy_attachment(
@@ -1952,7 +1971,7 @@ def main():
                 f.write(html)
             return cesta_s
 
-        if args.web:
+        if args.site:
             # Razeni: datum klesajici, pri shode nazev. Bez druhotneho klice by
             # bylo poradi uvnitr serie se stejnym datem libovolne.
             ordered = sorted(produced, key=lambda c: c['nadpis'].lower())
@@ -1994,15 +2013,15 @@ def main():
             print('  %s' % zapis('hledani.html',
                                  search_page(ordered, site)))
 
-            if args.adresa:
+            if args.base_url:
                 print('  %s  (%d polozek)'
-                      % (zapis('rss.xml', rss(ordered, site, args.adresa)),
+                      % (zapis('rss.xml', rss(ordered, site, args.base_url)),
                          min(len(ordered), RSS_ITEMS)))
-        elif davka_rezim:
+        elif batch_mode:
             cesta_s = zapis('index.html', index_page(produced))
             print('  %s  (rozcestnik na %d stranek)' % (cesta_s, len(produced)))
 
-        if args.web:
+        if args.site:
             flattened_links = check_links(out_dir)
             if flattened_links:
                 print('\nZplostene odkazy na soubory (%d): cil ve vystupu neni,'
@@ -2012,7 +2031,7 @@ def main():
                 if len(flattened_links) > 10:
                     print('  ... a dalsich %d' % (len(flattened_links) - 10))
 
-        if args.web:
+        if args.site:
             # Kuratorovany seznam v KONFIG/menu.md rozhoduje, co je v liste. Novy
             # tag se tam neprida sam, protoze smysl te kurace je drzet listu
             # kratkou - ale mlcet o tom by znamenalo, ze si autor doplni tag a
@@ -2052,6 +2071,12 @@ def main():
                   % len(guessed_dates))
             for c, d in guessed_dates:
                 print('  %s  %s' % (d, c))
+
+        if legacy:
+            print('\nPOZOR: stare ceske klice frontmatteru (%d). Uz se nectou,'
+                  ' takze clanek prijde o datum nebo titulek:' % len(legacy))
+            for c, old, new in legacy:
+                print('  %s -> %s  %s' % (old, new, c))
 
         if forgotten:
             print('\nPOZOR: klic publish bez markeru v nazvu (%d) - na web NEJDOU.'

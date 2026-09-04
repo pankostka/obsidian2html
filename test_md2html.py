@@ -78,7 +78,7 @@ class Zaklad(unittest.TestCase):
         """Zalozi clanek. Marker publikace se doplni podle `publikovany`."""
         hlavicka = '---\n'
         if datum:
-            hlavicka += 'datum: %s\n' % datum
+            hlavicka += 'date: %s\n' % datum
         if tagy:
             hlavicka += 'tags: [%s]\n' % tagy
         hlavicka += '---\n'
@@ -109,7 +109,7 @@ class Zaklad(unittest.TestCase):
 
     def web(self, *prepinace, **kw):
         """Build v rezimu --web. Nejcastejsi pripad, at se to nepise porad."""
-        return self.build('--web', *prepinace, **kw)
+        return self.build('--site', *prepinace, **kw)
 
     # -- cteni vystupu ------------------------------------------------------
 
@@ -244,7 +244,7 @@ class Zaruky(Zaklad):
     def test_Z50_web_bez_vystupu_skonci_chybou(self):
         """Kam se zapisuje, urcuje parametr - zadna vychozi cesta v kodu."""
         self.clanek('Prvni', 'Text.')
-        kod, vypis = self.build('--web', s_vystupem=False)
+        kod, vypis = self.build('--site', s_vystupem=False)
         self.assertEqual(kod, 2, vypis)
         self.assertIn('-o', vypis)
 
@@ -256,7 +256,7 @@ class Zaruky(Zaklad):
         with open(cizi, 'w', encoding='utf-8') as f:
             f.write('data, ktera nejsou generovana')
 
-        kod, vypis = self.web('--uklid')
+        kod, vypis = self.web('--clean')
         self.assertNotEqual(kod, 0,
                             'build mel odmitnout uklidit adresar bez znacky')
         self.assertTrue(os.path.isfile(cizi), 'cizi soubor byl smazan')
@@ -296,7 +296,7 @@ class Konvence(Zaklad):
 
     def test_K10_klic_publish_marker_nenahradi(self):
         """Klic publish uz nic neznamena, ale build na nej upozorni."""
-        self.soubor('Soukromy.md', '---\npublish: true\ndatum: 2026-01-01\n---\nText.\n')
+        self.soubor('Soukromy.md', '---\npublish: true\ndate: 2026-01-01\n---\nText.\n')
         self.clanek('Verejny', 'Text.')
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
@@ -337,7 +337,7 @@ class Konvence(Zaklad):
     def test_K25_frontmatter_titul_prebije_nazev(self):
         """Unikovy vychod pro clanek pojmenovany po objektu."""
         self.soubor('nsp20DimZakaznik %s.md' % MARKER,
-                    '---\ndatum: 2026-01-01\ntitul: Dimenze zakaznika\n---\nText.\n')
+                    '---\ndate: 2026-01-01\ntitle: Dimenze zakaznika\n---\nText.\n')
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
         self.assertIn('<h1>Dimenze zakaznika</h1>',
@@ -468,6 +468,21 @@ class Konvence(Zaklad):
         self.assertIn('_web', vypis)
         self.assertIn('.obsidian2html', vypis)
 
+    def test_K80_stary_cesky_klic_se_necte_ale_ohlasi(self):
+        """Klice frontmatteru jsou anglicky. Mlcet o starych nejde: clanek by
+        tise prisel o datum i o titulek."""
+        self.soubor('Stary %s.md' % MARKER,
+                    '---\ndatum: 2020-05-05\ntitul: Jiny titulek\n---\nText.\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('stary.html')
+        self.assertNotIn('Jiny titulek', html)
+        self.assertNotIn('2020-05-05', html)
+        self.assertIn('stare ceske klice', vypis)
+        self.assertIn('datum -> date', vypis)
+        self.assertIn('titul -> title', vypis)
+
     def test_K80_chybejici_datum_se_vezme_ze_souboru(self):
         cesta = self.clanek('Bez data', 'Text.', datum=None)
         kdy = time.mktime(time.strptime('2019-03-07', '%Y-%m-%d'))
@@ -512,7 +527,7 @@ class Syntaxe(Zaklad):
         self.clanek('Prvni', 'Text.')
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
-        self.assertNotIn('datum:', self.vystupni('prvni.html'))
+        self.assertNotIn('date:', self.vystupni('prvni.html'))
 
     def test_transkluze_vlozi_obsah_noty(self):
         self.clanek('Prvni', 'Pred.\n\n![[Vlozena]]\n\nPo.\n')

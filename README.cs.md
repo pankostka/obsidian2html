@@ -38,7 +38,7 @@ Konvence jsou dvojího druhu:
 
 **K20. Složka začínající tečkou nebo podtržítkem se přeskakuje.** Spolu s K70 to dává jednoduché pravidlo: co má být mimo web, dostane podtržítko.
 
-**K25. Titulek článku je název souboru z Obsidianu, jen bez markeru.** Nadpis `# H1` se nepoužívá - nejde spolehlivě poznat, jestli je to titulek dokumentu, nebo první sekce ze šablony. Název souboru je Obsidianův vlastní model, takže cesta tam i zpět je zřejmá: od titulku na webu se dá dohledat článek ve vaultu a naopak. Frontmatter klíč `titul` ho přebije tam, kde je název technický.
+**K25. Titulek článku je název souboru z Obsidianu, jen bez markeru.** Nadpis `# H1` se nepoužívá - nejde spolehlivě poznat, jestli je to titulek dokumentu, nebo první sekce ze šablony. Název souboru je Obsidianův vlastní model, takže cesta tam i zpět je zřejmá: od titulku na webu se dá dohledat článek ve vaultu a naopak. Frontmatter klíč `title` ho přebije tam, kde je název technický.
 
 **K30. Název článku se převede na slug.** Z `Obsidian Nastavení 🌐.md` vznikne `obsidian-nastaveni.html`: bez diakritiky, malými písmeny, mezery na pomlčky, marker pryč. Je to kvůli publikování na web, kde diakritika ani mezery v adrese nepatří. Oddělovač je **pomlčka, ne podtržítko** - vyhledávače berou pomlčku jako hranici slov, podtržítko ne.
 
@@ -50,7 +50,10 @@ Konvence jsou dvojího druhu:
 
 **K70. Konfigurace webu leží ve složce `.obsidian2html/`** v kořeni vaultu. Drží `menu_webu.md` (kurátorovaná lišta), `index.md` (ruční úvod na titulce), `styl.css` (vlastní styly) a `logo.svg`. Tečka na začátku složku v Obsidianu skryje, což je záměr: jsou to vstupy pro generátor, ne články, a editují se mimo Obsidian. Název říká, ke kterému nástroji ta složka patří, takže vedle `.obsidian/` nevzniká nejasnost. Když složka ve vaultu není, generátor si poradí bez ní.
 
-**K80. Publikovaný článek by měl mít ve frontmatteru `datum`.** Když ho nemá, použije se datum souboru. Je to vratké, protože datum souboru se mění při kopírování i při synchronizaci, ale je to jednoduché a nepotřebuje to git - ten ve vstupním adresáři fungovat nemusí. Při shodě dat rozhoduje název článku, aby bylo pořadí jednoznačné a build opakovatelný.
+**K80. Publikovaný článek by měl mít ve frontmatteru `date`.** Když ho nemá, použije se datum souboru. Je to vratké, protože datum souboru se mění při kopírování i při synchronizaci, ale je to jednoduché a nepotřebuje to git - ten ve vstupním adresáři fungovat nemusí. Při shodě dat rozhoduje název článku, aby bylo pořadí jednoznačné a build opakovatelný.
+
+**K90. Klíče frontmatteru a přepínače jsou anglicky.** Tedy `date`, `title`, `excerpt`, `slug`, `tags`, a přepínače `--site`, `--published-only`, `--base-url`, `--check`, `--clean`, `--site-name`. Obsah článků je česky, rozhraní nástroje ne - nástroj je veřejný a jeho příkazová řádka i klíče jsou to jediné, co cizí uživatel musí napsat sám. České klíče `datum`, `titul` a `perex` se už nečtou; když na ně build narazí, ohlásí to, protože jinak by článek tiše přišel o datum nebo titulek.
+
 
 
 ### Záruky
