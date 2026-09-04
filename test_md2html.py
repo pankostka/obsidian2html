@@ -391,6 +391,28 @@ class Konvence(Zaklad):
         self.assertNotIn('![[', index)
         self.assertNotIn('uvodni.png', index)
 
+    def test_K40_obrazek_na_zacatku_odstavce_text_za_nim_zustane(self):
+        """Obrazek perex neukoncuje, jen z nej vypadne."""
+        self.clanek('Prvni', '![[uvodni.png]] Text za obrazkem.\n')
+        self.obrazek('Attachments/uvodni.png')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        index = self.vystupni('index.html')
+        self.assertIn('Text za obrazkem.', index)
+        self.assertNotIn('![[', index)
+
+    def test_K40_obrazek_zapsany_markdownem_se_taky_vyhodi(self):
+        """Oba zapisy obrazku, ne jen Obsidian embed."""
+        self.clanek('Prvni', '![popis](Attachments/uvodni.png) Text za nim.\n')
+        self.obrazek('Attachments/uvodni.png')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        index = self.vystupni('index.html')
+        self.assertIn('Text za nim.', index)
+        self.assertNotIn('popis', index)
+
     def test_K40_obrazek_na_vlastnim_radku_perex_neni(self):
         """Odstavec, ktery je jen obrazek, se preskoci a perex je ten dalsi."""
         self.clanek('Prvni', '![[uvodni.png]]\n\nAz tohle je perex.\n')

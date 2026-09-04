@@ -1268,6 +1268,16 @@ def obrazek_perexu(cesta_clanku):
     return None
 
 
+def bez_obrazku(text):
+    """Vyhodi z textu obrazky, oba zapisy: ![[embed]] i ![alt](cesta).
+
+    Perex se transkluzi zamerne neprohani, takze bez tohohle by v nem zustala
+    hola syntaxe ![[...]] jako text.
+    """
+    text = RE_EMBED.sub('', text)
+    return re.sub(r'!\[[^\]]*\]\([^)]*\)', '', text)
+
+
 def perex(telo, meta, prevod):
     """Perex je PRVNI ODSTAVEC clanku, frontmatter klic perex ho prebije.
 
@@ -1277,6 +1287,11 @@ def perex(telo, meta, prevod):
 
     Nadpis ukoncuje hledani: kdyz clanek zacina hned sekci, perex nema byt
     prvni veta te sekce, ale zadny.
+
+    Obrazek perex neukoncuje, jen z nej vypadne - je to textova upoutavka a
+    nahled ma karta vlastni. Odstavec, ktery obrazkem zacina a pokracuje
+    textem, tedy perex DA; teprve kdyz po vyhozeni obrazku nezbyde nic, byl
+    to samostatny uvodni obrazek a hleda se dal.
     """
     try:
         import markdown
@@ -1289,7 +1304,13 @@ def perex(telo, meta, prevod):
             b = blok.strip()
             if b.startswith('#'):
                 break
-            if not b or b.startswith(('![', '>', '|', '- ', '* ', '1. ', '```')):
+            # Citace, tabulka, seznam a kod perexem nejsou ani po ocisteni.
+            # Obrazek v tomhle vyctu NENI: ten se z odstavce vyhodi a rozhodne
+            # az to, jestli po nem zbyl text.
+            if not b or b.startswith(('>', '|', '- ', '* ', '1. ', '```')):
+                continue
+            b = bez_obrazku(b).strip()
+            if not b:
                 continue
             # Nadpis muze nasledovat hned na dalsim radku bez prazdneho radku
             # mezi tim - pak je v temze bloku a musi se uriznout, jinak by se
@@ -1300,11 +1321,9 @@ def perex(telo, meta, prevod):
             break
     if not zdroj:
         return ''
-    # Vlozeny obrazek do perexu nepatri - je to textova upoutavka a nahled
-    # ma karta vlastni. Bez tohohle by v nem zustala hola syntaxe ![[...]],
-    # protoze perex se transkluzi zamerne neprohani.
-    zdroj = RE_EMBED.sub('', zdroj)
-    zdroj = re.sub(r'!\[[^\]]*\]\([^)]*\)', '', zdroj)
+    # Rucne psany perex z frontmatteru obrazkem taky projde. Automaticky uz
+    # ocisteny je, druhy pruchod na nem nic nezmeni.
+    zdroj = bez_obrazku(zdroj)
     # Wikilinky i v perexu, aby odkaz z titulky vedl nekam. Marker se strhava
     # stejne jako v tele clanku.
     # Po vyhozeni obrazku zbyde dvojita mezera, proto se bily znaky srazi.
