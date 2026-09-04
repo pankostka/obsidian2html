@@ -28,8 +28,8 @@ r"""
    python md2html.py <vstup> --vault <cesta>  kde hledat ![[obrazky]]
    python md2html.py <soubor.md> --titul "Text"  titulek bez zasahu do zdroje
    python md2html.py <vstup> --jen-publikovane  jen clanky s markerem v nazvu
-   python md2html.py <vault> --web            web: sdilene styl.css, img/, vystup
-                                              do c:\_web\<jmeno vaultu>
+   python md2html.py <vault> --web -o <kam>   web: sdilene styl.css, img/,
+                                              vystup do zadaneho adresare
 
    Zavislost: pip install markdown.
 
@@ -71,8 +71,8 @@ r"""
 
  FRONTMATTER
    titul    prebije titulek dokumentu, jinak je jim nazev souboru
-   datum    datum vydani. U publikovaneho clanku POVINNE - bez nej nejde
-            urcit poradi na titulce a --web spadne
+   datum    datum vydani. Kdyz chybi, vezme se datum souboru a build to
+            ohlasi. Pri shode dat rozhoduje nazev clanku
    slug     prebije nazev vystupniho souboru. Bezne se NEPOUZIVA: adresa je
             ocisteny nazev souboru a slug se neudrzuje. Je to unikovy vychod
             pro jednu adresu, na ktere zalezi i po prejmenovani clanku
@@ -84,10 +84,13 @@ r"""
    S --web je to jinak: styl je v jednom styl.css vedle stranek a obrazky v
    img/ jako soubory, protoze v samostatnem rezimu ma jedna stranka s pati
    screenshoty 598 kB a prohlizec nekesuje nic. K tomu tri kontroly - kolize
-   adresy je chyba, velikost pismen v odkazech se overuje proti skutecnym
-   souborum (na Linuxu je Foo.png a foo.png rozdil) a adresy se zapisuji do
-   <vault>/_web/vydano.md, aby build ohlasil tu, ktera uz byla venku a
-   prestala se vyrabet.
+   adresy je chyba a velikost pismen v odkazech se overuje proti skutecnym
+   souborum (na Linuxu je Foo.png a foo.png rozdil).
+
+   DO VSTUPNIHO ADRESARE SE JEN CTE. Vault je zdroj, ne pracovni plocha:
+   generator v nem nic nevytvori, nezmeni ani nesmaze. Drive zapisoval dve
+   veci - evidenci vydanych adres a datum do frontmatteru clanku, ktery ho
+   nemel. Evidence zrusena, datum se bere z data souboru.
 
    -o urcuje zaklad cesty a pripona se doplni, takze z -o vystup/napoveda
    vznikne napoveda.html.
@@ -121,11 +124,6 @@ PRILOHY = ('Attachments', 'img', 'assets')
 # Ze textu odkazu ho strhava preloz_wikilinky, jinak by byl globus uprostred
 # prozy.
 MARKER_PUBLIKACE = '🌐'
-
-# Koren pro --web. Vystup patri MIMO repo, aby commit vygenerovaneho HTML
-# nebyl mozny, ne jen zakazany - a aby generator neskenoval adresar, do
-# ktereho zapisuje (najdi_soubor prochazi vault). Prebije se prepinacem -o.
-KOREN_WEBU = r'c:\_web'
 
 # Znacka ve vystupnim adresari. Mazat smi skript jen adresar, ktery ji ma,
 # nebo je prazdny. Cizi adresar se tim nesmaze ani pri preklepu v ceste.
@@ -1521,32 +1519,21 @@ def najdi_logo(vault, kam):
     return None
 
 
-def doplnit_datum(cesta):
-    """Dopise dnesni datum do frontmatteru clanku a vrati ho.
+def datum_souboru(cesta):
+    """Vrati datum posledni zmeny souboru jako YYYY-MM-DD. NEZAPISUJE.
 
-    Rozhodnuti publikovat nese marker v nazvu, takze chybejici datum nema byt
-    duvod, aby build spadl. Datum se ale ZAPISUJE DO ZDROJE, ne jen pouziva pri
-    behu: kdyby se jen dopocitavalo, mel by kazdy clanek bez data porad dnesek
-    a poradi na titulce by bylo nestabilni. Zapsane datum je datum prvniho
-    vydani a uz se nemeni.
+    Zaloha pro clanek, ktery datum ve frontmatteru nema. Rozhodnuti publikovat
+    nese marker v nazvu, takze chybejici datum nema byt duvod, aby build spadl.
 
-    Je to jediny pripad, kdy generator zapisuje do vaultu. Prijate vedome -
-    datum je obsah, ktery ctenar vidi, takze patri ke clanku.
+    Je to vratke: datum souboru se meni pri kopirovani vaultu i pri
+    synchronizaci, takze poradi na titulce se muze preskladat. Alternativou by
+    byl git, ten ale ve vstupnim adresari fungovat nemusi. Pri shode dat
+    rozhoduje nazev clanku, takze build je aspon opakovatelny.
+
+    Drive se datum ZAPISOVALO do frontmatteru zdroje. Uz ne - do vstupniho
+    adresare se jen cte.
     """
-    dnes = time.strftime('%Y-%m-%d')
-    text = zdroj_text(cesta)
-    if text.startswith('---\n'):
-        konec = text.find('\n---', 3)
-        if konec >= 0:
-            novy = (text[:konec] + '\ndatum: ' + dnes + text[konec:])
-        else:                       # rozbity frontmatter, radeji nesahat
-            raise Chyba('Neuzavreny frontmatter v %s' % cesta)
-    else:
-        novy = '---\ndatum: ' + dnes + '\n---\n' + text.lstrip('\n')
-    with open(cesta, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(novy)
-    return dnes
-
+    return time.strftime('%Y-%m-%d', time.localtime(os.path.getmtime(cesta)))
 
 def uklid_vystupu(kam):
     """Zabali predchozi vystup do archivu a vyprazdni adresar.
@@ -1674,46 +1661,6 @@ def zkontroluj_odkazy(kam):
     return zplostene
 
 
-def vydano(vault, adresy):
-    """Vede seznam adres, ktere uz byly venku. Vraci (nove, zmizele).
-
-    Adresa se odvozuje z nazvu clanku, takze prejmenovani ji zmeni a odkazy
-    zvenci se rozpadnou. Ta cena je prijata vedome - slug se neudrzuje - ale
-    skoda ma byt aspon videt.
-
-    Seznam se proto DOPLNUJE, nikoli prepisuje aktualni mnozinou. Kdyby se
-    prepisoval, zmizela adresa by z nej vypadla spolu s varovanim a to by se
-    ozvalo jen jednou - pri buildu, kdy si toho nikdo nevsimne.
-    """
-    cesta = os.path.join(vault, '_web', 'vydano.md')
-    stare = {}
-    if os.path.isfile(cesta):
-        with open(cesta, encoding='utf-8') as f:
-            for radek in f:
-                m = re.match(r'- ([a-z0-9][a-z0-9.-]*) ', radek)
-                if m:
-                    stare[m.group(1)] = radek.strip()
-
-    dnes = time.strftime('%Y-%m-%d')
-    nove = [a for a in adresy if a not in stare]
-    zmizele = sorted(a for a in stare if a not in adresy)
-    for a in nove:
-        stare[a] = '- %s vydano %s' % (a, dnes)
-
-    if nove:
-        adresar = os.path.dirname(cesta)
-        if not os.path.isdir(adresar):
-            os.makedirs(adresar)
-        radky = ['Adresy, ktere uz byly na webu. Doplnuje md2html.py --web.',
-                 'Kdyz se nektera prestane vyrabet, build na to upozorni.',
-                 'Nechces to upozorneni? Smaz ten radek - tim je adresa'
-                 ' odepsana a build o ni mlci.', '']
-        radky.extend(stare[a] for a in sorted(stare))
-        with open(cesta, 'w', encoding='utf-8', newline='\n') as f:
-            f.write('\n'.join(radky) + '\n')
-    return nove, zmizele
-
-
 def posbirej(vstup, jen_publikovane):
     """Vrati ([(cesta, meta, telo)], zapomenute) pro soubor nebo adresar.
 
@@ -1767,8 +1714,8 @@ def main():
     p.add_argument('--jen-publikovane', action='store_true',
                    help='jen clanky s markerem publikace v nazvu')
     p.add_argument('--web', action='store_true',
-                   help='web mode: sdilene styl.css, obrazky do img/, vystup do '
-                        + KOREN_WEBU + ' plus jmeno vaultu. Implikuje --jen-publikovane')
+                   help='web mode: sdilene styl.css, obrazky do img/. '
+                        'Vyzaduje -o a implikuje --jen-publikovane')
     p.add_argument('--adresa', help='absolutni adresa webu, treba '
                                    'https://pankostka.cz. Bez ni se negeneruje '
                                    'rss.xml, protoze feed relativni odkazy nesnese')
@@ -1788,13 +1735,19 @@ def main():
 
     # Web mode bez filtru by vysypal na internet cely vault. Neni to
     # pohodli, je to pojistka.
-    # Kontrolni rezim je web mode, ktery nesmi zanechat stopu. Hook behem
-    # commitu nesmi menit soubory - doplnene datum ani vydano.md by se do
-    # commitu nedostaly a zustaly by viset v pracovni kopii.
+    # Kontrolni rezim je web mode, ktery stavi do docasneho adresare a vysledek
+    # zahodi. Je pro git hook, ktery chce vedet, jestli se web vubec postavi.
+    # Do vaultu uz nezapisuje zadny rezim, viz zaruka Z45.
     if args.kontrola:
         args.web = True
     if args.web:
         args.jen_publikovane = True
+    # Kam se zapisuje, urcuje parametr - zadna vychozi cesta v kodu. Vystup
+    # patri mimo repo i mimo vault a jen autor vi kam, viz zaruka Z50.
+    if args.web and not args.out and not args.kontrola:
+        print('CHYBA: --web potrebuje -o, tedy kam se ma web postavit.')
+        return 2
+
     if args.uklid and not args.web:
         print('CHYBA: --uklid ma smysl jen s --web.')
         return 2
@@ -1846,13 +1799,11 @@ def main():
                                 % (zaklad, cesta))
                 kolize.append('%s -> %s.html' % (cesta, nazev))
             if args.web and not meta.get('datum'):
-                # Rozhodnuti publikovat nese marker, takze chybejici datum build
-                # neshodi - dopise se dnesni a to je datum prvniho vydani.
-                if args.kontrola:
-                    meta['datum'] = time.strftime('%Y-%m-%d')
-                else:
-                    meta['datum'] = doplnit_datum(cesta)
-                    doplnena_data.append((cesta, meta['datum']))
+                # Rozhodnuti publikovat nese marker, takze chybejici datum
+                # build neshodi - vezme se datum souboru. Do zdroje se
+                # nezapisuje, viz zaruka Z45.
+                meta['datum'] = datum_souboru(cesta)
+                doplnena_data.append((cesta, meta['datum']))
             pouzite.add(nazev)
             davka.setdefault(klic, nazev + '.html')
             plan.append((cesta, meta, telo, nazev))
@@ -1862,7 +1813,7 @@ def main():
             docasny = tempfile.mkdtemp(prefix='md2html-kontrola-')
             kam = docasny
         elif args.web:
-            kam = args.out or os.path.join(KOREN_WEBU, os.path.basename(vault))
+            kam = args.out
         elif davka_rezim:
             kam = args.out or 'html'
         else:
@@ -2008,22 +1959,6 @@ def main():
                     print('  %s' % x)
                 if len(zplostene_odkazy) > 10:
                     print('  ... a dalsich %d' % (len(zplostene_odkazy) - 10))
-            if args.kontrola:
-                nove, zmizele = [], []
-            else:
-                nove, zmizele = vydano(vault,
-                                       sorted(c['soubor'] for c in vyrobene))
-            if nove:
-                print('\nNove adresy (%d), zapsany do _web/vydano.md:'
-                      % len(nove))
-                for n in nove:
-                    print('  %s' % n)
-            if zmizele:
-                print('\nPOZOR: tyhle adresy uz byly venku a nevyrabeji se (%d).'
-                      % len(zmizele))
-                print('Odkazy zvenci na ne prestanou vest. Zvaz presmerovani.')
-                for n in zmizele:
-                    print('  %s' % n)
 
         if args.web:
             # Kuratorovany seznam v _web/menu_webu.md rozhoduje, co je v liste. Novy
@@ -2046,7 +1981,9 @@ def main():
                 print('  %.0f kB  %s' % (kb, c))
 
         if doplnena_data:
-            print('\nDoplneno datum do frontmatteru (%d):'
+            print('\nDatum chybi ve frontmatteru, vzato ze souboru (%d).'
+                  ' Datum souboru se meni pri kopirovani i synchronizaci,'
+                  ' takze poradi na titulce nemusi vydrzet:'
                   % len(doplnena_data))
             for c, d in doplnena_data:
                 print('  %s  %s' % (d, c))
