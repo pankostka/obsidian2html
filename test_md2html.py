@@ -32,7 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import md2html
 
 
-MARKER = md2html.MARKER_PUBLIKACE
+MARKER = md2html.PUBLISH_MARKER
 
 
 class Zaklad(unittest.TestCase):
