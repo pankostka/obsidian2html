@@ -359,7 +359,7 @@ SEARCH_PAGE = r"""<h1 class="jen-ctecka">Hledání</h1>
 <div id="vysledky"></div>
 <noscript>
   <p>Hledání potřebuje JavaScript. Bez něj zbývá seznam všech článků:</p>
-  @SEZNAM@
+  @LIST@
 </noscript>
 <script>
 // Index je ZAPECENY v teto strance, nikoli nacitany. Pod file:// nepada
@@ -370,100 +370,100 @@ SEARCH_PAGE = r"""<h1 class="jen-ctecka">Hledání</h1>
 // takze na ostatnich strankach formular odesle dotaz sem pres ?q=. Kdyz je
 // stranka zafiltrovana na tag, prilozi k tomu jeste ?tag= a hleda se jen v
 // clancich toho tagu.
-const CLANKY = @DATA@;
-const BEZ_TAGU = '@BEZ@';
+const ARTICLES = @DATA@;
+const NO_TAG = '@NO_TAG@';
 // Poradi stitku prebira lista, aby oko hledalo tag na temze miste jako jinde.
-const VSECHNY_TAGY = @TAGY@;
+const ALL_TAGS = @TAGS@;
 
-const bez = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const fold = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 // Ceske sklonovani: 1 clanek, 2-4 clanky, 5+ clanku.
-const clanku = n => n + (n === 1 ? ' článek' : (n < 5 ? ' články' : ' článků'));
+const countLabel = n => n + (n === 1 ? ' článek' : (n < 5 ? ' články' : ' článků'));
 
-CLANKY.forEach(c => {
-  c.nTitul = bez(c.titul);
-  c.nText = bez(c.text);
-  c.nTagy = bez(c.tagy.map(t => t.nazev).join(' '));
+ARTICLES.forEach(c => {
+  c.nTitle = fold(c.title);
+  c.nText = fold(c.text);
+  c.nTags = fold(c.tags.map(t => t.name).join(' '));
 });
 
-const parametry = new URLSearchParams(location.search);
+const params = new URLSearchParams(location.search);
 // Stav filtru je MENITELNY: stitek se pridava, nenahrazuje. Tag z adresy je
 // jen vychozi nastaveni, dal se s nim da pracovat.
-let filtry = parametry.getAll('tag').filter(Boolean);
-let rozsah = [];
+let filters = params.getAll('tag').filter(Boolean);
+let scope = [];
 
-function projdeTagy(c, sada) {
-  return sada.every(f => f === BEZ_TAGU ? c.tagy.length === 0
-                                        : c.tagy.some(t => t.nazev === f));
+function matchesTags(c, combo) {
+  return combo.every(f => f === NO_TAG ? c.tags.length === 0
+                                       : c.tags.some(t => t.name === f));
 }
 
-function popisRozsahu() {
-  if (!filtry.length) return '';
-  return ' v ' + filtry.map(f => f === BEZ_TAGU ? 'článcích bez tagu'
-                                                : '#' + f).join(' a ');
+function scopeLabel() {
+  if (!filters.length) return '';
+  return ' v ' + filters.map(f => f === NO_TAG ? 'článcích bez tagu'
+                                               : '#' + f).join(' a ');
 }
 
-function skore(c, slova) {
+function score(c, words) {
   let s = 0;
-  for (const w of slova) {
-    if (c.nTitul.includes(w)) s += 5;
-    else if (c.nTagy.includes(w)) s += 3;
+  for (const w of words) {
+    if (c.nTitle.includes(w)) s += 5;
+    else if (c.nTags.includes(w)) s += 3;
     else if (c.nText.includes(w)) s += 1;
     else return 0;            // vsechna slova musi byt nalezena
   }
   return s;
 }
 
-function uryvek(c, slovo) {
-  const i = c.nText.indexOf(slovo);
+function snippet(c, word) {
+  const i = c.nText.indexOf(word);
   if (i < 0) return esc(c.text.slice(0, 180)) + (c.text.length > 180 ? '…' : '');
-  const od = Math.max(0, i - 70);
-  const kus = c.text.slice(od, i + slovo.length + 110);
-  const rel = i - od;
-  return (od > 0 ? '…' : '')
-    + esc(kus.slice(0, rel))
-    + '<mark>' + esc(kus.slice(rel, rel + slovo.length)) + '</mark>'
-    + esc(kus.slice(rel + slovo.length))
-    + (od + kus.length < c.text.length ? '…' : '');
+  const start = Math.max(0, i - 70);
+  const chunk = c.text.slice(start, i + word.length + 110);
+  const rel = i - start;
+  return (start > 0 ? '…' : '')
+    + esc(chunk.slice(0, rel))
+    + '<mark>' + esc(chunk.slice(rel, rel + word.length)) + '</mark>'
+    + esc(chunk.slice(rel + word.length))
+    + (start + chunk.length < c.text.length ? '…' : '');
 }
 
-function karta(c, popis) {
-  const tagy = c.tagy.map(t => '<a href="tag-' + t.slug + '.html">#' + esc(t.nazev)
+function card(c, label) {
+  const tags = c.tags.map(t => '<a href="tag-' + t.slug + '.html">#' + esc(t.name)
                                + '</a>').join(' ');
-  const meta = [c.datum, tagy].filter(Boolean).join(' ');
-  const nahled = c.obrazek
-    ? '<a class="nahled" href="' + c.adresa + '"><img src="' + c.obrazek
+  const meta = [c.date, tags].filter(Boolean).join(' ');
+  const thumb = c.image
+    ? '<a class="nahled" href="' + c.url + '"><img src="' + c.image
       + '" alt=""></a>'
     : '';
-  return '<article class="karta">' + nahled
-       + '<h2><a href="' + c.adresa + '">' + esc(c.titul)
+  return '<article class="karta">' + thumb
+       + '<h2><a href="' + c.url + '">' + esc(c.title)
        + '</a></h2>' + (meta ? '<div class="meta">' + meta + '</div>' : '')
-       + '<p class="perex">' + popis + '</p></article>';
+       + '<p class="perex">' + label + '</p></article>';
 }
 
-function hledej(dotaz) {
-  const slova = bez(dotaz).split(/\s+/).filter(Boolean);
-  const pocet = document.getElementById('pocet');
-  const cil = document.getElementById('vysledky');
-  const vypis = seznam => '<div class="vypis">' + seznam.join('') + '</div>';
+function search(query) {
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  const counter = document.getElementById('pocet');
+  const target = document.getElementById('vysledky');
+  const grid = items => '<div class="vypis">' + items.join('') + '</div>';
 
-  if (!slova.length) {
-    pocet.textContent = clanku(rozsah.length) + popisRozsahu();
-    cil.innerHTML = vypis(rozsah.map(c => karta(c, esc(c.perex))));
+  if (!words.length) {
+    counter.textContent = countLabel(scope.length) + scopeLabel();
+    target.innerHTML = grid(scope.map(c => card(c, esc(c.excerpt))));
     return;
   }
-  const nalezene = rozsah.map(c => ({ c: c, s: skore(c, slova) }))
-                         .filter(x => x.s > 0)
-                         .sort((a, b) => b.s - a.s);
-  if (!nalezene.length) {
-    pocet.textContent = 'nic nenalezeno' + popisRozsahu();
-    cil.innerHTML = '';
+  const found = scope.map(c => ({ c: c, s: score(c, words) }))
+                     .filter(x => x.s > 0)
+                     .sort((a, b) => b.s - a.s);
+  if (!found.length) {
+    counter.textContent = 'nic nenalezeno' + scopeLabel();
+    target.innerHTML = '';
     return;
   }
-  pocet.textContent = (nalezene.length === 1 ? '1 nalezený'
-                                             : nalezene.length + ' nalezených')
-                      + popisRozsahu();
-  cil.innerHTML = vypis(nalezene.map(x => karta(x.c, uryvek(x.c, slova[0]))));
+  counter.textContent = (found.length === 1 ? '1 nalezený'
+                                            : found.length + ' nalezených')
+                        + scopeLabel();
+  target.innerHTML = grid(found.map(x => card(x.c, snippet(x.c, words[0]))));
 }
 
 // ---------------------------------------------------------------------------
@@ -480,81 +480,81 @@ function hledej(dotaz) {
 // Jinak by lhaly - a pocet, ktery lze, je horsi nez zadny.
 // ---------------------------------------------------------------------------
 
-function pocetPro(sada, slova) {
-  return CLANKY.filter(c => projdeTagy(c, sada)
-                            && (!slova.length || skore(c, slova) > 0)).length;
+function countFor(combo, words) {
+  return ARTICLES.filter(c => matchesTags(c, combo)
+                              && (!words.length || score(c, words) > 0)).length;
 }
 
-function vykresliFasety(slova) {
-  const cil = document.getElementById('fasety');
-  const kusy = [];
-  for (const tag of VSECHNY_TAGY) {
-    const vybrany = filtry.includes(tag.nazev);
-    const sada = vybrany ? filtry.filter(f => f !== tag.nazev)
-                         : filtry.concat([tag.nazev]);
-    const pocet = pocetPro(sada, slova);
-    if (vybrany) {
+function renderFacets(words) {
+  const target = document.getElementById('fasety');
+  const parts = [];
+  for (const tag of ALL_TAGS) {
+    const selected = filters.includes(tag.name);
+    const combo = selected ? filters.filter(f => f !== tag.name)
+                           : filters.concat([tag.name]);
+    const count = countFor(combo, words);
+    if (selected) {
       // Bez poctu zamerne: u vybraneho stitku by cislo znamenalo 'kdyz ho
       // odeberu', tedy vic nez je videt, a cetlo by se jako pocet jeho clanku.
       // Kolik je vysledku ted, rika udaj v hlavicce.
-      kusy.push('<button type="button" class="stitek vybrany" data-tag="'
-                + esc(tag.nazev) + '" aria-pressed="true" title="odebrat filtr">#'
-                + esc(tag.popis) + '</button>');
-    } else if (pocet === 0) {
-      kusy.push('<span class="stitek zhasnuty" aria-disabled="true">#'
-                + esc(tag.popis) + '<span class="pocet-tagu">0</span></span>');
+      parts.push('<button type="button" class="stitek vybrany" data-tag="'
+                 + esc(tag.name) + '" aria-pressed="true" title="odebrat filtr">#'
+                 + esc(tag.label) + '</button>');
+    } else if (count === 0) {
+      parts.push('<span class="stitek zhasnuty" aria-disabled="true">#'
+                 + esc(tag.label) + '<span class="pocet-tagu">0</span></span>');
     } else {
-      kusy.push('<button type="button" class="stitek" data-tag="'
-                + esc(tag.nazev) + '" aria-pressed="false">#' + esc(tag.popis)
-                + '<span class="pocet-tagu">' + pocet + '</span></button>');
+      parts.push('<button type="button" class="stitek" data-tag="'
+                 + esc(tag.name) + '" aria-pressed="false">#' + esc(tag.label)
+                 + '<span class="pocet-tagu">' + count + '</span></button>');
     }
   }
-  if (filtry.length) {
-    kusy.push('<button type="button" class="stitek zrusit" id="zrusit">'
-              + 'zrušit filtr</button>');
+  if (filters.length) {
+    parts.push('<button type="button" class="stitek zrusit" id="zrusit">'
+               + 'zrušit filtr</button>');
   }
-  cil.innerHTML = kusy.join('');
+  target.innerHTML = parts.join('');
 }
 
-function zapisAdresu(dotaz) {
+function writeUrl(query) {
   // Stav patri do adresy, aby se dal poslat a vratit tlacitkem zpet.
   const p = new URLSearchParams();
-  filtry.forEach(f => p.append('tag', f));
-  if (dotaz) { p.set('q', dotaz); }
-  const dotazovaCast = p.toString();
+  filters.forEach(f => p.append('tag', f));
+  if (query) { p.set('q', query); }
+  const queryString = p.toString();
   history.replaceState(null, '',
-                       location.pathname + (dotazovaCast ? '?' + dotazovaCast : ''));
+                       location.pathname + (queryString ? '?' + queryString : ''));
 }
 
-function prekresli() {
-  const dotaz = pole.value;
-  const slova = bez(dotaz).split(/\s+/).filter(Boolean);
-  rozsah = CLANKY.filter(c => projdeTagy(c, filtry));
-  hledej(dotaz);
-  vykresliFasety(slova);
-  zapisAdresu(dotaz);
+function render() {
+  const query = field.value;
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  scope = ARTICLES.filter(c => matchesTags(c, filters));
+  search(query);
+  renderFacets(words);
+  writeUrl(query);
 }
 
-const pole = document.getElementById('dotaz');
+const field = document.getElementById('dotaz');
 // Na teto strance se nikam neodesila, hleda se na miste. Filtr ale musi ve
 // formulari zustat, aby ho dalsi dotaz neztratil.
-pole.form.addEventListener('submit', e => e.preventDefault());
-pole.addEventListener('input', prekresli);
+field.form.addEventListener('submit', e => e.preventDefault());
+field.addEventListener('input', render);
 
 document.getElementById('fasety').addEventListener('click', e => {
-  if (e.target.id === 'zrusit') { filtry = []; prekresli(); return; }
-  const stitek = e.target.closest('button[data-tag]');
-  if (!stitek) { return; }
-  const tag = stitek.getAttribute('data-tag');
-  filtry = filtry.includes(tag) ? filtry.filter(f => f !== tag)
-                                : filtry.concat([tag]);
-  prekresli();
+  if (e.target.id === 'zrusit') { filters = []; render(); return; }
+  const chip = e.target.closest('button[data-tag]');
+  if (!chip) { return; }
+  const tag = chip.getAttribute('data-tag');
+  filters = filters.includes(tag) ? filters.filter(f => f !== tag)
+                                  : filters.concat([tag]);
+  render();
 });
 
-const zParametru = parametry.get('q');
-if (zParametru) { pole.value = zParametru; }
-pole.focus();
-prekresli();
+const fromUrl = params.get('q');
+if (fromUrl) { field.value = fromUrl; }
+field.focus();
+render();
 </script>"""
 
 
@@ -975,8 +975,8 @@ def to_html(path, conv, meta=None, title=None,
                 '<a href="tag-%s.html">#%s</a>' % (slug(x), x) for x in tags))
         masthead.append('</div>')
         return heading, HTML_WEB.format(
-            title='%s - %s' % (heading, site['nazev']),
-            head_extra=site.get('hlava', ''),
+            title='%s - %s' % (heading, site['name']),
+            head_extra=site.get('head_extra', ''),
             header=header_html(site),
             body=''.join(masthead) + body,
             footer=footer_html(site, own_meta.get('date'), tags, heading))
@@ -1148,7 +1148,7 @@ def header_html(site, active=None, active_tag=None, reachable=None,
     Ztlumi se i tag, ktery v liste je, ale zadny publikovany clanek ho nema -
     jeho stranka nevznikne, takze odkaz by nikam nevedl.
     """
-    name = site['nazev']
+    name = site['name']
     if site.get('logo'):
         mark = '<img src="%s" alt="%s">' % (site['logo'], name)
     else:
@@ -1179,7 +1179,7 @@ def header_html(site, active=None, active_tag=None, reachable=None,
         # aktivni je bud nazev tagu, nebo nazev souboru - aby se dala zvyraznit
         # i pevna polozka, treba Hledani.
         is_current = (tag and tag == active) or url == active
-        if tag and tag not in site['tagy']:
+        if tag and tag not in site['tags']:
             # Kuratorovana polozka pro tag, ktery zadny publikovany clanek
             # nema, takze jeho stranka nevznikne. ZTLUMI SE, nezplosti:
             # zkontroluj_odkazy by z odkazu udelal holy text a v liste by mezi
@@ -1223,7 +1223,7 @@ def footer_html(site, date=None, tags=(), name=None):
                       ' data-nazev="%s">Zkopírovat název</button>'
                       % name.replace('"', '&quot;'))
     links.append('<a href="index.html">Titulka</a>')
-    if site.get('hledani'):
+    if site.get('search'):
         links.append('<a href="hledani.html">Hledání</a>')
     if site.get('rss'):
         links.append('<a href="rss.xml">RSS</a>')
@@ -1236,8 +1236,8 @@ def footer_html(site, date=None, tags=(), name=None):
 def site_page(titulek_stranky, content, site, active=None, active_tag=None,
                 reachable=None, fixed_only=False):
     """Obali obsah hlavickou a patickou. Pro titulku a stranky tagu."""
-    return HTML_WEB.format(title='%s - %s' % (titulek_stranky, site['nazev']),
-                           head_extra=site.get('hlava', ''),
+    return HTML_WEB.format(title='%s - %s' % (titulek_stranky, site['name']),
+                           head_extra=site.get('head_extra', ''),
                            header=header_html(site, active, active_tag,
                                                   reachable, fixed_only),
                            body=content,
@@ -1342,20 +1342,20 @@ def excerpt(body_text, meta, conv):
 def card(c):
     """Jeden clanek na vypisu: titulek, datum s tagy, perex."""
     parts = ['<article class="karta">']
-    if c.get('obrazek'):
+    if c.get('image'):
         parts.append('<a class="nahled" href="%s"><img src="%s" alt=""></a>'
-                    % (c['soubor'], c['obrazek']))
-    parts.append('<h2><a href="%s">%s</a></h2>' % (c['soubor'], c['nadpis']))
+                    % (c['file'], c['image']))
+    parts.append('<h2><a href="%s">%s</a></h2>' % (c['file'], c['heading']))
     popisky = []
-    if c['datum']:
-        popisky.append(c['datum'])
-    if c['tagy']:
+    if c['date']:
+        popisky.append(c['date'])
+    if c['tags']:
         popisky.append(' '.join('<a href="tag-%s.html">#%s</a>' % (slug(t), t)
-                                for t in c['tagy']))
+                                for t in c['tags']))
     if popisky:
         parts.append('<div class="meta">%s</div>' % ' '.join(popisky))
-    if c['perex']:
-        parts.append('<p class="perex">%s</p>' % c['perex'])
+    if c['excerpt']:
+        parts.append('<p class="perex">%s</p>' % c['excerpt'])
     parts.append('</article>')
     return ''.join(parts)
 
@@ -1425,7 +1425,7 @@ def text_from_html(html):
     return re.sub(r'\s+', ' ', unescape(re.sub(r'<[^>]+>', ' ', bez_kodu))).strip()
 
 
-def search_page(clanky, site):
+def search_page(articles, site):
     """Vrati HTML stranky hledani s indexem zapecenym uvnitr.
 
     Rozsah, na ktery je to stavene: pet clanku PKVault ma 24 kB textu, cely
@@ -1434,19 +1434,20 @@ def search_page(clanky, site):
     takze to bude rozhodnuti, ne technicky detail.
     """
     data = []
-    for c in clanky:
-        data.append({'titul': c['nadpis'], 'adresa': c['soubor'],
-                     'datum': c['datum'], 'perex': text_from_html(c['perex']),
-                     'text': c['text'], 'obrazek': c.get('obrazek'),
-                     'tagy': [{'nazev': x, 'slug': slug(x)} for x in c['tagy']]})
+    for c in articles:
+        data.append({'title': c['heading'], 'url': c['file'],
+                     'date': c['date'], 'excerpt': text_from_html(c['excerpt']),
+                     'text': c['text'], 'image': c.get('image'),
+                     'tags': [{'name': x, 'label': x, 'slug': slug(x)}
+                              for x in c['tags']]})
     # Sekvence </ se v datech rozdeli, aby retezec ve clanku nemohl uzavrit
     # element script driv, nez ma.
-    vypis = json.dumps(data, ensure_ascii=False).replace('</', '<' + chr(92) + '/')
+    cards = json.dumps(data, ensure_ascii=False).replace('</', '<' + chr(92) + '/')
 
-    seznam = ['<ul class="rozcestnik">']
-    for c in clanky:
-        seznam.append('<li><a href="%s">%s</a></li>' % (c['soubor'], c['nadpis']))
-    seznam.append('</ul>')
+    plain = ['<ul class="rozcestnik">']
+    for c in articles:
+        plain.append('<li><a href="%s">%s</a></li>' % (c['file'], c['heading']))
+    plain.append('</ul>')
 
     # Poradi prebira lista, aby oko hledalo tag na temze miste jako jinde.
     # Tagy, ktere v liste nejsou, se pripoji za ni abecedne.
@@ -1456,25 +1457,25 @@ def search_page(clanky, site):
     # ale ma vlastni misto na vlastni strance, takze stitky unese vsechny, a
     # tag, ktery ma stranku, musi byt filtrovatelny. Jinak by kuratorovani listy
     # tise vyradilo tag z filtru a nikdo by nevedel proc.
-    stitky = []
+    chips = []
     in_menu = set()
     for label, url, tag in site['menu']:
         if tag:
-            stitky.append({'nazev': tag, 'popis': label})
+            chips.append({'name': tag, 'label': label})
             in_menu.add(tag)
         elif url == 'tag-%s.html' % NO_TAG_SLUG:
-            stitky.append({'nazev': NO_TAG_SLUG, 'popis': NO_TAG_LABEL})
+            chips.append({'name': NO_TAG_SLUG, 'label': NO_TAG_LABEL})
             in_menu.add(NO_TAG_SLUG)
-    for tag in site['tagy']:
+    for tag in site['tags']:
         if tag not in in_menu:
-            stitky.append({'nazev': tag, 'popis': tag})
-    if NO_TAG_SLUG not in in_menu and any(not c['tagy'] for c in clanky):
-        stitky.append({'nazev': NO_TAG_SLUG, 'popis': NO_TAG_LABEL})
+            chips.append({'name': tag, 'label': tag})
+    if NO_TAG_SLUG not in in_menu and any(not c['tags'] for c in articles):
+        chips.append({'name': NO_TAG_SLUG, 'label': NO_TAG_LABEL})
 
-    content = (SEARCH_PAGE.replace('@DATA@', vypis)
-                    .replace('@TAGY@', json.dumps(stitky, ensure_ascii=False))
-                    .replace('@SEZNAM@', ''.join(seznam))
-                    .replace('@BEZ@', NO_TAG_SLUG))
+    content = (SEARCH_PAGE.replace('@DATA@', cards)
+                    .replace('@TAGS@', json.dumps(chips, ensure_ascii=False))
+                    .replace('@LIST@', ''.join(plain))
+                    .replace('@NO_TAG@', NO_TAG_SLUG))
     return site_page('Hledání', content, site, 'hledani.html', fixed_only=True)
 
 
@@ -1517,11 +1518,11 @@ def rss(clanky, site, url):
     beze zmeny obsahu a pri rucnim nahravani by se zbytecne prenasel.
     """
     base = url.rstrip('/')
-    label = site.get('popis') or site['nazev']
+    label = site.get('description') or site['name']
     lines = ['<?xml version="1.0" encoding="utf-8"?>',
              '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">',
              '<channel>',
-             '<title>%s</title>' % xml_text(site['nazev']),
+             '<title>%s</title>' % xml_text(site['name']),
              '<link>%s/</link>' % base,
              '<description>%s</description>' % xml_text(label),
              '<language>cs</language>',
@@ -1529,19 +1530,19 @@ def rss(clanky, site, url):
              % base]
 
     for c in clanky[:RSS_ITEMS]:
-        url = '%s/%s' % (base, c['soubor'])
+        url = '%s/%s' % (base, c['file'])
         lines.append('<item>')
-        lines.append('<title>%s</title>' % xml_text(c['nadpis']))
+        lines.append('<title>%s</title>' % xml_text(c['heading']))
         lines.append('<link>%s</link>' % url)
         lines.append('<guid isPermaLink="true">%s</guid>' % url)
-        kdy = rfc822(c['datum'])
+        kdy = rfc822(c['date'])
         if kdy:
             lines.append('<pubDate>%s</pubDate>' % kdy)
-        for tag in c['tagy']:
+        for tag in c['tags']:
             lines.append('<category>%s</category>' % xml_text(tag))
-        if c['perex']:
+        if c['excerpt']:
             lines.append('<description>%s</description>'
-                         % xml_text(text_from_html(c['perex'])))
+                         % xml_text(text_from_html(c['excerpt'])))
         lines.append('</item>')
 
     lines.extend(['</channel>', '</rss>', ''])
@@ -1748,9 +1749,9 @@ def collect(src, published_only):
 
 def index_page(items):
     lines = ['<h1>Obsah</h1>', '<ul class="rozcestnik">']
-    for c in sorted(items, key=lambda x: x['nadpis'].lower()):
+    for c in sorted(items, key=lambda x: x['heading'].lower()):
         lines.append('<li><a href="%s">%s</a></li>'
-                     % (c['soubor'], c['nadpis']))
+                     % (c['file'], c['heading']))
     lines.append('</ul>')
     css = CSS.replace('@SIZE@', 'A4')
     return HTML.format(title='Obsah', css=css, body='\n'.join(lines), footer='')
@@ -1906,14 +1907,14 @@ def main():
 
             menu_source, intro, home_title, custom_css = site_inputs(vault, batch)
             no_tag = any(not tags_from_meta(m) for _, m, _ in items)
-            site = {'nazev': args.site_name or os.path.basename(vault),
-                   'tagy': sorted(all_tags),
+            site = {'name': args.site_name or os.path.basename(vault),
+                   'tags': sorted(all_tags),
                    'menu': menu_items(menu_source, sorted(all_tags), no_tag),
                    'logo': None,
-                   'hledani': True,
+                   'search': True,
                    'rss': bool(args.base_url),
-                   'popis': text_from_html(intro) if intro else None,
-                   'hlava': ('<link rel="alternate" type="application/rss+xml"'
+                   'description': text_from_html(intro) if intro else None,
+                   'head_extra': ('<link rel="alternate" type="application/rss+xml"'
                              ' title="%s" href="rss.xml">'
                              % (args.site_name or os.path.basename(vault)))
                             if args.base_url else ''}
@@ -1950,16 +1951,16 @@ def main():
                 f.write(html)
             print('  %s  (%.0f kB)' % (html_soubor,
                                        os.path.getsize(html_soubor) / 1024.0))
-            produced.append({'nadpis': heading, 'datum': meta.get('date', ''),
-                             'tagy': tags_from_meta(meta),
-                             'soubor': os.path.basename(html_soubor),
-                             'perex': excerpt(body_text, meta, conv) if args.site else '',
+            produced.append({'heading': heading, 'date': meta.get('date', ''),
+                             'tags': tags_from_meta(meta),
+                             'file': os.path.basename(html_soubor),
+                             'excerpt': excerpt(body_text, meta, conv) if args.site else '',
                              'text': text_from_html(html) if args.site else '',
-                             'obrazek': None})
+                             'image': None})
             if args.site:
                 zdroj_obr = excerpt_image(path)
                 if zdroj_obr:
-                    produced[-1]['obrazek'] = copy_attachment(
+                    produced[-1]['image'] = copy_attachment(
                         zdroj_obr, out_dir, renamed)
                     if os.path.getsize(zdroj_obr) > EXCERPT_IMAGE_LIMIT:
                         oversized.append(
@@ -1974,8 +1975,8 @@ def main():
         if args.site:
             # Razeni: datum klesajici, pri shode nazev. Bez druhotneho klice by
             # bylo poradi uvnitr serie se stejnym datem libovolne.
-            ordered = sorted(produced, key=lambda c: c['nadpis'].lower())
-            ordered.sort(key=lambda c: c['datum'], reverse=True)
+            ordered = sorted(produced, key=lambda c: c['heading'].lower())
+            ordered.sort(key=lambda c: c['date'], reverse=True)
 
             for nazev_s, html_s in card_grid(
                     ordered, 'index', home_title or 'Články', site,
@@ -1987,11 +1988,11 @@ def main():
             # spadla na neexistujici cil.
             # Nadpis je i tady skryty - podle ktereho tagu je vyfiltrovano rekne
             # zvyraznene tlacitko v liste, takze v textu je zbytecny.
-            for tag in site['tagy']:
-                sem = [c for c in ordered if tag in c['tagy']]
+            for tag in site['tags']:
+                sem = [c for c in ordered if tag in c['tags']]
                 # Dosazitelne = tagy, ktere se s timhle nekde potkavaji. Ostatni
                 # lista ztlumi, takze kombinace do prazdna nejde ani kliknout.
-                reachable = {t for c in sem for t in c['tagy']}
+                reachable = {t for c in sem for t in c['tags']}
                 for nazev_s, html_s in card_grid(sem, 'tag-' + slug(tag),
                                                     tag, site, tag,
                                                     skryty_nadpis=True,
@@ -2001,7 +2002,7 @@ def main():
                           % (zapis(nazev_s, html_s), len(sem),
                              len(reachable - {tag})))
 
-            sem = [c for c in ordered if not c['tagy']]
+            sem = [c for c in ordered if not c['tags']]
             if sem:
                 for nazev_s, html_s in card_grid(
                         sem, 'tag-' + NO_TAG_SLUG, NO_TAG_HEADING, site,
@@ -2037,7 +2038,7 @@ def main():
             # kratkou - ale mlcet o tom by znamenalo, ze si autor doplni tag a
             # diva se, proc v liste neni.
             in_menu = set(x for _, _, x in site['menu'] if x)
-            missing = [x for x in site['tagy'] if x not in in_menu]
+            missing = [x for x in site['tags'] if x not in in_menu]
             if missing:
                 print('\nTagy mimo listu (%d): stranka se generuje a vede na ni'
                       ' odkaz z paticky clanku, ale v liste neni.' % len(missing))
@@ -2048,7 +2049,7 @@ def main():
             # Opacny pripad: lista jmenuje tag, ktery zadny publikovany
             # clanek nema. Jeho stranka nevznikne, takze se v liste ztlumi
             # - ale autor by mel vedet proc, jinak vypada lista rozbite.
-            empty_tags = [x for x in in_menu if x not in site['tagy']]
+            empty_tags = [x for x in in_menu if x not in site['tags']]
             if empty_tags:
                 print('\nStitky v liste bez clanku (%d): stranka nevznika,'
                       ' v liste jsou ztlumene a nejdou kliknout.'
