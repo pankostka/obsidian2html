@@ -5,33 +5,33 @@
 
 ## Co to je
 
-V Obsidianu mám svoje know-how. Obecné články, postupy, návody apod. 
+V Obsidianu mám svoje know-how. Obecné články, postupy, návody apod.  
 Některé z těch článků jsou obecné a tak je chci zveřejnit.
 
-Toto je **generátor html**. Z Valutu Obsidianu udělá do samostatného adresáře sadu html souborů. 
+Toto je **generátor html**. Z vaultu Obsidianu udělá do samostatného adresáře sadu html souborů.  
 Ty se pak mohou nahrát třeba na hosting. Nebo poslat zabalené mailem.
 
-Aby to fungovalo, musím v Obsidianu dodržovat některé konvence. 
+Aby to fungovalo, musím v Obsidianu dodržovat některé konvence.  
 *Například když chci článek publikovat, tak do názvu dám na konec znak 🌐. Jednoduché, funkční.*
 
-Nástroj je obecný, sedí v jednom adresáři a zavolám ho se vstupním adresářem (vaultem) a výstupním (webem).
+Nástroj je obecný, sedí v jednom adresáři a zavolám ho se vstupním adresářem (vaultem) a výstupním (webem).  
 Prakticky mám dávku v kořeni vaultu.
 
-Co neumí? 
-* Generovat PDF - původně bylo součástí, ale podle mě to má být samostatný nástroj
+Co neumí?  
+* Generovat PDF - původně bylo součástí, ale podle mě to má být samostatný nástroj.
 * Publikovat na FTP - toto by měl taky řešit jiný nástroj.
 
 Proč Obsidian?
-* Umí skvěle editovat MD 
-* Je zdarma
+* Umí skvěle editovat MD.
+* Je zdarma.
 
 
 ## Konvence
 
 Jádro dokumentu. Každá konvence se popisuje třemi věcmi: co vynucuje, jak se pozná ve vaultu, a proč je právě takhle. Bez toho třetího se první nepohodlnou výjimkou obejde.
 
-Konvence jsou dvojího druhu. 
-**Vaultové** říkají, co musí splnit autor, aby generátor věci našel. 
+Konvence jsou dvojího druhu.  
+**Vaultové** říkají, co musí splnit autor, aby generátor věci našel.  
 **Záruky** říkají, co za to nástroj slibuje. Rozdíl je podstatný: vaultovou konvenci lze změnit dohodou, záruku ne, protože na ní stojí důvěra ve výstup.
 
 Značka **[?]** označuje konvenci, u které je otevřená otázka do kroku revize.
