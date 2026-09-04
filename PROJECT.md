@@ -16,15 +16,15 @@ Historie se nepřenášela, začalo se od aktuálního stavu.
 
 Pořadí je záměrné: nejdřív to, co mění tvar nástroje, pak rozpory mezi konvencemi a kódem, pak jazyk, nakonec publikace.
 
-### 1. Vyříznout PDF
+### 1. Vyříznout PDF - HOTOVO
 
-Rozhodnuto: PDF má být samostatný nástroj. **Nezálohovat**, kód se zahazuje.
+Odešlo `na_pdf`, `najdi_prohlizec`, `pockej_na_soubor`, `PROHLIZECE`, `CSS_TISK`, přepínače `--pdf`, `--vedle`, `--footer`, `--landscape` a `--browser`, parametr `landscape` funkce `na_html` a `import subprocess`. Skript zhubl o 142 řádků a ztratil závislost na Edge a Chrome.
 
-Odejde `na_pdf`, `najdi_prohlizec`, `pockej_na_soubor`, `PROHLIZECE`, `CSS_TISK`, přepínače `--pdf`, `--vedle`, `--footer`, `--landscape` a `--browser`, závislost na Edge nebo Chrome, a `import subprocess`.
+`CSS_TISK` nedržel jen `@media print`, ale i styl `.paticka`, který používá samostatný HTML - ten se přesunul do `CSS_OBSAH`.
 
-Pozor: **`time` a `tempfile` zůstávají.** `time` drží data článků, `tempfile` používá `--kontrola`.
+Ověřeno porovnáním: PKVault postaven oběma verzemi ze složek stejného jména, všech 18 stránek bajt za bajtem shodných.
 
-Zmizí i `@media print`, takže Tisk v prohlížeči vytiskne stránku s hlavičkou a lištou. Vědomě přijato, vrátí se to pár řádky.
+Tisk v prohlížeči teď vytiskne stránku i s hlavičkou a lištou. Vědomě přijato.
 
 ### 2. Srovnat kód s konvencemi
 
