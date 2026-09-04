@@ -1,0 +1,13 @@
+# Soubory vyrazene z verzovani sufixem -TMP
+*-TMP.*
+*-TMP
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Vystupy prevodu
+*.html
+*.pdf
