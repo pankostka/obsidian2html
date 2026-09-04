@@ -18,27 +18,20 @@ r"""
    nej holy text a skript rekne kolik. Dokument jde uzivateli - odkaz, ktery
    nikam nevede, je horsi nez zadny.
 
-   PDF SE SAZI Z TOHO HTML, takze --pdf je PRIDAVEK, ne prepinac: HTML vznikne
-   vzdycky a PDF k nemu. Drive --pdf to HTML zahodil v docasnem adresari, takze
-   kdo chtel obojí, pustil skript dvakrat - a v davce nedostal ani index.html.
-
-   Puvodne se ten skript jmenoval md2pdf.py a PDF bylo hlavni; uzivatelum ale
-   chodi HTML.
+   PDF SE TADY NEVYRABI. Drive to skript umel a jmenoval se md2pdf.py, ale
+   tisk je samostatna uloha pro samostatny nastroj.
 
  SPUSTENI
    python md2html.py <soubor.md>              jeden soubor -> <slug>.html
    python md2html.py <adresar>                davka, vcetne index.html
    python md2html.py <vstup> -o <kam>         kam to ulozit
-   python md2html.py <soubor.md> --pdf        HTML a NAVIC PDF ze stejneho renderu
    python md2html.py <vstup> --vault <cesta>  kde hledat ![[obrazky]]
    python md2html.py <soubor.md> --titul "Text"  titulek bez zasahu do zdroje
    python md2html.py <vstup> --jen-publikovane  jen clanky s markerem v nazvu
    python md2html.py <vault> --web            web: sdilene styl.css, img/, vystup
                                               do c:\_web\<jmeno vaultu>
-   python md2html.py <soubor.md> --vedle --pdf  PDF k clanku jako <nazev>-TMP.pdf
-   python md2html.py <soubor.md> --pdf --footer --landscape
 
-   Zavislost: pip install markdown. Na PDF navic Edge nebo Chrome.
+   Zavislost: pip install markdown.
 
    Navratovy kod 0 = hotovo, 1 = chyba pri prevodu, 2 = spatne parametry.
 
@@ -85,8 +78,7 @@ r"""
             pro jednu adresu, na ktere zalezi i po prejmenovani clanku
 
  VYSTUPY
-   <nazev>.html   samostatny HTML, obrazky jako data URI - VZDY
-   <nazev>.pdf    jen s --pdf, vysazene z tehoz HTML
+   <nazev>.html   samostatny HTML, obrazky jako data URI
    index.html     jen v davce, rozcestnik na HTML
 
    S --web je to jinak: styl je v jednom styl.css vedle stranek a obrazky v
@@ -98,7 +90,7 @@ r"""
    prestala se vyrabet.
 
    -o urcuje zaklad cesty a pripona se doplni, takze z -o vystup/napoveda
-   vznikne napoveda.html a s --pdf i napoveda.pdf.
+   vznikne napoveda.html.
 ================================================================================
 """
 import argparse
@@ -108,7 +100,6 @@ import mimetypes
 import os
 import re
 import shutil
-import subprocess
 import sys
 import tempfile
 import time
@@ -197,20 +188,8 @@ hr { border: 0; border-top: 1px solid var(--linka); margin: 2rem 0; }
 .rozcestnik { list-style: none; padding: 0; }
 .rozcestnik li { margin-bottom: .6rem; }
 .rozcestnik a { font-weight: 600; text-decoration: none; }
-"""
-
-CSS_TISK = """
 .paticka { margin-top: 3rem; padding-top: .8rem; border-top: 1px solid var(--linka);
            font-size: .82rem; color: var(--tlum); }
-
-@media print {
-  @page { size: @SIZE@; margin: 18mm 16mm; }
-  body { max-width: none; padding: 0; font-size: 10.5pt; }
-  h2, h3 { page-break-after: avoid; }
-  table, pre, img, blockquote { page-break-inside: avoid; }
-  a { color: var(--text); text-decoration: none; }
-  .paticka { display: none; }
-}
 """
 
 # Chrom webu: hlavicka s logem a listou, paticka, tmavy rezim. Do samostatneho
@@ -218,11 +197,12 @@ CSS_TISK = """
 CSS_CHROM = """
 /* Sirka textu. Uzka nudle uprostred obrazovky je presne to, proc je v
    Obsidianu doporuceno vypnout Readable line length - na tabulky a kod je
-   to k nepouziti. Na webu proto 64rem misto 46rem, ktere zustava PDF.
+   to k nepouziti. Na webu proto 64rem misto 46rem, ktere zustava
+   samostatnemu souboru.
    Prepsat jde v _web/styl.css. */
 body { max-width: 64rem; padding-top: 1.25rem; }
-/* Zahlavi clanku: nadpis, pod nim tagy, linka az pod obojim. V PDF zustava
-   linka na h1, protoze tam zadne tagy nejsou. */
+/* Zahlavi clanku: nadpis, pod nim tagy, linka az pod obojim. V samostatnem
+   souboru zustava linka na h1, protoze tam zadne tagy nejsou. */
 .zahlavi { border-bottom: 2px solid var(--odkaz); padding-bottom: .5rem;
            margin-bottom: 1.4rem; }
 .zahlavi h1 { border-bottom: 0; padding-bottom: 0; margin-bottom: .35rem; }
@@ -343,7 +323,7 @@ html { scroll-behavior: smooth; }
 }
 """
 
-CSS = CSS_OBSAH + CSS_TISK
+CSS = CSS_OBSAH
 CSS_WEB = CSS_OBSAH + CSS_CHROM
 
 
@@ -613,15 +593,6 @@ KOPIROVAT = r"""<script>
 </script>"""
 
 
-PROHLIZECE = [
-    r'%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe',
-    r'%ProgramFiles%\Microsoft\Edge\Application\msedge.exe',
-    r'%ProgramFiles%\Google\Chrome\Application\chrome.exe',
-    r'%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe',
-    r'%LocalAppData%\Google\Chrome\Application\chrome.exe',
-]
-
-
 class Chyba(Exception):
     pass
 
@@ -807,7 +778,7 @@ class Prevod(object):
 
     def _obrazek(self, cil, param, sirka):
         """Obsidian embed nema alt text, tak ho udelame z nazvu souboru -
-        ctecka pro nevidome i PDF ho potrebuji."""
+        ctecka pro nevidome ho potrebuje."""
         # Marker publikace se strhava i tady. Alt text cte ctecka pro nevidome
         # nahlas a globus na konci nazvu souboru pro ni neznamena nic.
         alt = param if (param and not param.isdigit()) else \
@@ -940,7 +911,7 @@ def zkopiruj_obrazky(html, zaklad, vault, kam, prejmenovane):
     return html
 
 
-def na_html(cesta, prevod, landscape=False, meta=None, titul=None,
+def na_html(cesta, prevod, meta=None, titul=None,
             kam=None, prejmenovane=None, web=None):
     """Vrati (titulek, kompletni HTML). S kam= sazi web mode."""
     try:
@@ -977,7 +948,8 @@ def na_html(cesta, prevod, landscape=False, meta=None, titul=None,
         # Titulek clanku je jediny h1 na strance. Sekce z markdownu jsou o
         # uroven niz, viz snizit_nadpisy.
         # Nadpis a tagy jsou v jednom bloku, aby linka byla az pod tagy. Je
-        # proto na tom bloku, ne na h1 - v PDF zustava na h1, viz CSS_OBSAH.
+        # proto na tom bloku, ne na h1 - v samostatnem souboru zustava na h1,
+        # viz CSS_OBSAH.
         tagy = tagy_z_meta(vlastni_meta)
         zahlavi = ['<div class="zahlavi"><h1>%s</h1>' % nadpis]
         if tagy:
@@ -990,101 +962,7 @@ def na_html(cesta, prevod, landscape=False, meta=None, titul=None,
             hlavicka=hlavicka_html(web),
             body=''.join(zahlavi) + body,
             paticka=paticka_html(web, vlastni_meta.get('datum'), tagy, nadpis))
-    css = CSS.replace('@SIZE@', 'A4 landscape' if landscape else 'A4')
-    return nadpis, HTML.format(title=nadpis, css=css, body=body, paticka=paticka)
-
-
-# ==============================================================================
-# HTML -> PDF
-# ==============================================================================
-
-def najdi_prohlizec(rucne=None):
-    if rucne:
-        if not os.path.isfile(rucne):
-            raise Chyba('Zadany prohlizec neexistuje: %s' % rucne)
-        return rucne
-    for vzor in PROHLIZECE:
-        cesta = os.path.expandvars(vzor)
-        if '%' not in cesta and os.path.isfile(cesta):
-            return cesta
-    for jmeno in ('msedge', 'chrome'):
-        cesta = shutil.which(jmeno)
-        if cesta:
-            return cesta
-    raise Chyba('Nenasel jsem Edge ani Chrome. Predej cestu pres --browser.')
-
-
-def pockej_na_soubor(cesta, limit=20.0, krok=0.25):
-    """Pocka, dokud soubor nevznikne a nepresta rust. Vrati True/False.
-
-    Prohlizec zapisuje PDF asynchronne, takze existence hned po skonceni
-    procesu nic nerika. Krome vzniku se ceka i na stabilni velikost - jinak by
-    se dal precist rozepsany soubor.
-    """
-    cekano, posledni = 0.0, -1
-    while cekano < limit:
-        if os.path.isfile(cesta):
-            velikost = os.path.getsize(cesta)
-            if velikost > 0 and velikost == posledni:
-                return True
-            posledni = velikost
-        time.sleep(krok)
-        cekano += krok
-    return os.path.isfile(cesta) and os.path.getsize(cesta) > 0
-
-
-def na_pdf(html_text, pdf_soubor, prohlizec, footer=False, landscape=False):
-    """Vytiskne HTML do PDF headless prohlizecem.
-
-    PRICINA, PROC BYL PUVODNI md2pdf.py ROZBITY: Edge zapisuje PDF ASYNCHRONNE.
-    Proces skonci s kodem 0 driv, nez je soubor na disku, takze kontrola hned po
-    nem soubor nenajde a tisk se tvari jako selhaly. Overeno na Edge
-    151.0.4129.78 opakovanym spustenim - jednou to projde, jednou ne, podle toho
-    jak to vyjde casove. Proto se na soubor CEKA, viz pockej_na_soubor.
-
-    Zkousi se oba prepinace headless rezimu, protoze se to mezi verzemi meni.
-    Neni to ale ta hlavni pricina - to bylo prvni chybne vysvetleni, kdyz stary
-    --headless nahodou uspel a novy nahodou ne.
-
-    Vlastni --user-data-dir je potreba, jinak se spusteni prepne na uz bezici
-    okno prohlizece a netiskne se nic.
-    """
-    docasny = tempfile.mkdtemp(prefix='md2html-')
-    posledni = ''
-    try:
-        html_soubor = os.path.join(docasny, 'tisk.html')
-        with open(html_soubor, 'w', encoding='utf-8') as f:
-            f.write(html_text)
-        url = 'file:///' + os.path.abspath(html_soubor).replace('\\', '/')
-
-        for rezim in ('--headless', '--headless=new'):
-            profil = tempfile.mkdtemp(prefix='md2html-profil-')
-            argumenty = [prohlizec, rezim, '--disable-gpu',
-                         '--user-data-dir=%s' % profil,
-                         '--print-to-pdf=%s' % os.path.abspath(pdf_soubor)]
-            if not footer:
-                argumenty.append('--no-pdf-header-footer')
-            if landscape:
-                argumenty.append('--landscape')
-            argumenty.append(url)
-            try:
-                v = subprocess.run(argumenty, capture_output=True, text=True,
-                                   encoding='utf-8', errors='replace')
-                posledni = '%s: kod %s\n%s' % (rezim, v.returncode,
-                                               (v.stderr or '').strip()[:500])
-            finally:
-                shutil.rmtree(profil, ignore_errors=True)
-            # Edge vraci 0 i kdyz PDF nevznikne, takze se to musi overit na
-            # souboru - a POCKAT. Zapis je asynchronni: proces se vrati driv,
-            # nez je soubor na disku, takze kontrola hned po run() ho nenajde a
-            # tisk se tvari jako selhaly. Presne tohle bylo na puvodnim
-            # md2pdf.py rozbite.
-            if pockej_na_soubor(pdf_soubor):
-                return
-    finally:
-        shutil.rmtree(docasny, ignore_errors=True)
-
-    raise Chyba('Tisk do PDF selhal ani jednim headless rezimem.\n%s' % posledni)
+    return nadpis, HTML.format(title=nadpis, css=CSS, body=body, paticka=paticka)
 
 
 # ==============================================================================
@@ -1879,12 +1757,10 @@ def rozcestnik(polozky):
 
 def main():
     p = argparse.ArgumentParser(
-        description='Prevede Markdown na samostatny HTML (nebo PDF). '
+        description='Prevede Markdown na samostatny HTML. '
                     'Rozumi Obsidian syntaxi.')
     p.add_argument('vstup', help='soubor .md nebo adresar')
     p.add_argument('-o', '--out', help='vystupni soubor nebo adresar')
-    p.add_argument('--pdf', action='store_true',
-                   help='vytisknout k HTML i PDF (HTML vznikne vzdy)')
     p.add_argument('--vault', help='kde hledat ![[obrazky]] (vychozi: adresar vstupu)')
     p.add_argument('--titul', help='titulek jednoho souboru, kdyz nechces sahat '
                                    'do zdroje (jinak frontmatter titul, jinak nazev souboru)')
@@ -1904,12 +1780,6 @@ def main():
                         'vyprazdnit vystupni adresar (jen s --web)')
     p.add_argument('--nazev', help='nazev webu do hlavicky a titulku stranek '
                                   '(vychozi: jmeno vaultu)')
-    p.add_argument('--vedle', action='store_true',
-                   help='vystup vedle clanku pod jeho nazvem se sufixem -TMP')
-    p.add_argument('--footer', action='store_true',
-                   help='zahlavi a zapati v PDF (cislo stranky, datum)')
-    p.add_argument('--landscape', action='store_true', help='na sirku')
-    p.add_argument('--browser', help='cesta k msedge.exe / chrome.exe')
     args = p.parse_args()
 
     if not os.path.exists(args.vstup):
@@ -2044,18 +1914,12 @@ def main():
         vyrobene = []
         for cesta, meta, telo, nazev in plan:
             nadpis, html = na_html(
-                cesta, prevod, landscape=args.landscape,
+                cesta, prevod,
                 titul=None if davka_rezim else args.titul,
                 kam=kam if args.web else None, prejmenovane=prejmenovane,
                 web=web)
-            # -o je zaklad cesty, priponu doplnujeme. PDF se sazi z TOHOTO
-            # HTML, takze --pdf je pridavek - HTML vznikne vzdy.
-            if args.vedle:
-                # Vystup k clanku pod jeho nazvem se sufixem -TMP, ktery ho drzi
-                # mimo git. Marker publikace se strhava - u lokalniho PDF nic
-                # neznamena a v nazvu by jen prekazel.
-                zaklad_cesty = bez_markeru(os.path.splitext(cesta)[0]) + '-TMP'
-            elif kam:
+            # -o je zaklad cesty, priponu doplnujeme.
+            if kam:
                 zaklad_cesty = os.path.join(kam, nazev)
             else:
                 zaklad_cesty = os.path.splitext(args.out or nazev)[0]
@@ -2064,12 +1928,6 @@ def main():
                 f.write(html)
             print('  %s  (%.0f kB)' % (html_soubor,
                                        os.path.getsize(html_soubor) / 1024.0))
-            if args.pdf:
-                pdf_soubor = zaklad_cesty + '.pdf'
-                na_pdf(html, pdf_soubor, najdi_prohlizec(args.browser),
-                       footer=args.footer, landscape=args.landscape)
-                print('  %s  (%.0f kB)' % (pdf_soubor,
-                                           os.path.getsize(pdf_soubor) / 1024.0))
             vyrobene.append({'nadpis': nadpis, 'datum': meta.get('datum', ''),
                              'tagy': tagy_z_meta(meta),
                              'soubor': os.path.basename(html_soubor),
@@ -2137,7 +1995,7 @@ def main():
                 print('  %s  (%d polozek)'
                       % (zapis('rss.xml', rss(poradi, web, args.adresa)),
                          min(len(poradi), RSS_POLOZEK)))
-        elif davka_rezim and not args.vedle:
+        elif davka_rezim:
             cesta_s = zapis('index.html', rozcestnik(vyrobene))
             print('  %s  (rozcestnik na %d stranek)' % (cesta_s, len(vyrobene)))
 
