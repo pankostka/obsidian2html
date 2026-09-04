@@ -43,7 +43,9 @@ Cesta ke konfiguraci už není roztroušená po kódu, drží ji konstanta `KONF
 
 Ověřeno: výstup PKVaultu shodný bajt za bajtem, otisk vaultu před buildem a po něm totožný.
 
-**PKVault čeká migrace**: přejmenovat `_web` na `.obsidian2html`, uvnitř `menu_webu.md` na `menu.md` a smazat `vydano.md`.
+PKVault je zmigrovaný (`8aef5b9`): `_web` přejmenováno na `.obsidian2html`, `menu_webu.md` na `menu.md`, `vydano.md` smazáno.
+
+Při ověřování se ukázala drobná vada, opravena hned: kurátorovaná lišta smí jmenovat tag, který žádný publikovaný článek nemá, a takový odkaz se zplošťoval na holý neostylovaný text mezi stylovanými pilulkami. Záruka Z10 platila, mrtvý odkaz nevznikl, ale řešilo se to až dodatečně nad hotovým HTML. Teď se štítek ztlumí rovnou při generování lišty a build to ohlásí.
 
 ### 3. Testy
 
