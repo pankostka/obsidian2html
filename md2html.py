@@ -631,22 +631,22 @@ class Error(Exception):
 # ==============================================================================
 
 def read_text(path):
-    """Precte .md. UTF-8 s BOM i bez nej, jinak spadne na cp1250."""
+    """Read a .md file. UTF-8 with or without a BOM, falling back to cp1250."""
     with open(path, 'rb') as f:
         data = f.read()
-    for kodovani in ('utf-8-sig', 'cp1250'):
+    for encoding in ('utf-8-sig', 'cp1250'):
         try:
-            return data.decode(kodovani).replace('\r\n', '\n')
+            return data.decode(encoding).replace('\r\n', '\n')
         except UnicodeDecodeError:
             continue
     raise Error('Soubor %s neni v UTF-8 ani v cp1250.' % path)
 
 
 def split_frontmatter(text):
-    """Vrati (meta, telo). Bez tohohle by se frontmatter vykreslil jako text.
+    """Return (meta, body). Without this the frontmatter would render as text.
 
-    Parsuje se jen to, co potrebujeme - plosny YAML klic: hodnota. Zadny
-    parser YAMLu, aby nebyla zavislost.
+    Only what is needed gets parsed - flat YAML key: value. No YAML parser, so
+    that no dependency is added.
     """
     if not text.startswith('---\n'):
         return {}, text
@@ -660,14 +660,15 @@ def split_frontmatter(text):
     for line in head_text.split(chr(10)):
         indented = line[:1] in (' ', chr(9))
         bare = line.strip()
-        # Blokovy zapis seznamu, ktery Obsidian umi vyrobit sam:
+        # The block form of a list, which Obsidian writes on its own:
         #   tags:
         #     - obsidian
-        # Bez tohohle by takovy klic zustal prazdny a clanek prisel o tagy.
+        # Without this such a key would stay empty and the article would lose
+        # its tags.
         if indented and bare.startswith('- ') and last_key:
             value = bare[2:].strip().strip(chr(34) + chr(39))
-            stara = meta.get(last_key) or ''
-            meta[last_key] = (stara + ', ' + value).strip(', ')
+            previous = meta.get(last_key) or ''
+            meta[last_key] = (previous + ', ' + value).strip(', ')
             continue
         if ':' not in line or indented or bare.startswith('-'):
             continue
@@ -678,40 +679,41 @@ def split_frontmatter(text):
 
 
 def strip_marker(text):
-    """Odstrizne marker publikace z konce nazvu vcetne mezery pred nim."""
+    """Strip the publish marker off the end of a name, space included."""
     return text.rstrip().rstrip(PUBLISH_MARKER).rstrip()
 
 
 def is_published(path):
-    """Publikuje se podle MARKERU V NAZVU SOUBORU, ne podle frontmatteru.
+    """Publishing is decided by the MARKER IN THE FILENAME, not by frontmatter.
 
-    Jedina pojistka proti nechtenemu zverejneni, takze mechanismus musi byt
-    jeden. Kdyby vedle markeru fungoval i klic publish, prestalo by platit
-    'chybejici marker znamena neverejne' - a to je to jedine pravidlo, na
-    ktere se tady da spolehnout.
+    This is the only safeguard against publishing something by accident, so
+    there has to be exactly one mechanism. If a publish key worked alongside
+    the marker, 'a missing marker means not public' would stop holding - and
+    that is the one rule worth relying on here.
     """
     stem = os.path.splitext(os.path.basename(path))[0]
     return stem.rstrip().endswith(PUBLISH_MARKER)
 
 
 # ==============================================================================
-# Slug a titulek
+# Slug and title
 # ==============================================================================
 
 RE_H1 = re.compile(r'^#\s+(.+)$', re.M)
 
 
 def title_of(meta, path):
-    """Titulek je NAZEV SOUBORU, pripadne frontmatter titul.
+    """The title is the FILENAME, or the frontmatter title when given.
 
-    H1 se na titulek nepouziva, protoze to nejde spolehlive poznat. Zkouseno na
-    skutecnych datech: docs/nsp20DimManazVysl_AX.md ma jedine H1 a je to opravdu
-    titulek dokumentu, ale PKVault/…/Hadičky.md ma taky jedine H1 a je to
-    Popis - sekce ze sablony tasku. Stejna struktura, jiny vyznam.
+    An H1 is not used, because the two cannot be told apart reliably. Tried on
+    real data: docs/nsp20DimManazVysl_AX.md has a single H1 and it genuinely is
+    the document title, but PKVault/.../Hadicky.md has a single H1 too and it
+    reads 'Popis', a section out of a task template. Same structure, different
+    meaning.
 
-    Nazev souboru je Obsidianuv model (v Obsidianu je nazev noty jeji titulek),
-    je jednoznacny v ramci slozky a da se predpovedet. Kdyz je nazev technicky,
-    jako u plnici procedury, prebije ho frontmatter klic titul.
+    The filename is Obsidian's own model (there, a note's name is its title),
+    it is unambiguous within a folder and it can be predicted. When the name is
+    technical, as with a loading procedure, the frontmatter title overrides it.
     """
     if meta.get('title'):
         return meta['title']
@@ -719,54 +721,55 @@ def title_of(meta, path):
 
 
 def slug(text):
-    """Nazev vystupniho souboru: mala pismena, bez diakritiky, pomlcky.
+    """The output filename: lower case, no diacritics, hyphens.
 
-    Nazev noty smi mit diakritiku, mezery i emoji; URL ne. Slug se proto
-    pocita, nikoli prebira.
+    A note's name may carry diacritics, spaces and emoji; a URL may not. The
+    slug is therefore computed, never taken over as is.
     """
-    bez = unicodedata.normalize('NFKD', text)
-    bez = ''.join(c for c in bez if not unicodedata.combining(c))
-    bez = re.sub(r'[^\w\s-]', '', bez, flags=re.U).strip().lower()
-    bez = re.sub(r'[\s_]+', '-', bez)
-    bez = re.sub(r'-{2,}', '-', bez).strip('-')
-    return bez or 'nota'
+    plain = unicodedata.normalize('NFKD', text)
+    plain = ''.join(c for c in plain if not unicodedata.combining(c))
+    plain = re.sub(r'[^\w\s-]', '', plain, flags=re.U).strip().lower()
+    plain = re.sub(r'[\s_]+', '-', plain)
+    plain = re.sub(r'-{2,}', '-', plain).strip('-')
+    return plain or 'nota'
 
 
 # ==============================================================================
-# Obsidian syntaxe
+# Obsidian syntax
 # ==============================================================================
 
 RE_EMBED = re.compile(r'!\[\[([^\]|#]+?)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]')
 RE_WIKILINK = re.compile(r'(?<!!)\[\[([^\]|#]+?)(?:#([^\]|]*))?(?:\|([^\]]*))?\]\]')
 IMAGE_EXTS = ('.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp')
 
-# Ohraniceny blok kodu a kod v radku. Uvnitr se nic nenahrazuje.
+# A fenced code block and inline code. Nothing is substituted inside.
 RE_CODE = re.compile(
     r'^(?P<f>```+|~~~+)[^\n]*\n.*?^(?P=f)[ \t]*$'   # ```...```
     r'|(?P<t>`+)[^\n]*?(?P=t)',                     # `...`
     re.M | re.S)
 
 
-def outside_code(text, nahrada):
-    """Pusti nahradu jen na casti textu MIMO kod.
+def outside_code(text, substitute):
+    """Run the substitution only on the parts of the text OUTSIDE code.
 
-    Bez toho si prevodnik prepise vlastni ukazky syntaxe: nota, ktera uci psat
-    wikilinky, ma v `[[Nazev]]` obycejny kod, ale RE_WIKILINK ho vidi jako
-    odkaz, cil nenajde a zplosti ho na holy text. Ctenar se pak z clanku o
-    zavorkach dozvi vsechno krome tech zavorek. Overeno na Obsidian Markdown.
+    Without this the converter rewrites its own syntax examples: a note that
+    teaches how to write wikilinks has `[[Name]]` as ordinary code, but
+    RE_WIKILINK sees a link there, fails to find the target and flattens it to
+    plain text. The reader then learns everything about brackets from an
+    article on brackets, except the brackets. Verified on Obsidian Markdown.
     """
-    parts, pozice = [], 0
+    parts, pos = [], 0
     for m in RE_CODE.finditer(text):
-        parts.append(nahrada(text[pozice:m.start()]))
+        parts.append(substitute(text[pos:m.start()]))
         parts.append(m.group(0))
-        pozice = m.end()
-    parts.append(nahrada(text[pozice:]))
+        pos = m.end()
+    parts.append(substitute(text[pos:]))
     return ''.join(parts)
 
 
 def find_file(name, base, vault):
-    """Najde soubor jako Obsidian: u noty, v jeji slozce priloh, pak v celem
-    vaultu. Vraci None, kdyz nic."""
+    """Find a file the way Obsidian does: next to the note, in its attachment
+    folder, then anywhere in the vault. Returns None when nothing matches."""
     candidates = [os.path.join(base, name)]
     for p in ATTACHMENT_DIRS:
         candidates.append(os.path.join(base, p, name))
@@ -783,15 +786,15 @@ def find_file(name, base, vault):
 
 
 class Conversion(object):
-    """Drzi kontext jednoho prevodu - kde hledat soubory a co je v davce."""
+    """Holds the context of one conversion - where to look and what is in the batch."""
 
     def __init__(self, vault, batch=None, site=False):
         self.vault = vault
-        self.batch = batch or {}      # {slug nazvu noty: vystupni soubor}
+        self.batch = batch or {}      # {slug of a note name: output file}
         self.site = site
-        self.flattened = []           # odkazy, ze kterych zbyl jen text
+        self.flattened = []           # links that degraded to plain text
 
-    # -- transkluze -------------------------------------------------------
+    # -- transclusion -----------------------------------------------------
 
     def expand_embeds(self, text, base, depth=0, seen=None):
         seen = set(seen or ())
@@ -800,26 +803,27 @@ class Conversion(object):
             target, param = m.group(1).strip(), (m.group(2) or '').strip()
             if target.lower().endswith(IMAGE_EXTS):
                 width = param if param.isdigit() else None
-                return self._obrazek(target, param, width)
-            return self._nota(target, base, depth, seen, m.group(0))
+                return self._image(target, param, width)
+            return self._note(target, base, depth, seen, m.group(0))
 
         return outside_code(text, lambda t: RE_EMBED.sub(replace, t))
 
-    def _obrazek(self, target, param, width):
-        """Obsidian embed nema alt text, tak ho udelame z nazvu souboru -
-        ctecka pro nevidome ho potrebuje."""
-        # Marker publikace se strhava i tady. Alt text cte ctecka pro nevidome
-        # nahlas a globus na konci nazvu souboru pro ni neznamena nic.
+    def _image(self, target, param, width):
+        """An Obsidian embed carries no alt text, so it is made from the file
+        name - a screen reader needs one."""
+        # The publish marker is stripped here as well. A screen reader reads alt
+        # text out loud, and a globe at the end of a filename means nothing to it.
         alt = param if (param and not param.isdigit()) else \
             strip_marker(os.path.splitext(os.path.basename(target))[0])
         if width:
             return '<img src="%s" alt="%s" width="%s">' % (target, alt, width)
         return '![%s](%s)' % (alt, target)
 
-    def _nota(self, target, base, depth, seen, original):
-        # Vaultova lista na web nepatri - web ma vlastni hlavicku a odkazy z
-        # menu.md miri na interni oblasti, takze by se zplostily na text.
-        # V Obsidianu ale ![[menu]] v clanku smysl ma, tak se jen preskoci.
+    def _note(self, target, base, depth, seen, original):
+        # The vault's own navigation does not belong on the site - the site has
+        # its own header, and links from menu.md point at internal areas, so
+        # they would flatten to text. Inside Obsidian ![[menu]] in an article
+        # does make sense, so it is merely skipped.
         if self.site and slug(os.path.splitext(target)[0]) == 'menu':
             return ''
         if depth >= MAX_TRANSCLUSION:
@@ -831,28 +835,29 @@ class Conversion(object):
             self.flattened.append(target)
             return ''
         _, body_text = split_frontmatter(read_text(path))
-        # H1 vlozene noty zahodit - v cilovem dokumentu uz jeden H1 je
+        # Drop the embedded note's H1 - the target document already has one
         body_text = RE_H1.sub('', body_text, count=1).strip()
         return self.expand_embeds(body_text, os.path.dirname(path), depth + 1,
                                   seen | {os.path.abspath(path)})
 
-    # -- wikilinky --------------------------------------------------------
+    # -- wikilinks --------------------------------------------------------
 
     def resolve_wikilinks(self, text):
         def replace(m):
             target, anchor, label = m.group(1).strip(), m.group(2), m.group(3)
-            # Bez strzeni markeru by veta 'Dal pokracuj na [[Obsidian Ovladani X]]'
-            # vysadila globus doprostred prozy. Aliasy u kazdeho odkazu by byly
-            # vic prace nez frontmatter, ktery marker nahradil.
-            text_odkazu = (label or '').strip() or strip_marker(target)
+            # Without stripping the marker, a sentence like 'carry on to
+            # [[Obsidian Controls X]]' would plant a globe in the middle of the
+            # prose. Writing an alias on every link would be more work than the
+            # frontmatter key the marker replaced.
+            link_text = (label or '').strip() or strip_marker(target)
             key = slug(os.path.splitext(os.path.basename(target))[0])
             if key in self.batch:
                 href = self.batch[key]
                 if anchor:
                     href += '#' + slug(anchor)
-                return '[%s](%s)' % (text_odkazu, href)
+                return '[%s](%s)' % (link_text, href)
             self.flattened.append(target)
-            return text_odkazu
+            return link_text
         return outside_code(text, lambda t: RE_WIKILINK.sub(replace, t))
 
 
@@ -861,10 +866,10 @@ class Conversion(object):
 # ==============================================================================
 
 def inline_images(html, base, vault):
-    """Nahradi src="cesta" za data URI, aby bylo HTML samostatne.
+    """Replace src="path" with a data URI, so the HTML stands on its own.
 
-    Chybejici obrazek je chyba, ne varovani. V tichosti by vznikl dokument s
-    prazdnym mistem a odesel uzivateli.
+    A missing image is an error, not a warning. Quietly, a document with a
+    blank space in it would be produced and sent to a person.
     """
     missing = []
 
@@ -888,12 +893,12 @@ def inline_images(html, base, vault):
 
 
 def copy_attachment(source, out_dir, renamed):
-    """Zkopiruje jeden soubor do img/ a vrati relativni adresu.
+    """Copy one file into img/ and return its relative address.
 
-    Nazev se prozene slug(), takze je vzdy malymi pismeny a v ASCII. Na Linuxu
-    je Foo.png a foo.png rozdil, takze spatne napsany odkaz funguje na Windows
-    a na serveru vrati 404. prejmenovane hlida, aby dva ruzne soubory neskoncily
-    pod jednou adresou.
+    The name goes through slug(), so it is always lower case and ASCII. On
+    Linux Foo.png and foo.png differ, which means a mistyped link works on
+    Windows and returns 404 on the server. `renamed` guards against two
+    different files ending up under one address.
     """
     directory = os.path.join(out_dir, 'img')
     stem, ext = os.path.splitext(os.path.basename(source))
@@ -912,15 +917,16 @@ def copy_attachment(source, out_dir, renamed):
 
 
 def copy_images(html, base, vault, out_dir, renamed):
-    """Web mode: src="cesta" -> src="img/nazev.ext" a soubor se zkopiruje.
+    """Site mode: src="path" -> src="img/name.ext", and the file is copied.
 
-    Data URI je spravne pro jeden samostatny soubor do mailu, ale na web ne -
-    kazda stranka by nesla vlastni kopii obrazku i CSS a prohlizec by nekesoval
-    nic. Sdileny adresar img/ se stahne jednou.
+    A data URI is right for a single self-contained file going out by email,
+    but not for a site - every page would carry its own copy of the images and
+    of the CSS, and the browser would cache nothing. A shared img/ directory is
+    downloaded once.
 
-    Nazev se prozene slug(), takze je vzdy malymi pismeny a v ASCII. Na Linuxu
-    je Foo.png a foo.png rozdil, takze spatne napsany odkaz funguje na Windows
-    a na serveru vrati 404 - chyba, ktera se najde az po nasazeni.
+    The name goes through slug(), so it is always lower case and ASCII. On
+    Linux Foo.png and foo.png differ, which means a mistyped link works on
+    Windows and returns 404 on the server - a fault found only after deploying.
     """
     missing = []
 
@@ -942,13 +948,14 @@ def copy_images(html, base, vault, out_dir, renamed):
 
 def to_html(path, conv, meta=None, title=None,
             out_dir=None, renamed=None, site=None, date=None):
-    """Vrati (titulek, kompletni HTML). S kam= sazi web mode.
+    """Return (title, complete HTML). With out_dir= it typesets site mode.
 
-    `datum` je zaloha pro clanek, ktery ho ve frontmatteru nema. Predava se
-    zvenci, protoze uz je spocitane pri sestavovani davky a poradi na titulce
-    z nej vychazi - paticka clanku musi ukazovat totez. Dokud se datum
-    zapisovalo do zdroje, tenhle rozpor nemohl nastat: frontmatter se precetl
-    znovu a datum uz v nem bylo.
+    `date` is the fallback for an article that has none in its frontmatter. It
+    comes from outside because it is already worked out while assembling the
+    batch, and the ordering on the front page derives from it - the article's
+    own footer has to show the same thing. While the date was written back into
+    the source this could not diverge: the frontmatter was read again and the
+    date was already in it.
     """
     try:
         import markdown
@@ -983,11 +990,11 @@ def to_html(path, conv, meta=None, title=None,
         footer = '<div class="paticka">%s</div>' % own_meta['date']
 
     if out_dir is not None:
-        # Titulek clanku je jediny h1 na strance. Sekce z markdownu jsou o
-        # uroven niz, viz snizit_nadpisy.
-        # Nadpis a tagy jsou v jednom bloku, aby linka byla az pod tagy. Je
-        # proto na tom bloku, ne na h1 - v samostatnem souboru zustava na h1,
-        # viz CSS_OBSAH.
+        # The article title is the only h1 on the page. Sections coming from
+        # the markdown sit one level lower, see demote_headings.
+        # Heading and tags live in one block, so the rule falls below both. It
+        # is therefore on that block rather than on the h1 - in the
+        # self-contained file it stays on the h1, see CSS_CONTENT.
         tags = tags_from_meta(own_meta)
         masthead = ['<div class="zahlavi"><h1>%s</h1>' % heading]
         if tags:
@@ -1008,35 +1015,35 @@ def to_html(path, conv, meta=None, title=None,
 # ==============================================================================
 
 def tags_from_meta(meta):
-    """Tagy z frontmatteru. Zvladne [a, b] i blokovy seznam pod klicem."""
-    hrube = (meta.get('tags') or '').strip().strip('[]')
-    return [x.strip().strip('"\'') for x in hrube.split(',') if x.strip()]
+    """Tags out of the frontmatter. Handles [a, b] and the block list form."""
+    raw = (meta.get('tags') or '').strip().strip('[]')
+    return [x.strip().strip('"\'') for x in raw.split(',') if x.strip()]
 
 
 def demote_headings(text):
-    """Sekce z markdownu o uroven niz, protoze h1 je titulek clanku.
+    """Push markdown sections one level down, because the h1 is the title.
 
-    Clanky pouzivaji # pro svoje sekce, takze bez tohohle ma stranka nekolik h1
-    a zadny, ktery by byl titulkem. Pro ctecku pro nevidome i pro vyhledavac je
-    to rozbita struktura. Tag v textu (#dwh) zustava - regexp chce za mrizkou
-    mezeru.
+    Articles use # for their own sections, so without this a page ends up with
+    several h1 elements and none of them the title. To a screen reader and to a
+    search engine that is a broken structure. A tag in the text (#dwh) is left
+    alone - the pattern requires a space after the hash.
     """
     return outside_code(text, lambda t: re.sub(r'^(#{1,5})(\s)', r'#\1\2', t,
                                            flags=re.M))
 
 
 def menu_items(text, tags, no_tag=False):
-    """Polozky listy jako [(popis, adresa, tag)]. Tag je None u pevneho odkazu.
+    """Bar items as [(label, address, tag)]. Tag is None for a fixed link.
 
-    Bez .obsidian2html/menu.md jsou to vsechny tagy abecedne. Kuratorovany seznam je
-    potreba proto, ze tagu muze byt dvacet a lista by se rozsypala - a poradi
-    tagu abecedne nemusi odpovidat tomu, co je dulezite.
+    Without .obsidian2html/menu.md these are all tags in alphabetical order. A
+    curated list is needed because there may be twenty tags and the bar would
+    fall apart - and alphabetical order need not match what matters.
 
-    Radek smi byt:
-      `#obsidian`            tag, odkaz na jeho stranku
-      [Hledani](hledani.html) obycejny odkaz
-      [[Nazev clanku]]       odkaz na clanek, adresa se odvodi z nazvu
-    Odrazka na zacatku se ignoruje, aby to v Obsidianu mohl byt seznam.
+    A line may be:
+      `#obsidian`             a tag, linking to its page
+      [Search](hledani.html)  an ordinary link
+      [[Article name]]        a link to an article, address derived from the name
+    A leading bullet is ignored, so that it can be a list inside Obsidian.
     """
     pseudo = (NO_TAG_LABEL, 'tag-%s.html' % NO_TAG_SLUG, None)
     if not text:
@@ -1048,10 +1055,11 @@ def menu_items(text, tags, no_tag=False):
         r = line.strip().lstrip('-*').strip()
         if not r or r.startswith('>'):
             continue
-        # Tag se pise v backticich: `#PowerBI`. Bez nich by ho Obsidian bral
-        # jako skutecny tag vaultu a lista by lezla do vyhledavani tagu, kam
-        # nepatri - je to konfigurace webu, ne obsah. Backticky jsou jen obal,
-        # holy #tag se cte dal, aby starsi soubory fungovaly.
+        # A tag is written in backticks: `#PowerBI`. Without them Obsidian
+        # would treat it as a real vault tag and the bar would show up in tag
+        # search, where it does not belong - it is site configuration, not
+        # content. The backticks are only a wrapper; a bare #tag is still read,
+        # so older files keep working.
         if len(r) > 2 and r.startswith('`') and r.endswith('`'):
             r = r[1:-1].strip()
         m = re.match(r'^\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]$', r)
@@ -1065,30 +1073,31 @@ def menu_items(text, tags, no_tag=False):
             items.append((m.group(1).strip(), m.group(2).strip(), None))
             continue
         if r == NO_TAG_LABEL:
-            # Samotna mrizka na radku je pseudotag 'clanky bez tagu'.
+            # A lone hash on a line is the 'articles without tags' pseudo-tag.
             if no_tag:
                 items.append(pseudo)
             continue
         if r.startswith('#') and len(r) > 1 and not r[1].isspace():
             tag = r[1:].strip()
             items.append((tag, 'tag-%s.html' % slug(tag), tag))
-    # Kdyz se v menu.md o pseudotagu nikdo nezminil, prida se na konec sam -
-    # jinak by clanky bez tagu nebyly dosazitelne odnikud nez z titulky.
+    # When menu.md never mentions the pseudo-tag, it appends itself - articles
+    # without tags would otherwise be reachable from nowhere but the front page.
     if no_tag and pseudo not in items:
         items.append(pseudo)
     return items
 
 
 def wikilinks_in_intro(text, batch):
-    """V uvodu titulky prevede [[Nota]] a [[Nota|popis]] na markdown odkaz.
+    """In the front-page intro, turn [[Note]] and [[Note|label]] into links.
 
-    Uvod z `.obsidian2html/index.md` je jediny rucne psany text na titulce, takze do nej
-    patri rozcestnik - a ten odkazuje na clanky. Bez tohohle by se do souboru
-    musely psat ADRESY (`kostkaaxmain.html`), tedy presne to, cemu se wikilink
-    vyhyba: prejmenovani clanku by odkaz tise rozbilo.
+    The intro in `.obsidian2html/index.md` is the only hand-written text on the
+    front page, so a set of pointers belongs there - and those point at
+    articles. Without this, ADDRESSES would have to be typed into the file
+    (`kostkaaxmain.html`), which is exactly what a wikilink avoids: renaming an
+    article would quietly break the link.
 
-    Cil, ktery v davce neni, zustava holym textem. Mrtvy odkaz se nevyrobi,
-    stejne jako v clancich.
+    A target that is not in the batch stays plain text. No dead link is
+    produced, just as in the articles.
     """
     if not batch:
         return text
@@ -1096,21 +1105,23 @@ def wikilinks_in_intro(text, batch):
     def replace(m):
         target, label = m.group(1).strip(), (m.group(2) or '')[1:].strip()
         fpath = batch.get(slug(strip_marker(target)))
-        text_odkazu = label or strip_marker(target)
-        return '[%s](%s)' % (text_odkazu, fpath) if fpath else text_odkazu
+        link_text = label or strip_marker(target)
+        return '[%s](%s)' % (link_text, fpath) if fpath else link_text
 
     return outside_code(text, lambda t: re.sub(r'\[\[([^\]|]+?)(\|[^\]]*)?\]\]',
                                           replace, t))
 
 
 def site_inputs(vault, batch=None):
-    """Precte menu.md, index.md a styl.css ze slozky KONFIG. Vse volitelne.
+    """Read menu.md, index.md and styl.css from CONFIG_DIR. All optional.
 
-    Slozka obchazi posbirej() kvuli tecce na zacatku, takze se z tech souboru
-    nikdy nestane stranka - jsou to vstupy pro web, ne clanky.
+    The directory slips past collect() thanks to its leading dot, so none of
+    those files ever becomes a page - they are inputs for the site, not
+    articles.
 
-    Lista se smi jmenovat proste menu.md. Vault sice ma vlastni menu.md jako
-    navigacni listu, ale ta lezi jinde a tady se s ni nic srazit nemuze.
+    The bar may simply be called menu.md. The vault does have its own menu.md
+    as a navigation bar, but that one lives elsewhere and nothing can clash
+    with it here.
     """
     out_dir = os.path.join(vault, CONFIG_DIR)
     menu = None
@@ -1118,7 +1129,7 @@ def site_inputs(vault, batch=None):
     if os.path.isfile(path):
         _, menu = split_frontmatter(read_text(path))
 
-    intro, titul = '', None
+    intro, home_title = '', None
     path = os.path.join(out_dir, 'index.md')
     if os.path.isfile(path):
         meta, body_text = split_frontmatter(read_text(path))
@@ -1131,15 +1142,16 @@ def site_inputs(vault, batch=None):
                 raise Error('Chybi balicek markdown. Doinstaluj: pip install markdown')
             intro = '<div class="intro">%s</div>' % markdown.markdown(
                 body_text, extensions=['tables', 'fenced_code', 'attr_list', 'sane_lists'])
-    # Vlastni styly se PRIPOJUJI za vygenerovane, takze prepsat jde cokoli -
-    # sirka, barvy, pismo. Barvy jsou tokeny v :root, takze zmena je jedna
-    # radka. Bez tohohle by se muselo sahat do generatoru.
+    # Custom styles are APPENDED after the generated ones, so anything can be
+    # overridden - width, colours, typeface. The colours are tokens in :root, so
+    # a change is a single line. Without this one would have to edit the
+    # generator itself.
     custom_css = ''
     path = os.path.join(out_dir, 'styl.css')
     if os.path.isfile(path):
         with open(path, encoding='utf-8') as f:
             custom_css = f.read()
-    return menu, intro, titul, custom_css
+    return menu, intro, home_title, custom_css
 
 
 def combination_url(tags):

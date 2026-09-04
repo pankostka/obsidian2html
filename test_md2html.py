@@ -457,6 +457,18 @@ class Konvence(Zaklad):
         self.assertIn('Rucne psany uvod titulky.', index)
         self.assertIn('tag-obsidian.html', index)
 
+    def test_K70_index_md_urcuje_titulek_titulky(self):
+        """Frontmatter title v index.md prebije nazev vaultu na titulce."""
+        self.clanek('Prvni', 'Text.')
+        self.soubor('.obsidian2html/index.md',
+                    '---\ntitle: Moje znalostni baze\n---\nUvodni text.\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        index = self.vystupni('index.html')
+        self.assertIn('Uvodni text.', index)
+        self.assertIn('Moje znalostni baze', index)
+
     def test_K70_stara_slozka_se_necte_ale_ohlasi(self):
         """Mlcet nejde: web by se postavil bez loga, listy i stylu."""
         self.clanek('Prvni', 'Text.')
