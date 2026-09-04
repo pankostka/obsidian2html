@@ -212,8 +212,9 @@ hr { border: 0; border-top: 1px solid var(--linka); margin: 2rem 0; }
            font-size: .82rem; color: var(--tlum); }
 """
 
-# Chrom webu: hlavicka s logem a listou, paticka, tmavy rezim. Do samostatneho
-# souboru pro mail to nepatri - tam neni kam navigovat.
+# Site chrome: header with the logo and the bar, footer, dark mode. It has no
+# place in a self-contained file going out by email - there is nowhere to
+# navigate to there.
 CSS_CHROME = """
 /* Text width. A narrow ribbon down the middle of the screen is exactly why
    Obsidian users are told to turn Readable line length off - it is unusable
@@ -354,9 +355,9 @@ HTML = ('<!doctype html><html lang="cs"><head><meta charset="utf-8">'
         '<title>{title}</title><style>{css}</style></head><body>{body}{footer}'
         '</body></html>')
 
-# Web mode: styl je v jednom souboru vedle stranek, ne v kazde z nich. Duvod
-# je velikost - v samostatnem rezimu ma jedna stranka se pati screenshoty
-# 598 kB, protoze obrazky jsou v base64 a CSS se opakuje.
+# Site mode: the style sits in one file next to the pages, not inside each of
+# them. The reason is size - in self-contained mode a single page with five
+# screenshots weighs 598 kB, because the images are base64 and the CSS repeats.
 HTML_WEB = ('<!doctype html><html lang="cs"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
             '<title>{title}</title>'
@@ -364,9 +365,10 @@ HTML_WEB = ('<!doctype html><html lang="cs"><head><meta charset="utf-8">'
             '{header}<main>{body}</main>{footer}'
             '</body></html>')
 
-# Stranka hledani. Index je ZAPECENY uvnitr, protoze pod file:// nepada
-# JavaScript, ale fetch() - prohlizec zakaze cteni lokalniho JSON kvuli CORS.
-# Zapecenim ta prekazka mizi a tentyz soubor funguje z hostingu i z disku.
+# The search page. The index is BAKED INSIDE, because under file:// it is not
+# JavaScript that fails but fetch() - the browser refuses to read local JSON
+# because of CORS. Baking it in removes that obstacle and the very same file
+# works from a host and from a disk alike.
 SEARCH_PAGE = r"""<h1 class="jen-ctecka">Hledání</h1>
 <div id="fasety" class="fasety"></div>
 <div id="vysledky"></div>
@@ -1011,7 +1013,7 @@ def to_html(path, conv, meta=None, title=None,
 
 
 # ==============================================================================
-# Davka
+# Batch
 # ==============================================================================
 
 def tags_from_meta(meta):
@@ -1155,52 +1157,55 @@ def site_inputs(vault, batch=None):
 
 
 def combination_url(tags):
-    """Adresa stranky hledani s predvybranymi tagy."""
+    """The address of the search page with tags pre-selected."""
     return 'hledani.html?' + '&'.join('tag=%s' % quote(t) for t in tags)
 
 
 def header_html(site, active=None, active_tag=None, reachable=None,
                   fixed_only=False):
-    """Logo vlevo, lista z tagu vpravo. Na kazde strance.
+    """Logo on the left, the tag bar on the right. On every page.
 
-    Logo NENI h1. Ten patri titulku clanku a dve prvni urovne nadpisu na jedne
-    strance jsou problem pro ctecky pro nevidome i pro vyhledavace.
+    The logo is NOT an h1. That belongs to the article title, and two top-level
+    headings on one page are a problem for screen readers and search engines
+    alike.
 
-    `jen_pevne` vynecha z listy stitky tagu a nechá jen pevne polozky. Je to
-    pro stranku hledani, kde tagy obsluhuje fasetovy filtr - dve rady stitku,
-    jedna ziva a jedna odkazova, jsou na jedne strance zmatek.
+    `fixed_only` leaves the tag chips out of the bar and keeps only the fixed
+    items. It is for the search page, where tags are handled by the faceted
+    filter - two rows of chips, one live and one made of links, only confuse.
 
-    LISTA TAGY PRIDAVA, NENAHRAZUJE. Na nezafiltrovane strance vede stitek na
-    svou stranku tagu, jako drive. Na strance tagu ale vede na hledani s OBEMA
-    tagy, takze druhy klik zuzuje misto toho, aby prvni filtr zahodil. Tag,
-    ktery se s tim aktivnim v zadnem clanku nepotkava, se ztlumi - `dosazitelne`
-    je mnozina tagu, ktere s aktivnim filtrem neco vrati. Diky tomu se nedá
-    proklikat do prazdna, a to i bez JavaScriptu.
+    THE BAR ADDS TAGS, IT DOES NOT REPLACE THEM. On an unfiltered page a chip
+    leads to its own tag page, as it always did. On a tag page it leads to
+    search carrying BOTH tags, so the second click narrows instead of throwing
+    the first filter away. A tag that co-occurs with the active one in no
+    article is dimmed - `reachable` is the set of tags that return something
+    alongside the active filter. Thanks to that there is no clicking into an
+    empty result, JavaScript or not.
 
-    Ztlumi se i tag, ktery v liste je, ale zadny publikovany clanek ho nema -
-    jeho stranka nevznikne, takze odkaz by nikam nevedl.
+    A tag that is in the bar but that no published article carries is dimmed
+    too - its page is never generated, so the link would lead nowhere.
     """
     name = site['name']
     if site.get('logo'):
         mark = '<img src="%s" alt="%s">' % (site['logo'], name)
     else:
         mark = name
-    # Radek 1: logo vlevo, hledani vpravo. Radek 2: tagy odleva.
-    # Pole hledani je na KAZDE strance, ale index lezi jen ve hledani.html -
-    # odtud tedy formular odesila dotaz tam pres ?q=. Kdyby index nesla kazda
-    # stranka, platila by se jeho velikost pri kazdem nacteni.
+    # Row 1: logo on the left, search on the right. Row 2: tags from the left.
+    # The search field is on EVERY page, but the index lives only in
+    # hledani.html - the form therefore sends the query there via ?q=. If every
+    # page carried the index, its size would be paid on every load.
     parts = ['<header class="hlavicka">', '<div class="pas">',
             '<a class="logo" href="index.html">%s</a>' % mark,
             '<form class="hledani" action="hledani.html" method="get">',
             '<input type="search" name="q" id="dotaz" placeholder="Hledat…"',
             ' autocomplete="off" aria-label="Hledaný výraz">',
-            # Tlacitko je tu zamerne, i kdyz Enter v jedinem poli formular
-            # odesle sam: explicitni submit je jednoznacny ve vsech prohlizecich
-            # a na mobilu se da klepnout. Na strance hledani ho skript zneskodni.
+            # The button is deliberate, even though Enter in a single field
+            # submits the form on its own: an explicit submit is unambiguous in
+            # every browser and can be tapped on a phone. On the search page the
+            # script disarms it.
             '<button type="submit">Hledat</button>',
-            # Kdyz je stranka zafiltrovana na tag, formular ten tag prilozi a
-            # hledani probehne jen v jeho clancich. Bez toho by dotaz ze stranky
-            # tagu prohledal cely web a kontext by se ztratil.
+            # When a page is filtered to a tag, the form carries that tag along
+            # and only its articles are searched. Without it a query from a tag
+            # page would search the whole site and the context would be lost.
             ('<input type="hidden" name="tag" value="%s">' % active_tag)
             if active_tag else '',
             '<span class="pocet" id="pocet"></span>',
@@ -1208,20 +1213,20 @@ def header_html(site, active=None, active_tag=None, reachable=None,
     for label, url, tag in site['menu']:
         if fixed_only and (tag or url == 'tag-%s.html' % NO_TAG_SLUG):
             continue
-        # aktivni je bud nazev tagu, nebo nazev souboru - aby se dala zvyraznit
-        # i pevna polozka, treba Hledani.
+        # `active` is either a tag name or a filename - so that a fixed item,
+        # Search for instance, can be highlighted too.
         is_current = (tag and tag == active) or url == active
         if tag and tag not in site['tags']:
-            # Kuratorovana polozka pro tag, ktery zadny publikovany clanek
-            # nema, takze jeho stranka nevznikne. ZTLUMI SE, nezplosti:
-            # zkontroluj_odkazy by z odkazu udelal holy text a v liste by mezi
-            # stylovanymi pilulkami sedelo neostylovane slovo. Ztlumena pilulka
-            # rekne totez a nerozbije radek. Build to navic ohlasi.
+            # A curated item for a tag that no published article carries, so
+            # its page is never generated. It is DIMMED, not flattened:
+            # check_links would turn the link into plain text and an unstyled
+            # word would sit among styled pills. A dimmed pill says the same
+            # thing without breaking the row. The build reports it as well.
             parts.append('<span class="zhasnuty" aria-disabled="true"'
                         ' title="zatím nemá publikovaný článek">%s</span>'
                         % label)
         elif is_current:
-            # Aktivni stitek odbira filtr, tedy vraci na titulku.
+            # An active chip removes the filter, so it goes back to the front page.
             parts.append('<a href="index.html" aria-current="page">%s</a>' % label)
         elif tag and active_tag:
             if reachable is not None and tag not in reachable:
@@ -1242,12 +1247,12 @@ def header_html(site, active=None, active_tag=None, reachable=None,
 
 
 def footer_html(site, date=None, tags=(), name=None):
-    """Datum, tagy clanku a odkazy. U clanku k tomu tlacitko na kopii nazvu."""
-    casti = []
+    """Date, the article's tags and links. On an article, a copy-name button too."""
+    parts = []
     if date:
-        casti.append('<span>%s</span>' % date)
+        parts.append('<span>%s</span>' % date)
     if tags:
-        casti.append('<span class="tagy">%s</span>' % ' '.join(
+        parts.append('<span class="tagy">%s</span>' % ' '.join(
             '<a href="tag-%s.html">#%s</a>' % (slug(t), t) for t in tags))
     links = []
     if name:
@@ -1260,15 +1265,15 @@ def footer_html(site, date=None, tags=(), name=None):
     if site.get('rss'):
         links.append('<a href="rss.xml">RSS</a>')
     links.append('<a href="#">Nahoru</a>')
-    casti.append('<span class="odkazy">%s</span>' % ''.join(links))
-    skript = COPY_SCRIPT if name else ''
-    return '<footer class="paticka">%s</footer>%s' % (''.join(casti), skript)
+    parts.append('<span class="odkazy">%s</span>' % ''.join(links))
+    script = COPY_SCRIPT if name else ''
+    return '<footer class="paticka">%s</footer>%s' % (''.join(parts), script)
 
 
-def site_page(titulek_stranky, content, site, active=None, active_tag=None,
+def site_page(page_title, content, site, active=None, active_tag=None,
                 reachable=None, fixed_only=False):
-    """Obali obsah hlavickou a patickou. Pro titulku a stranky tagu."""
-    return HTML_WEB.format(title='%s - %s' % (titulek_stranky, site['name']),
+    """Wrap content in the header and footer. For the front page and tag pages."""
+    return HTML_WEB.format(title='%s - %s' % (page_title, site['name']),
                            head_extra=site.get('head_extra', ''),
                            header=header_html(site, active, active_tag,
                                                   reachable, fixed_only),
@@ -1276,28 +1281,30 @@ def site_page(titulek_stranky, content, site, active=None, active_tag=None,
                            footer=footer_html(site))
 
 
-PER_PAGE = 12          # kolik perexu se vypise na jednu stranku
-                         # Dvanact proto, ze vypis je mrizka po trech - deset by
-                         # nechalo posledni radek s jednou kartou.
+PER_PAGE = 12          # how many excerpts go on one page
+                         # Twelve because the listing is a grid three across -
+                         # ten would leave the last row holding a single card.
 
 
-EXCERPT_IMAGE_LIMIT = 300 * 1024   # nad tuhle velikost se ozve build
+EXCERPT_IMAGE_LIMIT = 300 * 1024   # above this size the build speaks up
 
 
-def excerpt_image(cesta_clanku):
-    """Najde obrazek k perexu: v Attachments vedle clanku, stejneho nazvu.
+def excerpt_image(article_path):
+    """Find the excerpt image: in Attachments next to the article, same name.
 
-    Porovnava se pres slug(), takze sedne kterykoli zapis - "Obsidian Co je",
-    "obsidian-co-je" i "obsidian_co_je". Standard chce prilohy malymi pismeny s
-    podtrzitkem, kdezto clanek ma mezery a diakritiku; tolerance obe konvence
-    smiruje, misto aby nutila jednu z nich porusit.
+    Matching goes through slug(), so any spelling fits - "Obsidian Co je",
+    "obsidian-co-je" and "obsidian_co_je" alike. The standard wants attachments
+    in lower case with underscores, whereas an article has spaces and
+    diacritics; the tolerance reconciles both conventions instead of forcing
+    one of them to be broken.
 
-    Marker publikace se z nazvu clanku strhava - v nazvu prilohy nema co delat.
+    The publish marker is stripped off the article name - it has no business
+    being in an attachment name.
     """
-    directory = os.path.join(os.path.dirname(cesta_clanku), 'Attachments')
+    directory = os.path.join(os.path.dirname(article_path), 'Attachments')
     if not os.path.isdir(directory):
         return None
-    wanted = slug(strip_marker(os.path.splitext(os.path.basename(cesta_clanku))[0]))
+    wanted = slug(strip_marker(os.path.splitext(os.path.basename(article_path))[0]))
     for fname in sorted(os.listdir(directory)):
         stem, ext = os.path.splitext(fname)
         if ext.lower() in IMAGE_EXTS and slug(stem) == wanted:
@@ -1306,29 +1313,31 @@ def excerpt_image(cesta_clanku):
 
 
 def strip_images(text):
-    """Vyhodi z textu obrazky, oba zapisy: ![[embed]] i ![alt](cesta).
+    """Drop images out of the text, both spellings: ![[embed]] and ![alt](path).
 
-    Perex se transkluzi zamerne neprohani, takze bez tohohle by v nem zustala
-    hola syntaxe ![[...]] jako text.
+    The excerpt deliberately never goes through transclusion, so without this
+    the bare ![[...]] syntax would sit in it as text.
     """
     text = RE_EMBED.sub('', text)
     return re.sub(r'!\[[^\]]*\]\([^)]*\)', '', text)
 
 
 def excerpt(body_text, meta, conv):
-    """Perex je PRVNI ODSTAVEC clanku, frontmatter klic perex ho prebije.
+    """The excerpt is the FIRST PARAGRAPH; the frontmatter key overrides it.
 
-    Prvni odstavec se bere proto, ze uz je napsany - clanky tak zacinaji a
-    delky vychazi na 70 az 230 znaku, tedy presne perexove. Rucni klic je pro
-    pripad, kdy se uvod na vypis nehodi.
+    The first paragraph is taken because it is already written - articles start
+    that way and the lengths come out at 70 to 230 characters, which is exactly
+    excerpt-sized. The manual key is for when the opening does not suit a
+    listing.
 
-    Nadpis ukoncuje hledani: kdyz clanek zacina hned sekci, perex nema byt
-    prvni veta te sekce, ale zadny.
+    A heading ends the search: when an article starts with a section straight
+    away, the excerpt is not that section's first sentence but nothing at all.
 
-    Obrazek perex neukoncuje, jen z nej vypadne - je to textova upoutavka a
-    nahled ma karta vlastni. Odstavec, ktery obrazkem zacina a pokracuje
-    textem, tedy perex DA; teprve kdyz po vyhozeni obrazku nezbyde nic, byl
-    to samostatny uvodni obrazek a hleda se dal.
+    An image does not end the excerpt, it merely falls out of it - the excerpt
+    is a textual teaser and the card has a thumbnail of its own. A paragraph
+    that starts with an image and carries on with text therefore DOES yield an
+    excerpt; only when nothing is left after the image is dropped was it a
+    standalone opening image, and the search goes on.
     """
     try:
         import markdown
@@ -1341,17 +1350,18 @@ def excerpt(body_text, meta, conv):
             b = block.strip()
             if b.startswith('#'):
                 break
-            # Citace, tabulka, seznam a kod perexem nejsou ani po ocisteni.
-            # Obrazek v tomhle vyctu NENI: ten se z odstavce vyhodi a rozhodne
-            # az to, jestli po nem zbyl text.
+            # A quote, a table, a list and code are no excerpt even once
+            # cleaned up. An image is NOT in this list: it gets dropped from the
+            # paragraph and what decides is whether text remains after it.
             if not b or b.startswith(('>', '|', '- ', '* ', '1. ', '```')):
                 continue
             b = strip_images(b).strip()
             if not b:
                 continue
-            # Nadpis muze nasledovat hned na dalsim radku bez prazdneho radku
-            # mezi tim - pak je v temze bloku a musi se uriznout, jinak by se
-            # do perexu vlil nadpis i zacatek prvni sekce.
+            # A heading may follow on the very next line with no blank line in
+            # between - it is then in the same block and has to be cut off, or
+            # the heading and the start of the first section would bleed into
+            # the excerpt.
             source = re.split(r'^#+\s', b, maxsplit=1, flags=re.M)[0].strip()
             if not source:
                 break
@@ -1359,11 +1369,11 @@ def excerpt(body_text, meta, conv):
     if not source:
         return ''
     # Rucne psany perex z frontmatteru obrazkem taky projde. Automaticky uz
-    # ocisteny je, druhy pruchod na nem nic nezmeni.
+    # already been cleaned, a second pass changes nothing on it.
     source = strip_images(source)
-    # Wikilinky i v perexu, aby odkaz z titulky vedl nekam. Marker se strhava
-    # stejne jako v tele clanku.
-    # Po vyhozeni obrazku zbyde dvojita mezera, proto se bily znaky srazi.
+    # Wikilinks work in the excerpt too, so a link from the front page leads
+    # somewhere. The marker is stripped just as it is in the article body.
+    # Dropping an image leaves a double space, hence the whitespace squeeze.
     source = re.sub(r'\s+', ' ', source).strip()
     source = conv.resolve_wikilinks(source)
     html = markdown.markdown(source).strip()
@@ -1372,20 +1382,20 @@ def excerpt(body_text, meta, conv):
 
 
 def card(c):
-    """Jeden clanek na vypisu: titulek, datum s tagy, perex."""
+    """One article in a listing: title, date with tags, excerpt."""
     parts = ['<article class="karta">']
     if c.get('image'):
         parts.append('<a class="nahled" href="%s"><img src="%s" alt=""></a>'
                     % (c['file'], c['image']))
     parts.append('<h2><a href="%s">%s</a></h2>' % (c['file'], c['heading']))
-    popisky = []
+    labels = []
     if c['date']:
-        popisky.append(c['date'])
+        labels.append(c['date'])
     if c['tags']:
-        popisky.append(' '.join('<a href="tag-%s.html">#%s</a>' % (slug(t), t)
-                                for t in c['tags']))
-    if popisky:
-        parts.append('<div class="meta">%s</div>' % ' '.join(popisky))
+        labels.append(' '.join('<a href="tag-%s.html">#%s</a>' % (slug(t), t)
+                               for t in c['tags']))
+    if labels:
+        parts.append('<div class="meta">%s</div>' % ' '.join(labels))
     if c['excerpt']:
         parts.append('<p class="perex">%s</p>' % c['excerpt'])
     parts.append('</article>')
@@ -1393,12 +1403,12 @@ def card(c):
 
 
 def page_name(base, number):
-    """Prvni stranka je bez cisla, aby adresa titulky byla index.html."""
+    """The first page carries no number, so the front page is index.html."""
     return base + ('.html' if number == 1 else '-%d.html' % number)
 
 
 def pagination(base, number, total):
-    """Odkazy vpred a vzad. Staticke, zadny skript."""
+    """Links forward and back. Static, no script."""
     if total < 2:
         return ''
     parts = []
@@ -1412,31 +1422,32 @@ def pagination(base, number, total):
     return '<nav class="strankovani">%s</nav>' % ''.join(parts)
 
 
-def card_grid(clanky, base, heading, site, active=None, intro='',
-                 skryty_nadpis=False, active_tag=None, reachable=None):
-    """Vrati [(nazev_souboru, html)] - strankovany vypis perexu po NA_STRANKU.
+def card_grid(articles, base, heading, site, active=None, intro='',
+                 hidden_heading=False, active_tag=None, reachable=None):
+    """Return [(filename, html)] - excerpts paginated PER_PAGE at a time.
 
-    Prazdny seznam da jednu prazdnou stranku, aby lista neodkazovala nikam.
+    An empty list yields one empty page, so the bar does not link nowhere.
     """
-    stranky = [clanky[i:i + PER_PAGE]
-               for i in range(0, len(clanky), PER_PAGE)] or [[]]
+    pages = [articles[i:i + PER_PAGE]
+             for i in range(0, len(articles), PER_PAGE)] or [[]]
     result = []
-    for number, chunk in enumerate(stranky, start=1):
-        # Na titulce je nadpis SKRYTY, ne odstraneny: stranka bez h1 je rozbita
-        # struktura pro ctecky pro nevidome i pro vyhledavace. Na strankach tagu
-        # zustava videt, protoze rika, podle ceho je vyfiltrovano.
-        trida = ' class="jen-ctecka"' if skryty_nadpis else ''
-        content = ['<h1%s>%s</h1>' % (trida, heading)]
-        # Uvod jen na prvni strance - na index-2 uz by se opakoval.
+    for number, chunk in enumerate(pages, start=1):
+        # On the front page the heading is HIDDEN, not removed: a page without
+        # an h1 is a broken structure for screen readers and search engines
+        # alike. On tag pages it stays visible, because it says what the filter
+        # is.
+        css_class = ' class="jen-ctecka"' if hidden_heading else ''
+        content = ['<h1%s>%s</h1>' % (css_class, heading)]
+        # The intro goes on the first page only - on index-2 it would repeat.
         if number == 1 and intro:
             content.append(intro)
         content.append('<div class="vypis">')
         content.extend(card(c) for c in chunk)
         content.append('</div>')
-        content.append(pagination(base, number, len(stranky)))
-        titulek_stranky = heading if number == 1 else '%s, strana %d' % (heading, number)
+        content.append(pagination(base, number, len(pages)))
+        page_title = heading if number == 1 else '%s, strana %d' % (heading, number)
         result.append((page_name(base, number),
-                         site_page(titulek_stranky, ''.join(content), site,
+                         site_page(page_title, ''.join(content), site,
                                      active, active_tag, reachable)))
     return result
 
@@ -1444,26 +1455,29 @@ def card_grid(clanky, base, heading, site, active=None, intro='',
 
 
 def text_from_html(html):
-    """Cisty text pro index hledani: znacky pryc, entity zpatky.
+    """Plain text for the search index: markup out, entities back.
 
-    Bere jen obsah <main>, tedy telo clanku. Hlavicka a paticka jsou na kazde
-    strance stejne, takze by dotaz na kterykoli tag z listy nasel VSECHNY
-    clanky - overeno, slovo PowerBI bylo v textu sedmi clanku ze sedmi.
+    Only the contents of <main> are taken, that is the article body. The header
+    and the footer are the same on every page, so a query for any tag from the
+    bar would find EVERY article - verified, the word PowerBI was in the text of
+    seven articles out of seven.
     """
     body_text = re.search(r'(?s)<main>(.*?)</main>', html)
     if body_text:
         html = body_text.group(1)
-    bez_kodu = re.sub(r'(?s)<(script|style)\b.*?</\1>', ' ', html)
-    return re.sub(r'\s+', ' ', unescape(re.sub(r'<[^>]+>', ' ', bez_kodu))).strip()
+    without_code = re.sub(r'(?s)<(script|style)\b.*?</\1>', ' ', html)
+    return re.sub(r'\s+', ' ',
+                  unescape(re.sub(r'<[^>]+>', ' ', without_code))).strip()
 
 
 def search_page(articles, site):
-    """Vrati HTML stranky hledani s indexem zapecenym uvnitr.
+    """Return the HTML of the search page with the index baked inside.
 
-    Rozsah, na ktery je to stavene: pet clanku PKVault ma 24 kB textu, cely
-    vault 91 kB. Dokud se index vejde do jednotek MB, zustava zapeceny; pri
-    radove vetsim webu by se musel nacitat zvlast - a tim by padl beh z lokalu,
-    takze to bude rozhodnuti, ne technicky detail.
+    The scale this is built for: five PKVault articles hold 24 kB of text, the
+    whole vault 91 kB. As long as the index fits in single-digit megabytes it
+    stays baked in; on a site an order of magnitude larger it would have to be
+    fetched separately - and running from a local disk would fall with it, so
+    that will be a decision, not a technical detail.
     """
     data = []
     for c in articles:
@@ -1472,8 +1486,8 @@ def search_page(articles, site):
                      'text': c['text'], 'image': c.get('image'),
                      'tags': [{'name': x, 'label': x, 'slug': slug(x)}
                               for x in c['tags']]})
-    # Sekvence </ se v datech rozdeli, aby retezec ve clanku nemohl uzavrit
-    # element script driv, nez ma.
+    # The sequence </ is split inside the data, so that a string in an article
+    # cannot close the script element sooner than it should.
     cards = json.dumps(data, ensure_ascii=False).replace('</', '<' + chr(92) + '/')
 
     plain = ['<ul class="rozcestnik">']
@@ -1481,14 +1495,16 @@ def search_page(articles, site):
         plain.append('<li><a href="%s">%s</a></li>' % (c['file'], c['heading']))
     plain.append('</ul>')
 
-    # Poradi prebira lista, aby oko hledalo tag na temze miste jako jinde.
-    # Tagy, ktere v liste nejsou, se pripoji za ni abecedne.
+    # Order is taken from the bar, so the eye looks for a tag in the same place
+    # as everywhere else. Tags that are not in the bar are appended after it
+    # alphabetically.
     #
-    # LISTA JE KURATOROVANA, FILTR JE UPLNY. Duvod, proc `.obsidian2html/menu.md`
-    # vybira, je sirka hlavicky - dvacet stitku v ni prestane fungovat. Filtr
-    # ale ma vlastni misto na vlastni strance, takze stitky unese vsechny, a
-    # tag, ktery ma stranku, musi byt filtrovatelny. Jinak by kuratorovani listy
-    # tise vyradilo tag z filtru a nikdo by nevedel proc.
+    # THE BAR IS CURATED, THE FILTER IS COMPLETE. The reason
+    # `.obsidian2html/menu.md` selects is the width of the header - twenty chips
+    # stop working there. The filter, though, has a page of its own and room of
+    # its own, so it carries them all, and a tag that has a page must be
+    # filterable. Otherwise curating the bar would quietly drop a tag out of the
+    # filter and nobody would know why.
     chips = []
     in_menu = set()
     for label, url, tag in site['menu']:
@@ -1531,23 +1547,25 @@ def rfc822(date):
 
 
 def xml_text(s):
-    """Escapovani pro textovy uzel. Perex smi obsahovat odkazy a tucny text,
-    takze bez tohohle by vznikl nevalidni feed."""
+    """Escaping for a text node. An excerpt may contain links and bold text,
+    so without this an invalid feed would be produced."""
     return (s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
 
 
-def rss(clanky, site, url):
-    """Feed z nejnovejsich clanku. Do feedu jde PEREX, ne cely clanek.
+def rss(articles, site, url):
+    """A feed of the newest articles. The EXCERPT goes in, not the whole text.
 
-    Cely text by s sebou vzal i obrazky, jejichz relativni cesty by ve ctecce
-    nevedly nikam. Perex a odkaz je slusne a soubor zustane maly.
+    The full text would drag the images along, and their relative paths would
+    lead nowhere in a reader. An excerpt plus a link is decent and keeps the
+    file small.
 
-    Odkazy musi byt ABSOLUTNI - proto se adresa zadava prepinacem. Zbytek webu
-    je zamerne relativni, aby sel otevrit z disku, ale to ve feedu neplati:
-    ten cte ctecka nekde jinde.
+    Links have to be ABSOLUTE - which is why the address comes from a flag. The
+    rest of the site is deliberately relative so it can be opened off a disk,
+    but that does not hold in a feed: a reader consumes it somewhere else.
 
-    lastBuildDate zamerne chybi. S nim by se soubor menil pri kazdem buildu i
-    beze zmeny obsahu a pri rucnim nahravani by se zbytecne prenasel.
+    lastBuildDate is deliberately absent. With it the file would change on every
+    build even with no change in content, and it would be uploaded again for
+    nothing.
     """
     base = url.rstrip('/')
     label = site.get('description') or site['name']
@@ -1561,15 +1579,15 @@ def rss(clanky, site, url):
              '<atom:link href="%s/rss.xml" rel="self" type="application/rss+xml"/>'
              % base]
 
-    for c in clanky[:RSS_ITEMS]:
+    for c in articles[:RSS_ITEMS]:
         url = '%s/%s' % (base, c['file'])
         lines.append('<item>')
         lines.append('<title>%s</title>' % xml_text(c['heading']))
         lines.append('<link>%s</link>' % url)
         lines.append('<guid isPermaLink="true">%s</guid>' % url)
-        kdy = rfc822(c['date'])
-        if kdy:
-            lines.append('<pubDate>%s</pubDate>' % kdy)
+        when = rfc822(c['date'])
+        if when:
+            lines.append('<pubDate>%s</pubDate>' % when)
         for tag in c['tags']:
             lines.append('<category>%s</category>' % xml_text(tag))
         if c['excerpt']:
@@ -1582,10 +1600,10 @@ def rss(clanky, site, url):
 
 
 def find_logo(vault, out_dir):
-    """Logo je vstup pro web, tedy .obsidian2html/logo.svg nebo .png.
+    """The logo is a site input, so .obsidian2html/logo.svg or .png.
 
-    Kdyz neni, hlavicka vysadi nazev webu jako text. Placeholder si skript
-    nevymysli - logo je vec autora.
+    When there is none, the header sets the site name as text. The script does
+    not invent a placeholder - a logo is the author's business.
     """
     for ext in ('.svg', '.png'):
         source = os.path.join(vault, CONFIG_DIR, 'logo' + ext)
@@ -1600,34 +1618,38 @@ def find_logo(vault, out_dir):
 
 
 def file_date(path):
-    """Vrati datum posledni zmeny souboru jako YYYY-MM-DD. NEZAPISUJE.
+    """Return the file's last-modified date as YYYY-MM-DD. WRITES NOTHING.
 
-    Zaloha pro clanek, ktery datum ve frontmatteru nema. Rozhodnuti publikovat
-    nese marker v nazvu, takze chybejici datum nema byt duvod, aby build spadl.
+    The fallback for an article with no date in its frontmatter. The decision to
+    publish is carried by the marker in the name, so a missing date should not
+    be a reason for the build to fail.
 
-    Je to vratke: datum souboru se meni pri kopirovani vaultu i pri
-    synchronizaci, takze poradi na titulce se muze preskladat. Alternativou by
-    byl git, ten ale ve vstupnim adresari fungovat nemusi. Pri shode dat
-    rozhoduje nazev clanku, takze build je aspon opakovatelny.
+    It is shaky: a file's date changes when the vault is copied and when it is
+    synchronised, so the order on the front page can be reshuffled. git would be
+    the alternative, but git need not work in the input directory at all. On
+    equal dates the article name decides, so the build is at least repeatable.
 
-    Drive se datum ZAPISOVALO do frontmatteru zdroje. Uz ne - do vstupniho
-    adresare se jen cte.
+    The date used to be WRITTEN into the frontmatter of the source. No longer -
+    the input directory is only ever read.
     """
     return time.strftime('%Y-%m-%d', time.localtime(os.path.getmtime(path)))
 
+
 def clean_output(out_dir):
-    """Zabali predchozi vystup do archivu a vyprazdni adresar.
+    """Archive the previous output and empty the directory.
 
-    Smaze se vsechno a postavi znovu, protoze chirurgicky uklid podle seznamu
-    vyrobenych souboru je zbytecna masinerie. Puvodni obava z plosneho mazani
-    se resi tim archivem - predchozi stav zustava po ruce.
+    Everything is deleted and built again, because a surgical clean-up driven by
+    a list of produced files is needless machinery. The original worry about
+    wholesale deletion is answered by the archive - the previous state stays at
+    hand.
 
-    MAZE SE JEN ADRESAR SE ZNACKOU, nebo prazdny, nebo neexistujici. Cizi
-    adresar se tim nesmaze ani pri preklepu v ceste; z 'nepravdepodobne' se
-    tak stava 'nemozne'.
+    ONLY A DIRECTORY CARRYING THE MARKER IS WIPED, or an empty one, or one that
+    does not exist. A directory belonging to somebody else survives even a typo
+    in the path; 'unlikely' thereby becomes 'impossible'.
 
-    Maze se OBSAH, ne adresar sam - kdyz ho ma neco otevrene (prohlizec, FTP
-    klient), smazani adresare selze na Device or resource busy.
+    The CONTENTS are deleted, not the directory itself - when something holds it
+    open (a browser, an FTP client), removing the directory fails with Device or
+    resource busy.
     """
     if not os.path.isdir(out_dir):
         return None
@@ -1641,14 +1663,17 @@ def clean_output(out_dir):
     archiv = os.path.join(os.path.dirname(os.path.abspath(out_dir)), '_archiv')
     if not os.path.isdir(archiv):
         os.makedirs(archiv)
-    # Archiv lezi O UROVEN VYS, ne uvnitr baleneho adresare - jinak by se kazda
-    # zaloha zabalila do te pristi a rostly by geometricky.
-    # Sekundy v nazvu jsou nutne: dva behy v tez minute by si archiv PREPSALY
-    # a starsi verze by tise zmizela. Overeno - stalo se pri testovani.
+    # The archive sits ONE LEVEL UP, not inside the directory being packed -
+    # otherwise every backup would be packed into the next one and they would
+    # grow geometrically.
+    # Seconds in the name are necessary: two runs within the same minute would
+    # OVERWRITE each other's archive and the older version would quietly
+    # vanish. Verified - it happened during testing.
     base = os.path.join(archiv, '%s-%s' % (os.path.basename(os.path.abspath(out_dir)),
                                              time.strftime('%Y-%m-%d-%H%M%S')))
-    # A jeste pojistka na sekundu: kdyz uz archiv toho jmena existuje, prida
-    # se cislo. Zaloha se nesmi prepsat nikdy, ani pri dvou behech v tez
+    # And one more guard on the second: when an archive of that name already
+    # exists, a number is appended. A backup must never be overwritten, not even
+    # by two runs within the same
     # sekunde - overeno, stane se to pri skriptovanem pusteni za sebou.
     if os.path.exists(base + '.zip'):
         n = 2
@@ -1667,31 +1692,32 @@ def clean_output(out_dir):
 
 
 def check_links(out_dir):
-    """Overi relativni odkazy ve vystupu a mrtve zplosti na text.
+    """Verify relative links in the output and flatten the dead ones to text.
 
-    Rozlisuji se tri pripady, protoze kazdy znamena neco jineho:
+    Three cases are told apart, because each means something different:
 
-    - CIL EXISTUJE V JINE VELIKOSTI PISMEN je chyba. Windows velikost
-      nerozlisuje, Linux ano, takze takovy odkaz funguje lokalne a na serveru
-      vrati 404 - a je to preklep, ktery se ma opravit, ne schovat.
-    - CHYBEJICI OBRAZEK (src) je chyba. V tichosti by vznikla stranka s
-      prazdnym mistem.
-    - CHYBEJICI CIL ODKAZU (href) se ZPLOSTI na text a nahlasi. Dokumentace
-      projektu bezne odkazuje na soubory v repu - ../20_fact/nsp20Fact.sql:179
-      - coz je uvnitr repa spravne a na webu nesmysl. Zplostenim zustane
-      ctenari informace, ktery soubor to je, a build projde. Je to totez, co
-      uz delaji wikilinky mimo davku.
+    - THE TARGET EXISTS IN A DIFFERENT LETTER CASE is an error. Windows does not
+      distinguish case, Linux does, so such a link works locally and returns 404
+      on the server - and it is a typo, to be fixed rather than hidden.
+    - A MISSING IMAGE (src) is an error. Quietly, a page with a blank space in
+      it would be produced.
+    - A MISSING LINK TARGET (href) is FLATTENED to text and reported. Project
+      documentation routinely links to files in the repository -
+      ../20_fact/nsp20Fact.sql:179 - which is right inside the repository and
+      nonsense on a website. Flattening keeps the information about which file
+      it is, and the build passes. It is the same thing wikilinks outside the
+      batch already do.
 
-    Vraci seznam zplostenych odkazu.
+    Returns the list of flattened links.
     """
     files, uppercase = set(), []
-    for root, _, jmena in os.walk(out_dir):
-        for s in jmena:
+    for root, _, names in os.walk(out_dir):
+        for s in names:
             rel = os.path.relpath(os.path.join(root, s), out_dir).replace(os.sep, '/')
             files.add(rel)
             if s != s.lower() and not s.startswith('.'):
                 uppercase.append(rel)
-    male = dict((s.lower(), s) for s in files)
+    lowered = dict((s.lower(), s) for s in files)
 
     bad, flattened = [], []
     for rel in sorted(files):
@@ -1700,24 +1726,25 @@ def check_links(out_dir):
         path = os.path.join(out_dir, rel)
         with open(path, encoding='utf-8') as f:
             html = f.read()
-        # Skript pryc: retezce ve JS, ktere se skladaji do adresy
-        # ('tag-' + t.slug + '.html'), nejsou odkazy a kontrola by na nich
-        # spadla. Stranka hledani je toho plna.
-        bez_skriptu = re.sub(r'(?s)<(script|style)\b.*?</\1>', ' ', html)
+        # Scripts out: strings in the JS that are assembled into an address
+        # ('tag-' + t.slug + '.html') are not links, and the check would trip
+        # over them. The search page is full of those.
+        without_script = re.sub(r'(?s)<(script|style)\b.*?</\1>', ' ', html)
 
         dead = []
-        for atribut, link in re.findall(r'(href|src|action)="([^"]+)"', bez_skriptu):
-            # file: je v clanku o odkazech zamerna ukazka, ne rozbity odkaz.
+        for attr, link in re.findall(r'(href|src|action)="([^"]+)"', without_script):
+            # file: in an article about links is a deliberate example, not a
+            # broken link.
             if link.startswith(('http:', 'https:', 'mailto:', 'data:', 'file:',
                                  '#', '//')):
                 continue
             target = unquote(link.split('#')[0].split('?')[0])
             if not target or target in files:
                 continue
-            if target.lower() in male:
+            if target.lower() in lowered:
                 bad.append('%s: %s -> na Linuxu 404, soubor se jmenuje %s'
-                              % (rel, link, male[target.lower()]))
-            elif atribut == 'src':
+                              % (rel, link, lowered[target.lower()]))
+            elif attr == 'src':
                 bad.append('%s: %s -> obrazek ve vystupu neni' % (rel, link))
             elif link not in dead:
                 dead.append(link)
@@ -1741,20 +1768,21 @@ def check_links(out_dir):
     return flattened
 
 
-# Klice frontmatteru, ktere se prejmenovaly do anglictiny. Kdyz na stary
-# narazime, clanek by tise prisel o datum nebo titulek, takze se to ohlasi.
-STARE_KLICE = {'datum': 'date', 'titul': 'title', 'perex': 'excerpt'}
+# Frontmatter keys that were renamed into English. When an old one turns up,
+# the article would quietly lose its date or its title, so it gets reported.
+LEGACY_KEYS = {'datum': 'date', 'titul': 'title', 'perex': 'excerpt'}
 
 
 def collect(src, published_only):
-    """Vrati ([(path, meta, body)], forgotten, legacy) pro soubor nebo adresar.
+    """Return ([(path, meta, body)], forgotten, legacy) for a file or directory.
 
-    forgotten jsou clanky s frontmatter klicem publish, ktere marker nemaji.
-    Klic uz nic neznamena, takze takovy clanek na web nejde - a autor si
-    nejspis mysli opak. Mlcet o tom by znamenalo, ze mu clanek tise nevyjde.
+    `forgotten` are articles carrying the frontmatter key publish but no marker.
+    The key means nothing any more, so such an article does not go out - and its
+    author most likely believes the opposite. Staying silent would mean the
+    article quietly fails to appear.
 
-    legacy jsou clanky se starym ceskym klicem. Stejny duvod: klic se necte,
-    takze by clanek tise prisel o datum nebo titulek.
+    `legacy` are articles with an old Czech key. Same reason: the key is not
+    read, so the article would quietly lose its date or its title.
     """
     if os.path.isfile(src):
         paths = [src]
@@ -1772,7 +1800,7 @@ def collect(src, published_only):
             if 'publish' in meta:
                 forgotten.append(c)
             continue
-        for old, new in sorted(STARE_KLICE.items()):
+        for old, new in sorted(LEGACY_KEYS.items()):
             if old in meta and new not in meta:
                 legacy.append((c, old, new))
         result.append((c, meta, body_text))
@@ -1827,19 +1855,20 @@ def main():
         print('CHYBA: vstup neexistuje: %s' % args.input)
         return 2
 
-    # Web mode bez filtru by vysypal na internet cely vault. Neni to
-    # pohodli, je to pojistka.
-    # Kontrolni rezim je web mode, ktery stavi do docasneho adresare a vysledek
-    # zahodi. Je pro git hook, ktery chce vedet, jestli se web vubec postavi.
-    # Do vaultu uz nezapisuje zadny rezim, viz zaruka Z45.
+    # Site mode without the filter would dump the whole vault onto the
+    # internet. That is not a convenience, it is a safeguard.
+    # Check mode is site mode that builds into a temporary directory and throws
+    # the result away. It is for a git hook that wants to know whether the site
+    # builds at all. No mode writes into the vault any more, see guarantee Z45.
     if args.check:
         args.site = True
     if args.site:
         args.published_only = True
-    # Kam se zapisuje, urcuje parametr - zadna vychozi cesta v kodu. Vystup
-    # patri mimo repo i mimo vault a jen autor vi kam, viz zaruka Z50.
+    # Where output goes is decided by a flag - no default path in the code. The
+    # output belongs outside the repository and outside the vault, and only the
+    # author knows where, see guarantee Z50.
     if args.site and not args.out and not args.check:
-        print('CHYBA: --web potrebuje -o, tedy kam se ma web postavit.')
+        print('CHYBA: --site potrebuje -o, tedy kam se ma web postavit.')
         return 2
 
     if args.clean and not args.site:
@@ -1857,23 +1886,26 @@ def main():
             print('Nic ke prevodu.')
             return 1
 
-        # Mapa noty -> vystupni soubor. Musi byt hotova pred prevodem, aby
-        # wikilinky mezi notami v davce vedly nekam.
+        # A map of note -> output file. It has to be complete before conversion
+        # starts, so that wikilinks between notes in the batch lead somewhere.
         #
-        # Slug se pocita z NAZVU SOUBORU, ne z titulku. Titulky se opakuji -
-        # v PKVault ma pet not z sablony tasku H1 Popis - a slug z titulku by
-        # je tise prepsal jeden druhym. Nazev souboru je v ramci slozky
-        # jednoznacny. Kdyz i tak nastane kolize (stejny nazev ve dvou
-        # slozkach), prida se cislo a nahlasi se to.
+        # The slug is computed from the FILENAME, not from the title. Titles
+        # repeat - in PKVault five notes out of the task template have the H1
+        # 'Popis' - and a slug taken from the title would quietly overwrite one
+        # with another. A filename is unambiguous within its folder. Should a
+        # clash happen anyway (the same name in two folders), a number is
+        # appended and it is reported.
         #
-        # Frontmatter klic slug prebije jen NAZEV VYSTUPNIHO SOUBORU. Je to kvuli
-        # stabilite adresy: publikovany clanek si slug drzi i po prejmenovani
-        # noty, protoze odkazy zvenci nikdo neopravi. Prebity slug se stejne
-        # prozene funkci slug(), aby preklep v YAML nevyrobil nazev s mezerou.
+        # The frontmatter key slug overrides only the OUTPUT FILENAME. It exists
+        # for the sake of address stability: a published article keeps its slug
+        # even after the note is renamed, because nobody will fix inbound links.
+        # An overriding slug still goes through slug(), so that a typo in the
+        # YAML cannot produce a name with a space in it.
         #
-        # KLIC v mape zustava odvozeny z nazvu souboru, protoze wikilink zna jen
-        # nazev cilove noty a dohledava se pres slug(stem) - viz Prevod.odkaz.
-        # Kdyby klicem byl prebity slug, odkazy na takovou notu by prestaly vest.
+        # The KEY in the map stays derived from the filename, because a wikilink
+        # knows only the target note's name and is resolved through slug(stem) -
+        # see Conversion.resolve_wikilinks. Were the key the overriding slug,
+        # links to such a note would stop leading anywhere.
         plan, batch, used, clashes, guessed_dates = [], {}, set(), [], []
         oversized = []
         for path, meta, body_text in items:
@@ -1884,18 +1916,19 @@ def main():
             while name in used:
                 name, n = '%s-%d' % (base, n), n + 1
             if name != base:
-                # Na webu je adresa zavazek a nesmi se menit podle toho, co se
-                # zrovna publikuje spolu s clankem. Tiche prejmenovani na -2 je
-                # prijatelne u davky do mailu, na web ne.
+                # On a website an address is a commitment and must not change
+                # with whatever happens to be published alongside the article.
+                # A quiet rename to -2 is acceptable for a batch going out by
+                # email, not for a site.
                 if args.site:
                     raise Error('Kolize adresy %s.html - dva clanky se stejnym '
                                 'nazvem. Prejmenuj jeden z nich: %s'
                                 % (base, path))
                 clashes.append('%s -> %s.html' % (path, name))
             if args.site and not meta.get('date'):
-                # Rozhodnuti publikovat nese marker, takze chybejici datum
-                # build neshodi - vezme se datum souboru. Do zdroje se
-                # nezapisuje, viz zaruka Z45.
+                # The decision to publish is carried by the marker, so a
+                # missing date does not fail the build - the file's date is
+                # used. Nothing is written into the source, see guarantee Z45.
                 meta['date'] = file_date(path)
                 guessed_dates.append((path, meta['date']))
             used.add(name)
@@ -1929,8 +1962,9 @@ def main():
             for _, meta, _ in items:
                 all_tags.update(tags_from_meta(meta))
             # Stara slozka _web se uz necte. Mlcet o ni nejde: web by se
-            # postavil bez loga, listy i vlastnich stylu a vypadalo by to
-            # jako chyba generatoru, ne jako neprejmenovana slozka.
+            # built without a logo, without the bar and without the custom
+            # styles, and it would look like a fault in the generator rather
+            # than a directory nobody renamed.
             if (os.path.isdir(os.path.join(vault, '_web'))
                     and not os.path.isdir(os.path.join(vault, CONFIG_DIR))):
                 print('\nPOZOR: vault ma slozku _web, ktera se uz necte.'
@@ -1951,7 +1985,8 @@ def main():
                              % (args.site_name or os.path.basename(vault)))
                             if args.base_url else ''}
             # Znacka rika, ze adresar patri generatoru. Uklid pred buildem smi
-            # mazat jen adresar, ktery ji ma - cizi ani pri preklepu v ceste.
+            # wipe only a directory that carries it - never somebody else's,
+            # not even after a typo in the path.
             open(os.path.join(out_dir, OUTPUT_MARKER), 'w').close()
             cesta_css = os.path.join(out_dir, 'styl.css')
             with open(cesta_css, 'w', encoding='utf-8', newline='\n') as f:
@@ -2005,29 +2040,32 @@ def main():
             return cesta_s
 
         if args.site:
-            # Razeni: datum klesajici, pri shode nazev. Bez druhotneho klice by
+            # Ordering: date descending, the name on a tie. Without the
+            # secondary key
             # bylo poradi uvnitr serie se stejnym datem libovolne.
             ordered = sorted(produced, key=lambda c: c['heading'].lower())
             ordered.sort(key=lambda c: c['date'], reverse=True)
 
             for nazev_s, html_s in card_grid(
                     ordered, 'index', home_title or 'Články', site,
-                    intro=intro, skryty_nadpis=True):
+                    intro=intro, hidden_heading=True):
                 print('  %s' % zapis(nazev_s, html_s))
 
-            # Stranky tagu maji tentyz vypis. Vznikaji tady, protoze na ne
-            # odkazuje lista na kazde strance a kontrola odkazu by jinak
-            # spadla na neexistujici cil.
-            # Nadpis je i tady skryty - podle ktereho tagu je vyfiltrovano rekne
-            # zvyraznene tlacitko v liste, takze v textu je zbytecny.
+            # Tag pages use the same listing. They are produced here because
+            # the bar on every page links to them, and the link check would
+            # otherwise trip over a target that does not exist.
+            # The heading is hidden here as well - which tag the filter is on is
+            # said by the highlighted button in the bar, so it is redundant in
+            # the text.
             for tag in site['tags']:
                 sem = [c for c in ordered if tag in c['tags']]
-                # Dosazitelne = tagy, ktere se s timhle nekde potkavaji. Ostatni
-                # lista ztlumi, takze kombinace do prazdna nejde ani kliknout.
+                # Reachable = tags that co-occur with this one somewhere. The
+                # bar dims the rest, so a combination yielding nothing cannot
+                # even be clicked.
                 reachable = {t for c in sem for t in c['tags']}
                 for nazev_s, html_s in card_grid(sem, 'tag-' + slug(tag),
                                                     tag, site, tag,
-                                                    skryty_nadpis=True,
+                                                    hidden_heading=True,
                                                     active_tag=tag,
                                                     reachable=reachable):
                     print('  %s  (%d clanku, kombinovatelnych tagu %d)'
@@ -2038,7 +2076,7 @@ def main():
             if sem:
                 for nazev_s, html_s in card_grid(
                         sem, 'tag-' + NO_TAG_SLUG, NO_TAG_HEADING, site,
-                        'tag-%s.html' % NO_TAG_SLUG, skryty_nadpis=True,
+                        'tag-%s.html' % NO_TAG_SLUG, hidden_heading=True,
                         active_tag=NO_TAG_SLUG):
                     print('  %s  (%d clanku bez tagu)'
                           % (zapis(nazev_s, html_s), len(sem)))
@@ -2066,9 +2104,10 @@ def main():
 
         if args.site:
             # Kuratorovany seznam v KONFIG/menu.md rozhoduje, co je v liste. Novy
-            # tag se tam neprida sam, protoze smysl te kurace je drzet listu
+            # a new tag does not add itself there, because the point of curating
+            # is to keep the bar
             # kratkou - ale mlcet o tom by znamenalo, ze si autor doplni tag a
-            # diva se, proc v liste neni.
+            # and wonders why it is not in the bar.
             in_menu = set(x for _, _, x in site['menu'] if x)
             missing = [x for x in site['tags'] if x not in in_menu]
             if missing:
@@ -2078,9 +2117,9 @@ def main():
                 for x in missing:
                     print('  `#%s`  ->  tag-%s.html' % (x, slug(x)))
 
-            # Opacny pripad: lista jmenuje tag, ktery zadny publikovany
-            # clanek nema. Jeho stranka nevznikne, takze se v liste ztlumi
-            # - ale autor by mel vedet proc, jinak vypada lista rozbite.
+            # The opposite case: the bar names a tag that no published article
+            # carries. Its page is never generated, so it is dimmed in the bar
+            # - but the author should know why, or the bar just looks broken.
             empty_tags = [x for x in in_menu if x not in site['tags']]
             if empty_tags:
                 print('\nStitky v liste bez clanku (%d): stranka nevznika,'
