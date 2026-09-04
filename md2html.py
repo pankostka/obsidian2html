@@ -641,7 +641,7 @@ def read_text(path):
             return data.decode(encoding).replace('\r\n', '\n')
         except UnicodeDecodeError:
             continue
-    raise Error('Soubor %s neni v UTF-8 ani v cp1250.' % path)
+    raise Error('%s is neither UTF-8 nor cp1250.' % path)
 
 
 def split_frontmatter(text):
@@ -829,7 +829,7 @@ class Conversion(object):
         if self.site and slug(os.path.splitext(target)[0]) == 'menu':
             return ''
         if depth >= MAX_TRANSCLUSION:
-            self.flattened.append('%s (prilis hluboka transkluze)' % target)
+            self.flattened.append('%s (transclusion nested too deep)' % target)
             return ''
         name = target if target.lower().endswith('.md') else target + '.md'
         path = find_file(name, base, self.vault)
@@ -890,7 +890,7 @@ def inline_images(html, base, vault):
 
     html = re.sub(r'src="([^"]+)"', replace, html)
     if missing:
-        raise Error('Chybi obrazky: %s' % ', '.join(sorted(set(missing))))
+        raise Error('Missing images: %s' % ', '.join(sorted(set(missing))))
     return html
 
 
@@ -908,7 +908,7 @@ def copy_attachment(source, out_dir, renamed):
     drive = renamed.get(name)
     source = os.path.abspath(source)
     if drive and drive != source:
-        raise Error('Dva obrazky maji stejnou adresu %s: %s a %s'
+        raise Error('Two images share the address %s: %s and %s'
                     % (name, drive, source))
     if not drive:
         if not os.path.isdir(directory):
@@ -944,7 +944,7 @@ def copy_images(html, base, vault, out_dir, renamed):
 
     html = re.sub(r'src="([^"]+)"', replace, html)
     if missing:
-        raise Error('Chybi obrazky: %s' % ', '.join(sorted(set(missing))))
+        raise Error('Missing images: %s' % ', '.join(sorted(set(missing))))
     return html
 
 
@@ -962,7 +962,7 @@ def to_html(path, conv, meta=None, title=None,
     try:
         import markdown
     except ImportError:
-        raise Error('Chybi balicek markdown. Doinstaluj: pip install markdown')
+        raise Error('The markdown package is missing. Install it: pip install markdown')
 
     base = os.path.dirname(os.path.abspath(path))
     own_meta, body_text = split_frontmatter(read_text(path))
@@ -1141,7 +1141,7 @@ def site_inputs(vault, batch=None):
             try:
                 import markdown
             except ImportError:
-                raise Error('Chybi balicek markdown. Doinstaluj: pip install markdown')
+                raise Error('The markdown package is missing. Install it: pip install markdown')
             intro = '<div class="intro">%s</div>' % markdown.markdown(
                 body_text, extensions=['tables', 'fenced_code', 'attr_list', 'sane_lists'])
     # Custom styles are APPENDED after the generated ones, so anything can be
@@ -1342,7 +1342,7 @@ def excerpt(body_text, meta, conv):
     try:
         import markdown
     except ImportError:
-        raise Error('Chybi balicek markdown. Doinstaluj: pip install markdown')
+        raise Error('The markdown package is missing. Install it: pip install markdown')
 
     source = (meta.get('excerpt') or '').strip()
     if not source:
@@ -1657,8 +1657,8 @@ def clean_output(out_dir):
     if not content:
         return None
     if not os.path.isfile(os.path.join(out_dir, OUTPUT_MARKER)):
-        raise Error('Adresar %s neni od tohoto skriptu (chybi %s) a nebude se '
-                    'mazat. Zkontroluj cestu.' % (out_dir, OUTPUT_MARKER))
+        raise Error('%s does not come from this script (%s is missing) and will'
+                    ' not be wiped. Check the path.' % (out_dir, OUTPUT_MARKER))
 
     archiv = os.path.join(os.path.dirname(os.path.abspath(out_dir)), '_archiv')
     if not os.path.isdir(archiv):
@@ -1742,10 +1742,10 @@ def check_links(out_dir):
             if not target or target in files:
                 continue
             if target.lower() in lowered:
-                bad.append('%s: %s -> na Linuxu 404, soubor se jmenuje %s'
+                bad.append('%s: %s -> 404 on Linux, the file is called %s'
                               % (rel, link, lowered[target.lower()]))
             elif attr == 'src':
-                bad.append('%s: %s -> obrazek ve vystupu neni' % (rel, link))
+                bad.append('%s: %s -> no such image in the output' % (rel, link))
             elif link not in dead:
                 dead.append(link)
 
@@ -1761,9 +1761,9 @@ def check_links(out_dir):
                 f.write(html)
 
     if uppercase:
-        bad.append('velka pismena v nazvu vystupu: %s' % ', '.join(sorted(uppercase)))
+        bad.append('upper case in an output name: %s' % ', '.join(sorted(uppercase)))
     if bad:
-        raise Error('Vadne odkazy ve vystupu (%d):\n  %s'
+        raise Error('Broken links in the output (%d):\n  %s'
                     % (len(bad), '\n  '.join(bad)))
     return flattened
 
@@ -1852,7 +1852,7 @@ def main():
     args = p.parse_args()
 
     if not os.path.exists(args.input):
-        print('CHYBA: vstup neexistuje: %s' % args.input)
+        print('ERROR: input does not exist: %s' % args.input)
         return 2
 
     # Site mode without the filter would dump the whole vault onto the
@@ -1868,11 +1868,11 @@ def main():
     # output belongs outside the repository and outside the vault, and only the
     # author knows where, see guarantee Z50.
     if args.site and not args.out and not args.check:
-        print('CHYBA: --site potrebuje -o, tedy kam se ma web postavit.')
+        print('ERROR: --site needs -o, that is where to build the site.')
         return 2
 
     if args.clean and not args.site:
-        print('CHYBA: --uklid ma smysl jen s --web.')
+        print('ERROR: --clean only makes sense together with --site.')
         return 2
 
     batch_mode = os.path.isdir(args.input)
@@ -1883,7 +1883,7 @@ def main():
     try:
         items, forgotten, legacy = collect(args.input, args.published_only)
         if not items:
-            print('Nic ke prevodu.')
+            print('Nothing to convert.')
             return 1
 
         # A map of note -> output file. It has to be complete before conversion
@@ -1921,8 +1921,8 @@ def main():
                 # A quiet rename to -2 is acceptable for a batch going out by
                 # email, not for a site.
                 if args.site:
-                    raise Error('Kolize adresy %s.html - dva clanky se stejnym '
-                                'nazvem. Prejmenuj jeden z nich: %s'
+                    raise Error('Address clash on %s.html - two articles share a'
+                                ' name. Rename one of them: %s'
                                 % (base, path))
                 clashes.append('%s -> %s.html' % (path, name))
             if args.site and not meta.get('date'):
@@ -1948,7 +1948,7 @@ def main():
         if args.clean:
             archiv = clean_output(out_dir)
             if archiv:
-                print('  %s  (%.0f kB, predchozi vystup)'
+                print('  %s  (%.0f kB, the previous output)'
                       % (archiv, os.path.getsize(archiv) / 1024.0))
         if out_dir and not os.path.isdir(out_dir):
             os.makedirs(out_dir)
@@ -1967,9 +1967,9 @@ def main():
             # than a directory nobody renamed.
             if (os.path.isdir(os.path.join(vault, '_web'))
                     and not os.path.isdir(os.path.join(vault, CONFIG_DIR))):
-                print('\nPOZOR: vault ma slozku _web, ktera se uz necte.'
-                      ' Prejmenuj ji na %s.' % CONFIG_DIR)
-                print('Uvnitr prejmenuj menu_webu.md na menu.md.')
+                print('\nNOTE: the vault has a _web directory, which is no longer'
+                      ' read. Rename it to %s.' % CONFIG_DIR)
+                print('Inside it, rename menu_webu.md to menu.md.')
 
             menu_source, intro, home_title, custom_css = site_inputs(vault, batch)
             no_tag = any(not tags_from_meta(m) for _, m, _ in items)
@@ -1997,8 +1997,8 @@ def main():
             print('  %s' % cesta_css)
             site['logo'] = find_logo(vault, out_dir)
             if not site['logo']:
-                print('  (logo neni: cekam %s/logo.svg nebo .png,'
-                      ' hlavicka zatim vysadi nazev)' % CONFIG_DIR)
+                print('  (no logo: %s/logo.svg or .png is expected,'
+                      ' the header sets the name instead)' % CONFIG_DIR)
 
         conv = Conversion(vault, batch, site=args.site)
         produced = []
@@ -2068,7 +2068,7 @@ def main():
                                                     hidden_heading=True,
                                                     active_tag=tag,
                                                     reachable=reachable):
-                    print('  %s  (%d clanku, kombinovatelnych tagu %d)'
+                    print('  %s  (%d articles, %d combinable tags)'
                           % (zapis(nazev_s, html_s), len(sem),
                              len(reachable - {tag})))
 
@@ -2078,29 +2078,29 @@ def main():
                         sem, 'tag-' + NO_TAG_SLUG, NO_TAG_HEADING, site,
                         'tag-%s.html' % NO_TAG_SLUG, hidden_heading=True,
                         active_tag=NO_TAG_SLUG):
-                    print('  %s  (%d clanku bez tagu)'
+                    print('  %s  (%d articles without tags)'
                           % (zapis(nazev_s, html_s), len(sem)))
 
             print('  %s' % zapis('hledani.html',
                                  search_page(ordered, site)))
 
             if args.base_url:
-                print('  %s  (%d polozek)'
+                print('  %s  (%d items)'
                       % (zapis('rss.xml', rss(ordered, site, args.base_url)),
                          min(len(ordered), RSS_ITEMS)))
         elif batch_mode:
             cesta_s = zapis('index.html', index_page(produced))
-            print('  %s  (rozcestnik na %d stranek)' % (cesta_s, len(produced)))
+            print('  %s  (an index of %d pages)' % (cesta_s, len(produced)))
 
         if args.site:
             flattened_links = check_links(out_dir)
             if flattened_links:
-                print('\nZplostene odkazy na soubory (%d): cil ve vystupu neni,'
-                      ' zustal jen text.' % len(flattened_links))
+                print('\nFlattened file links (%d): no such target in the'
+                      ' output, only the text is left.' % len(flattened_links))
                 for x in flattened_links[:10]:
                     print('  %s' % x)
                 if len(flattened_links) > 10:
-                    print('  ... a dalsich %d' % (len(flattened_links) - 10))
+                    print('  ... and %d more' % (len(flattened_links) - 10))
 
         if args.site:
             # Kuratorovany seznam v KONFIG/menu.md rozhoduje, co je v liste. Novy
@@ -2111,9 +2111,10 @@ def main():
             in_menu = set(x for _, _, x in site['menu'] if x)
             missing = [x for x in site['tags'] if x not in in_menu]
             if missing:
-                print('\nTagy mimo listu (%d): stranka se generuje a vede na ni'
-                      ' odkaz z paticky clanku, ale v liste neni.' % len(missing))
-                print('Pridej radek do %s/menu.md, kdyz tam patri:' % CONFIG_DIR)
+                print('\nTags outside the bar (%d): the page is generated and an'
+                      ' article footer links to it, but it is not in the bar.'
+                      % len(missing))
+                print('Add a line to %s/menu.md when it belongs there:' % CONFIG_DIR)
                 for x in missing:
                     print('  `#%s`  ->  tag-%s.html' % (x, slug(x)))
 
@@ -2122,62 +2123,62 @@ def main():
             # - but the author should know why, or the bar just looks broken.
             empty_tags = [x for x in in_menu if x not in site['tags']]
             if empty_tags:
-                print('\nStitky v liste bez clanku (%d): stranka nevznika,'
-                      ' v liste jsou ztlumene a nejdou kliknout.'
-                      % len(empty_tags))
-                print('Publikuj clanek s timhle tagem, nebo radek z %s/menu.md'
-                      ' odeber:' % CONFIG_DIR)
+                print('\nTags in the bar with no articles (%d): no page is'
+                      ' generated, they are dimmed in the bar and cannot be'
+                      ' clicked.' % len(empty_tags))
+                print('Publish an article with that tag, or drop the line from'
+                      ' %s/menu.md:' % CONFIG_DIR)
                 for x in sorted(empty_tags):
                     print('  `#%s`' % x)
 
         if oversized:
-            print('\nVelke nahledy (%d): na titulce se zobrazuji ve vysce'
-                  ' 9rem, takze staci mensi soubor.' % len(oversized))
+            print('\nOversized thumbnails (%d): on the front page they are shown'
+                  ' 9rem high, so a smaller file is enough.' % len(oversized))
             for c, kb in oversized:
                 print('  %.0f kB  %s' % (kb, c))
 
         if guessed_dates:
-            print('\nDatum chybi ve frontmatteru, vzato ze souboru (%d).'
-                  ' Datum souboru se meni pri kopirovani i synchronizaci,'
-                  ' takze poradi na titulce nemusi vydrzet:'
+            print('\nNo date in the frontmatter, taken from the file (%d).'
+                  ' A file date changes when copying and when syncing, so the'
+                  ' order on the front page need not survive:'
                   % len(guessed_dates))
             for c, d in guessed_dates:
                 print('  %s  %s' % (d, c))
 
         if legacy:
-            print('\nPOZOR: stare ceske klice frontmatteru (%d). Uz se nectou,'
-                  ' takze clanek prijde o datum nebo titulek:' % len(legacy))
+            print('\nNOTE: old Czech frontmatter keys (%d). They are no longer'
+                  ' read, so the article loses its date or its title:' % len(legacy))
             for c, old, new in legacy:
                 print('  %s -> %s  %s' % (old, new, c))
 
         if forgotten:
-            print('\nPOZOR: klic publish bez markeru v nazvu (%d) - na web NEJDOU.'
-                  % len(forgotten))
+            print('\nNOTE: a publish key without the marker in the name (%d) -'
+                  ' these do NOT go out.' % len(forgotten))
             for c in forgotten:
                 print('  %s' % c)
 
         if clashes:
-            print('\nKolize nazvu (%d): stejny nazev souboru ve dvou slozkach, '
+            print('\nName clashes (%d): the same filename in two folders, '
                   'prejmenovano.' % len(clashes))
             for k in clashes:
                 print('  %s' % k)
 
         if conv.flattened:
             unique = sorted(set(conv.flattened))
-            print('\nZplostene odkazy (%d): cil neni v davce, zustal jen text.'
-                  % len(unique))
+            print('\nFlattened links (%d): the target is not in the batch, only'
+                  ' the text is left.' % len(unique))
             for u in unique[:10]:
                 print('  %s' % u)
             if len(unique) > 10:
-                print('  ... a dalsich %d' % (len(unique) - 10))
+                print('  ... and %d more' % (len(unique) - 10))
 
         return 0
 
     except Error as e:
-        print('CHYBA: %s' % e)
+        print('ERROR: %s' % e)
         return 1
     except (OSError, IOError) as e:
-        print('CHYBA: %s' % e)
+        print('ERROR: %s' % e)
         return 1
     finally:
         # Kontrolni rezim po sobe nesmi nechat adresar - hook bezi pri kazdem

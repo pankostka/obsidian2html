@@ -150,7 +150,7 @@ class Zaruky(Zaklad):
         html = self.vystupni('prvni.html')
         self.assertIn('Neexistujici notu', html)
         self.assertNotIn('<a href="neexistujici-notu.html"', html)
-        self.assertIn('Zplostene odkazy', vypis)
+        self.assertIn('Flattened links', vypis)
 
     def test_Z10_zivy_odkaz_zustane_odkazem(self):
         """Protejsek predchoziho: kdyz cil v davce JE, odkaz se zachova.
@@ -173,7 +173,7 @@ class Zaruky(Zaklad):
         html = self.vystupni('index.html')
         self.assertIn('class="zhasnuty"', html)
         self.assertNotIn('href="tag-prazdny.html"', html)
-        self.assertIn('Stitky v liste bez clanku', vypis)
+        self.assertIn('Tags in the bar with no articles', vypis)
 
     def test_Z20_kod_se_neprepisuje(self):
         """Wikilink uvnitr kodu je ukazka syntaxe, ne odkaz."""
@@ -202,7 +202,7 @@ class Zaruky(Zaklad):
         self.clanek('Prvni', 'Obrazek: ![[chybi.png]]\n')
         kod, vypis = self.build(s_vystupem=True)
         self.assertEqual(kod, 1, 'build mel skoncit chybou, vypis:\n' + vypis)
-        self.assertIn('CHYBA', vypis)
+        self.assertIn('ERROR', vypis)
 
     def test_Z40_vlastni_styly_se_pripojuji(self):
         """Vlastni CSS jde ZA vygenerovane, takze prepsat jde cokoli."""
@@ -491,7 +491,7 @@ class Konvence(Zaklad):
         html = self.vystupni('stary.html')
         self.assertNotIn('Jiny titulek', html)
         self.assertNotIn('2020-05-05', html)
-        self.assertIn('stare ceske klice', vypis)
+        self.assertIn('old Czech frontmatter keys', vypis)
         self.assertIn('datum -> date', vypis)
         self.assertIn('titul -> title', vypis)
 
@@ -503,7 +503,7 @@ class Konvence(Zaklad):
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
         self.assertIn('2019-03-07', self.vystupni('bez-data.html'))
-        self.assertIn('vzato ze souboru', vypis)
+        self.assertIn('taken from the file', vypis)
 
     def test_K80_datum_z_frontmatteru_ma_prednost(self):
         cesta = self.clanek('S datem', 'Text.', datum='2020-05-05')
