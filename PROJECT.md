@@ -65,7 +65,13 @@ Přejmenovával **tokenizér, ne hledání v textu**. Spousta českých slov v t
 
 Testy hned našly chybu: `HTML_WEB.format` předával argument `hlavicka`, jenže zástupný symbol `{hlavicka}` uvnitř šablony je řetězec a přejmenování se ho správně netklo.
 
-**Zbývá:** komentáře a docstringy (~1250 řádků prózy), vnitřní klíče slovníků (~88 výskytů) a proměnné ve vloženém JavaScriptu (~300). JavaScript a klíče se musí přejmenovat naráz, protože index hledání je jejich společné rozhraní.
+Hotové jsou i **vnitřní klíče slovníků a vložený JavaScript** (`30f4a5f`). Muselo to jít naráz, index hledání je společné rozhraní obou stran. JS blok jsem přepsal celý místo čtyřiceti záměn: `karta`, `stitek`, `vybrany`, `perex` a `vypis` jsou současně názvy proměnných i CSS tříd, takže záměna po slovech by se dřív nebo později trefila do třídy.
+
+České zůstávají **záměrně** CSS třídy, id prvků a texty pro čtenáře - na ně se váže `styl.css` ve vaultech.
+
+Ověřeno i v prohlížeči, protože testy JavaScript nespouští: fasetový filtr, kombinace s dotazem, zvýrazňování, skládání diakritiky i zápis stavu do adresy.
+
+**Zbývají už jen komentáře a docstringy**, zhruba 1250 řádků prózy. Je to čisté psaní, bez rizika pro funkčnost.
 
 ### 5. Rozhraní do angličtiny - HOTOVO
 
