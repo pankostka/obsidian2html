@@ -49,7 +49,7 @@ Při ověřování se ukázala drobná vada, opravena hned: kurátorovaná lišt
 
 ### 3. Testy - HOTOVO
 
-43 testů v `test_md2html.py`, spouští se `python test_md2html.py`, běží pod sekundu a nepotřebují nic nad rámec toho, co potřebuje generátor.
+45 testů v `test_md2html.py`, spouští se `python test_md2html.py`, běží pod sekundu a nepotřebují nic nad rámec toho, co potřebuje generátor.
 
 Zadáním jsou konvence z `README.cs.md`, ne implementace. Název testu začíná kódem konvence, takže když spadne, rovnou říká, která věta přestala platit.
 
@@ -57,7 +57,7 @@ Několik testů je záměrně v párech: vedle mrtvého odkazu se ověřuje i ž
 
 **Hned našly regresi**, kterou zavlekl krok 2. Chybějící datum se bralo ze souboru, ale `na_html` si frontmatter četla znovu ze zdroje, takže o dopočítaném datu nevěděla: datum se objevilo na titulce a v řazení, v patičce článku ne. Dokud se datum zapisovalo do zdroje, rozpor nemohl nastat. Nikdo by si toho nevšiml, protože všechny články PKVaultu datum mají.
 
-### 4. Vnitřek do angličtiny - ČÁSTEČNĚ
+### 4. Vnitřek do angličtiny - HOTOVO
 
 Hotovo: **1044 identifikátorů** - názvy funkcí, tříd, konstant a proměnných.
 
@@ -71,7 +71,9 @@ Hotové jsou i **vnitřní klíče slovníků a vložený JavaScript** (`30f4a5f
 
 Ověřeno i v prohlížeči, protože testy JavaScript nespouští: fasetový filtr, kombinace s dotazem, zvýrazňování, skládání diakritiky i zápis stavu do adresy.
 
-**Zbývají už jen komentáře a docstringy**, zhruba 1250 řádků prózy. Je to čisté psaní, bez rizika pro funkčnost.
+Přeloženy i **komentáře a docstringy** (`0712dcc`, `312d13d`, `9311c3d`), po sekcích s testy po každé. České jsou už jen řetězce, které čte člověk.
+
+Cestou vypadly dvě chyby, které testy samy nenašly. `site_inputs` inicializovala `titul`, přiřazovala do `home_title` a vracela `titul`, takže **vlastní titulek titulky z `index.md` se zahazoval** - vzniklo to při přejmenování klíčů v kroku 5 a test na to teď je. A hláška při `--site` bez `-o` pořád mluvila o `--web`.
 
 ### 5. Rozhraní do angličtiny - HOTOVO
 
