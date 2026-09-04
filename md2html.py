@@ -151,16 +151,118 @@ PUBLISH_MARKER = '🌐'
 # somebody else survives even a typo in the path.
 OUTPUT_MARKER = '.vygenerovano'
 
-# The pseudo-tag for articles without tags. In the bar it is a '#' button, its
-# page is called tag-bez-tagu.html and the heading reads 'Bez tagu' - a bare
-# hash is useless as a page title, and useless to a screen reader too.
-NO_TAG_SLUG = 'bez-tagu'
+# The pseudo-tag for articles without tags. In the bar it is a '#' button - a
+# bare hash is useless as a page title, and useless to a screen reader too, so
+# its page carries a real heading. Both the slug and the heading come from the
+# language table; only the button label is the same everywhere.
 NO_TAG_LABEL = '#'
-NO_TAG_HEADING = 'Bez tagu'
 
 
 # ==============================================================================
-# Vzhled
+# Localisation
+# ==============================================================================
+#
+# Only what a VISITOR of the generated site sees is localised. Messages printed
+# while building are for whoever runs the script, and those are English
+# unconditionally - the same audience that reads --help.
+#
+# The default is Czech, so a vault built without --lang comes out exactly as it
+# did before this table existed.
+#
+# Page names are part of the table on purpose. A Czech site therefore keeps
+# hledani.html and its published addresses do not move, while an English one
+# gets search.html. An address once published is a commitment; deriving it from
+# the language keeps that promise on both sides.
+
+TEXTS = {
+    'cs': {
+        'lang': 'cs',
+        'search': 'Hledání',
+        'search_file': 'hledani.html',
+        'search_button': 'Hledat',
+        'search_placeholder': 'Hledat…',
+        'search_aria': 'Hledaný výraz',
+        'needs_js': 'Hledání potřebuje JavaScript.'
+                    ' Bez něj zbývá seznam všech článků:',
+        'home': 'Titulka',
+        'top': 'Nahoru',
+        'articles': 'Články',
+        'copy_name': 'Zkopírovat název',
+        'copied': 'Zkopírováno',
+        'tag_prefix': 'tag-',
+        'no_tag_slug': 'bez-tagu',
+        'no_tag_heading': 'Bez tagu',
+        'no_tag_scope': 'článcích bez tagu',
+        'newer': 'Novější',
+        'older': 'Starší',
+        'page_of': 'Stránka %d z %d',
+        'page_suffix': '%s, strana %d',
+        'no_article_yet': 'zatím nemá publikovaný článek',
+        'no_overlap': 's #%s se nepotkává v žádném článku',
+        'clear_filter': 'zrušit filtr',
+        'remove_filter': 'odebrat filtr',
+        'nothing_found': 'nic nenalezeno',
+        'in_scope': ' v ',
+        'and': ' a ',
+        # Plural forms keyed by the categories of Intl.PluralRules. Czech has
+        # three that matter, English two; the browser picks, so no counting
+        # rules are written here.
+        'n_articles': {'one': '%d článek', 'few': '%d články',
+                       'many': '%d článků', 'other': '%d článků'},
+        'n_found': {'one': '%d nalezený', 'few': '%d nalezené',
+                    'many': '%d nalezených', 'other': '%d nalezených'},
+    },
+    'en': {
+        'lang': 'en',
+        'search': 'Search',
+        'search_file': 'search.html',
+        'search_button': 'Search',
+        'search_placeholder': 'Search…',
+        'search_aria': 'Search query',
+        'needs_js': 'Search needs JavaScript.'
+                    ' Without it, here is a list of every article:',
+        'home': 'Home',
+        'top': 'Top',
+        'articles': 'Articles',
+        'copy_name': 'Copy the name',
+        'copied': 'Copied',
+        'tag_prefix': 'tag-',
+        'no_tag_slug': 'no-tag',
+        'no_tag_heading': 'Without a tag',
+        'no_tag_scope': 'articles without a tag',
+        'newer': 'Newer',
+        'older': 'Older',
+        'page_of': 'Page %d of %d',
+        'page_suffix': '%s, page %d',
+        'no_article_yet': 'no published article yet',
+        'no_overlap': 'never occurs together with #%s',
+        'clear_filter': 'clear the filter',
+        'remove_filter': 'remove the filter',
+        'nothing_found': 'nothing found',
+        'in_scope': ' in ',
+        'and': ' and ',
+        'n_articles': {'one': '%d article', 'other': '%d articles'},
+        'n_found': {'one': '%d found', 'other': '%d found'},
+    },
+}
+
+# The texts of the language in use. A module-level name rather than an argument
+# threaded through thirty functions: the script converts one vault in one run,
+# so the language is set once in main() and never changes underneath anybody.
+T = TEXTS['cs']
+
+
+def set_language(code):
+    """Pick the language of the generated site. Unknown code is an error."""
+    global T
+    if code not in TEXTS:
+        raise Error('Unknown language %s. Available: %s'
+                    % (code, ', '.join(sorted(TEXTS))))
+    T = TEXTS[code]
+
+
+# ==============================================================================
+# Appearance
 # ==============================================================================
 
 CSS_CONTENT = """
@@ -350,7 +452,7 @@ CSS = CSS_CONTENT
 CSS_WEB = CSS_CONTENT + CSS_CHROME
 
 
-HTML = ('<!doctype html><html lang="cs"><head><meta charset="utf-8">'
+HTML = ('<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         '<title>{title}</title><style>{css}</style></head><body>{body}{footer}'
         '</body></html>')
@@ -358,7 +460,7 @@ HTML = ('<!doctype html><html lang="cs"><head><meta charset="utf-8">'
 # Site mode: the style sits in one file next to the pages, not inside each of
 # them. The reason is size - in self-contained mode a single page with five
 # screenshots weighs 598 kB, because the images are base64 and the CSS repeats.
-HTML_WEB = ('<!doctype html><html lang="cs"><head><meta charset="utf-8">'
+HTML_WEB = ('<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
             '<title>{title}</title>'
             '<link rel="stylesheet" href="styl.css">{head_extra}</head><body>'
@@ -369,11 +471,11 @@ HTML_WEB = ('<!doctype html><html lang="cs"><head><meta charset="utf-8">'
 # JavaScript that fails but fetch() - the browser refuses to read local JSON
 # because of CORS. Baking it in removes that obstacle and the very same file
 # works from a host and from a disk alike.
-SEARCH_PAGE = r"""<h1 class="jen-ctecka">Hledání</h1>
+SEARCH_PAGE = r"""<h1 class="jen-ctecka">@SEARCH@</h1>
 <div id="fasety" class="fasety"></div>
 <div id="vysledky"></div>
 <noscript>
-  <p>Hledání potřebuje JavaScript. Bez něj zbývá seznam všech článků:</p>
+  <p>@NEEDS_JS@</p>
   @LIST@
 </noscript>
 <script>
@@ -391,11 +493,22 @@ const NO_TAG = '@NO_TAG@';
 // Tag order is taken from the bar, so the eye looks for a tag in the same
 // place as everywhere else.
 const ALL_TAGS = @TAGS@;
+// Every string the visitor reads, in the language of the site. Baked in the
+// same way the index is, so the page needs nothing else to work.
+const TXT = @TEXTS@;
 
 const fold = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-// Czech plurals: 1 clanek, 2-4 clanky, 5+ clanku.
-const countLabel = n => n + (n === 1 ? ' článek' : (n < 5 ? ' články' : ' článků'));
+
+// Plurals are picked by Intl.PluralRules, so no counting rules live here.
+// Czech needs three forms and English two; the browser knows which category a
+// number falls into, and the table supplies the wording.
+const plural = new Intl.PluralRules(TXT.lang);
+const shape = (forms, n) => {
+  const form = forms[plural.select(n)] || forms.other;
+  return form.replace('%d', n);
+};
+const countLabel = n => shape(TXT.n_articles, n);
 
 ARTICLES.forEach(c => {
   c.nTitle = fold(c.title);
@@ -416,8 +529,8 @@ function matchesTags(c, combo) {
 
 function scopeLabel() {
   if (!filters.length) return '';
-  return ' v ' + filters.map(f => f === NO_TAG ? 'článcích bez tagu'
-                                               : '#' + f).join(' a ');
+  return TXT.in_scope + filters.map(f => f === NO_TAG ? TXT.no_tag_scope
+                                                      : '#' + f).join(TXT.and);
 }
 
 function score(c, words) {
@@ -445,8 +558,8 @@ function snippet(c, word) {
 }
 
 function card(c, label) {
-  const tags = c.tags.map(t => '<a href="tag-' + t.slug + '.html">#' + esc(t.name)
-                               + '</a>').join(' ');
+  const tags = c.tags.map(t => '<a href="' + TXT.tag_prefix + t.slug + '.html">#'
+                               + esc(t.name) + '</a>').join(' ');
   const meta = [c.date, tags].filter(Boolean).join(' ');
   const thumb = c.image
     ? '<a class="nahled" href="' + c.url + '"><img src="' + c.image
@@ -473,13 +586,11 @@ function search(query) {
                      .filter(x => x.s > 0)
                      .sort((a, b) => b.s - a.s);
   if (!found.length) {
-    counter.textContent = 'nic nenalezeno' + scopeLabel();
+    counter.textContent = TXT.nothing_found + scopeLabel();
     target.innerHTML = '';
     return;
   }
-  counter.textContent = (found.length === 1 ? '1 nalezený'
-                                            : found.length + ' nalezených')
-                        + scopeLabel();
+  counter.textContent = shape(TXT.n_found, found.length) + scopeLabel();
   target.innerHTML = grid(found.map(x => card(x.c, snippet(x.c, words[0]))));
 }
 
@@ -517,8 +628,8 @@ function renderFacets(words) {
       // that tag's article count. How many results there are right now is
       // what the header says.
       parts.push('<button type="button" class="stitek vybrany" data-tag="'
-                 + esc(tag.name) + '" aria-pressed="true" title="odebrat filtr">#'
-                 + esc(tag.label) + '</button>');
+                 + esc(tag.name) + '" aria-pressed="true" title="'
+                 + TXT.remove_filter + '">#' + esc(tag.label) + '</button>');
     } else if (count === 0) {
       parts.push('<span class="stitek zhasnuty" aria-disabled="true">#'
                  + esc(tag.label) + '<span class="pocet-tagu">0</span></span>');
@@ -530,7 +641,7 @@ function renderFacets(words) {
   }
   if (filters.length) {
     parts.push('<button type="button" class="stitek zrusit" id="zrusit">'
-               + 'zrušit filtr</button>');
+               + TXT.clear_filter + '</button>');
   }
   target.innerHTML = parts.join('');
 }
@@ -594,7 +705,7 @@ COPY_SCRIPT = r"""<script>
   var puvodni = tlacitko.textContent;
 
   function hotovo() {
-    tlacitko.textContent = 'Zkopírováno';
+    tlacitko.textContent = '@COPIED@';
     setTimeout(function () { tlacitko.textContent = puvodni; }, 1500);
   }
 
@@ -1001,15 +1112,17 @@ def to_html(path, conv, meta=None, title=None,
         masthead = ['<div class="zahlavi"><h1>%s</h1>' % heading]
         if tags:
             masthead.append('<div class="tagy">%s</div>' % ' '.join(
-                '<a href="tag-%s.html">#%s</a>' % (slug(x), x) for x in tags))
+                '<a href="%s">#%s</a>' % (tag_page(x), x) for x in tags))
         masthead.append('</div>')
         return heading, HTML_WEB.format(
+            lang=T['lang'],
             title='%s - %s' % (heading, site['name']),
             head_extra=site.get('head_extra', ''),
             header=header_html(site),
             body=''.join(masthead) + body,
             footer=footer_html(site, own_meta.get('date'), tags, heading))
-    return heading, HTML.format(title=heading, css=CSS, body=body, footer=footer)
+    return heading, HTML.format(lang=T['lang'], title=heading, css=CSS,
+                                body=body, footer=footer)
 
 
 # ==============================================================================
@@ -1047,9 +1160,9 @@ def menu_items(text, tags, no_tag=False):
       [[Article name]]        a link to an article, address derived from the name
     A leading bullet is ignored, so that it can be a list inside Obsidian.
     """
-    pseudo = (NO_TAG_LABEL, 'tag-%s.html' % NO_TAG_SLUG, None)
+    pseudo = (NO_TAG_LABEL, tag_page(T['no_tag_slug']), None)
     if not text:
-        done = [(t, 'tag-%s.html' % slug(t), t) for t in tags]
+        done = [(t, tag_page(t), t) for t in tags]
         return done + ([pseudo] if no_tag else [])
 
     items = []
@@ -1081,7 +1194,7 @@ def menu_items(text, tags, no_tag=False):
             continue
         if r.startswith('#') and len(r) > 1 and not r[1].isspace():
             tag = r[1:].strip()
-            items.append((tag, 'tag-%s.html' % slug(tag), tag))
+            items.append((tag, tag_page(tag), tag))
     # When menu.md never mentions the pseudo-tag, it appends itself - articles
     # without tags would otherwise be reachable from nowhere but the front page.
     if no_tag and pseudo not in items:
@@ -1156,9 +1269,15 @@ def site_inputs(vault, batch=None):
     return menu, intro, home_title, custom_css
 
 
+def tag_page(name):
+    """The filename of a tag page. The prefix comes from the language table, so
+    a Czech and an English site do not fight over the same address."""
+    return '%s%s.html' % (T['tag_prefix'], slug(name))
+
+
 def combination_url(tags):
     """The address of the search page with tags pre-selected."""
-    return 'hledani.html?' + '&'.join('tag=%s' % quote(t) for t in tags)
+    return T['search_file'] + '?' + '&'.join('tag=%s' % quote(t) for t in tags)
 
 
 def header_html(site, active=None, active_tag=None, reachable=None,
@@ -1195,14 +1314,15 @@ def header_html(site, active=None, active_tag=None, reachable=None,
     # page carried the index, its size would be paid on every load.
     parts = ['<header class="hlavicka">', '<div class="pas">',
             '<a class="logo" href="index.html">%s</a>' % mark,
-            '<form class="hledani" action="hledani.html" method="get">',
-            '<input type="search" name="q" id="dotaz" placeholder="Hledat…"',
-            ' autocomplete="off" aria-label="Hledaný výraz">',
+            '<form class="hledani" action="%s" method="get">' % T['search_file'],
+            '<input type="search" name="q" id="dotaz" placeholder="%s"'
+            % T['search_placeholder'],
+            ' autocomplete="off" aria-label="%s">' % T['search_aria'],
             # The button is deliberate, even though Enter in a single field
             # submits the form on its own: an explicit submit is unambiguous in
             # every browser and can be tapped on a phone. On the search page the
             # script disarms it.
-            '<button type="submit">Hledat</button>',
+            '<button type="submit">%s</button>' % T['search_button'],
             # When a page is filtered to a tag, the form carries that tag along
             # and only its articles are searched. Without it a query from a tag
             # page would search the whole site and the context would be lost.
@@ -1211,7 +1331,7 @@ def header_html(site, active=None, active_tag=None, reachable=None,
             '<span class="pocet" id="pocet"></span>',
             '</form>', '</div>', '<nav>']
     for label, url, tag in site['menu']:
-        if fixed_only and (tag or url == 'tag-%s.html' % NO_TAG_SLUG):
+        if fixed_only and (tag or url == tag_page(T['no_tag_slug'])):
             continue
         # `active` is either a tag name or a filename - so that a fixed item,
         # Search for instance, can be highlighted too.
@@ -1223,16 +1343,16 @@ def header_html(site, active=None, active_tag=None, reachable=None,
             # word would sit among styled pills. A dimmed pill says the same
             # thing without breaking the row. The build reports it as well.
             parts.append('<span class="zhasnuty" aria-disabled="true"'
-                        ' title="zatím nemá publikovaný článek">%s</span>'
-                        % label)
+                        ' title="%s">%s</span>'
+                        % (T['no_article_yet'], label))
         elif is_current:
             # An active chip removes the filter, so it goes back to the front page.
             parts.append('<a href="index.html" aria-current="page">%s</a>' % label)
         elif tag and active_tag:
             if reachable is not None and tag not in reachable:
                 parts.append('<span class="zhasnuty" aria-disabled="true"'
-                            ' title="s #%s se nepotkává v žádném článku">%s</span>'
-                            % (active_tag, label))
+                            ' title="%s">%s</span>'
+                            % (T['no_overlap'] % active_tag, label))
             else:
                 parts.append('<a href="%s">%s</a>'
                             % (combination_url([active_tag, tag]), label))
@@ -1253,27 +1373,28 @@ def footer_html(site, date=None, tags=(), name=None):
         parts.append('<span>%s</span>' % date)
     if tags:
         parts.append('<span class="tagy">%s</span>' % ' '.join(
-            '<a href="tag-%s.html">#%s</a>' % (slug(t), t) for t in tags))
+            '<a href="%s">#%s</a>' % (tag_page(t), t) for t in tags))
     links = []
     if name:
         links.append('<button type="button" id="kopirovat" class="kopie"'
-                      ' data-nazev="%s">Zkopírovat název</button>'
-                      % name.replace('"', '&quot;'))
-    links.append('<a href="index.html">Titulka</a>')
+                      ' data-nazev="%s">%s</button>'
+                      % (name.replace('"', '&quot;'), T['copy_name']))
+    links.append('<a href="index.html">%s</a>' % T['home'])
     if site.get('search'):
-        links.append('<a href="hledani.html">Hledání</a>')
+        links.append('<a href="%s">%s</a>' % (T['search_file'], T['search']))
     if site.get('rss'):
         links.append('<a href="rss.xml">RSS</a>')
-    links.append('<a href="#">Nahoru</a>')
+    links.append('<a href="#">%s</a>' % T['top'])
     parts.append('<span class="odkazy">%s</span>' % ''.join(links))
-    script = COPY_SCRIPT if name else ''
+    script = COPY_SCRIPT.replace('@COPIED@', T['copied']) if name else ''
     return '<footer class="paticka">%s</footer>%s' % (''.join(parts), script)
 
 
 def site_page(page_title, content, site, active=None, active_tag=None,
                 reachable=None, fixed_only=False):
     """Wrap content in the header and footer. For the front page and tag pages."""
-    return HTML_WEB.format(title='%s - %s' % (page_title, site['name']),
+    return HTML_WEB.format(lang=T['lang'],
+                           title='%s - %s' % (page_title, site['name']),
                            head_extra=site.get('head_extra', ''),
                            header=header_html(site, active, active_tag,
                                                   reachable, fixed_only),
@@ -1392,7 +1513,7 @@ def card(c):
     if c['date']:
         labels.append(c['date'])
     if c['tags']:
-        labels.append(' '.join('<a href="tag-%s.html">#%s</a>' % (slug(t), t)
+        labels.append(' '.join('<a href="%s">#%s</a>' % (tag_page(t), t)
                                for t in c['tags']))
     if labels:
         parts.append('<div class="meta">%s</div>' % ' '.join(labels))
@@ -1413,12 +1534,12 @@ def pagination(base, number, total):
         return ''
     parts = []
     if number > 1:
-        parts.append('<a href="%s">&larr; Novější</a>'
-                    % page_name(base, number - 1))
-    parts.append('<span>Stránka %d z %d</span>' % (number, total))
+        parts.append('<a href="%s">&larr; %s</a>'
+                    % (page_name(base, number - 1), T['newer']))
+    parts.append('<span>%s</span>' % (T['page_of'] % (number, total)))
     if number < total:
-        parts.append('<a href="%s">Starší &rarr;</a>'
-                    % page_name(base, number + 1))
+        parts.append('<a href="%s">%s &rarr;</a>'
+                    % (page_name(base, number + 1), T['older']))
     return '<nav class="strankovani">%s</nav>' % ''.join(parts)
 
 
@@ -1445,7 +1566,8 @@ def card_grid(articles, base, heading, site, active=None, intro='',
         content.extend(card(c) for c in chunk)
         content.append('</div>')
         content.append(pagination(base, number, len(pages)))
-        page_title = heading if number == 1 else '%s, strana %d' % (heading, number)
+        page_title = (heading if number == 1
+                      else T['page_suffix'] % (heading, number))
         result.append((page_name(base, number),
                          site_page(page_title, ''.join(content), site,
                                      active, active_tag, reachable)))
@@ -1511,20 +1633,24 @@ def search_page(articles, site):
         if tag:
             chips.append({'name': tag, 'label': label})
             in_menu.add(tag)
-        elif url == 'tag-%s.html' % NO_TAG_SLUG:
-            chips.append({'name': NO_TAG_SLUG, 'label': NO_TAG_LABEL})
-            in_menu.add(NO_TAG_SLUG)
+        elif url == tag_page(T['no_tag_slug']):
+            chips.append({'name': T['no_tag_slug'], 'label': NO_TAG_LABEL})
+            in_menu.add(T['no_tag_slug'])
     for tag in site['tags']:
         if tag not in in_menu:
             chips.append({'name': tag, 'label': tag})
-    if NO_TAG_SLUG not in in_menu and any(not c['tags'] for c in articles):
-        chips.append({'name': NO_TAG_SLUG, 'label': NO_TAG_LABEL})
+    if T['no_tag_slug'] not in in_menu and any(not c['tags'] for c in articles):
+        chips.append({'name': T['no_tag_slug'], 'label': NO_TAG_LABEL})
 
     content = (SEARCH_PAGE.replace('@DATA@', cards)
                     .replace('@TAGS@', json.dumps(chips, ensure_ascii=False))
+                    .replace('@TEXTS@', json.dumps(T, ensure_ascii=False))
                     .replace('@LIST@', ''.join(plain))
-                    .replace('@NO_TAG@', NO_TAG_SLUG))
-    return site_page('Hledání', content, site, 'hledani.html', fixed_only=True)
+                    .replace('@NO_TAG@', T['no_tag_slug'])
+                    .replace('@NEEDS_JS@', escape(T['needs_js']))
+                    .replace('@SEARCH@', escape(T['search'])))
+    return site_page(T['search'], content, site, T['search_file'],
+                     fixed_only=True)
 
 
 RSS_ITEMS = 20         # kolik nejnovejsich clanku jde do feedu
@@ -1575,7 +1701,7 @@ def rss(articles, site, url):
              '<title>%s</title>' % xml_text(site['name']),
              '<link>%s/</link>' % base,
              '<description>%s</description>' % xml_text(label),
-             '<language>cs</language>',
+             '<language>%s</language>' % T['lang'],
              '<atom:link href="%s/rss.xml" rel="self" type="application/rss+xml"/>'
              % base]
 
@@ -1814,7 +1940,8 @@ def index_page(items):
                      % (c['file'], c['heading']))
     lines.append('</ul>')
     css = CSS.replace('@SIZE@', 'A4')
-    return HTML.format(title='Obsah', css=css, body='\n'.join(lines), footer='')
+    return HTML.format(lang=T['lang'], title='Obsah', css=css,
+                       body='\n'.join(lines), footer='')
 
 
 # ==============================================================================
@@ -1849,7 +1976,17 @@ def main():
     p.add_argument('--site-name', help='name of the site, used in the header and'
                                        ' in page titles (default: the vault'
                                        ' directory name)')
+    p.add_argument('--lang', default='cs',
+                   help='language of the generated site: cs or en (default: cs).'
+                        ' It also decides the page names, so a Czech site keeps'
+                        ' hledani.html and its published addresses')
     args = p.parse_args()
+
+    try:
+        set_language(args.lang)
+    except Error as e:
+        print('ERROR: %s' % e)
+        return 2
 
     if not os.path.exists(args.input):
         print('ERROR: input does not exist: %s' % args.input)
@@ -2047,7 +2184,7 @@ def main():
             ordered.sort(key=lambda c: c['date'], reverse=True)
 
             for nazev_s, html_s in card_grid(
-                    ordered, 'index', home_title or 'Články', site,
+                    ordered, 'index', home_title or T['articles'], site,
                     intro=intro, hidden_heading=True):
                 print('  %s' % zapis(nazev_s, html_s))
 
@@ -2063,7 +2200,7 @@ def main():
                 # bar dims the rest, so a combination yielding nothing cannot
                 # even be clicked.
                 reachable = {t for c in sem for t in c['tags']}
-                for nazev_s, html_s in card_grid(sem, 'tag-' + slug(tag),
+                for nazev_s, html_s in card_grid(sem, T['tag_prefix'] + slug(tag),
                                                     tag, site, tag,
                                                     hidden_heading=True,
                                                     active_tag=tag,
@@ -2075,13 +2212,13 @@ def main():
             sem = [c for c in ordered if not c['tags']]
             if sem:
                 for nazev_s, html_s in card_grid(
-                        sem, 'tag-' + NO_TAG_SLUG, NO_TAG_HEADING, site,
-                        'tag-%s.html' % NO_TAG_SLUG, hidden_heading=True,
-                        active_tag=NO_TAG_SLUG):
+                        sem, T['tag_prefix'] + T['no_tag_slug'], T['no_tag_heading'], site,
+                        tag_page(T['no_tag_slug']), hidden_heading=True,
+                        active_tag=T['no_tag_slug']):
                     print('  %s  (%d articles without tags)'
                           % (zapis(nazev_s, html_s), len(sem)))
 
-            print('  %s' % zapis('hledani.html',
+            print('  %s' % zapis(T['search_file'],
                                  search_page(ordered, site)))
 
             if args.base_url:
@@ -2116,7 +2253,7 @@ def main():
                       % len(missing))
                 print('Add a line to %s/menu.md when it belongs there:' % CONFIG_DIR)
                 for x in missing:
-                    print('  `#%s`  ->  tag-%s.html' % (x, slug(x)))
+                    print('  `#%s`  ->  %s' % (x, tag_page(x)))
 
             # The opposite case: the bar names a tag that no published article
             # carries. Its page is never generated, so it is dimmed in the bar

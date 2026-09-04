@@ -54,6 +54,11 @@ Konvence jsou dvojího druhu:
 
 **K90. Klíče frontmatteru a přepínače jsou anglicky.** Tedy `date`, `title`, `excerpt`, `slug`, `tags`, a přepínače `--site`, `--published-only`, `--base-url`, `--check`, `--clean`, `--site-name`. Obsah článků je česky, rozhraní nástroje ne - nástroj je veřejný a jeho příkazová řádka i klíče jsou to jediné, co cizí uživatel musí napsat sám. České klíče `datum`, `titul` a `perex` se už nečtou; když na ně build narazí, ohlásí to, protože jinak by článek tiše přišel o datum nebo titulek.
 
+**K100. Jazyk webu určuje přepínač `--lang`, výchozí je `cs`.** Lokalizuje se jen to, co vidí **návštěvník** - hlášky při buildu čte ten, kdo build spouští, a ty jsou anglicky vždycky.  
+Součástí jazyka jsou i **názvy stránek**: český web má `hledani.html`, anglický `search.html`. Adresa, která je jednou venku, je závazek, a odvození od jazyka ho drží na obou stranách.  
+Skloňování řeší v prohlížeči `Intl.PluralRules`, takže v kódu nejsou žádná pravidla na počítání - tabulka nese jen tvary. Čeština jich potřebuje tři, angličtina dvě.  
+Neznámý jazyk build zastaví. Tiše spadnout na češtinu by znamenalo vyrobit jiný web, než si člověk vyžádal.
+
 
 
 ### Záruky

@@ -530,6 +530,81 @@ class Konvence(Zaklad):
 
 
 # ==============================================================================
+# Lokalizace vystupu
+# ==============================================================================
+
+class Lokalizace(Zaklad):
+
+    def test_K100_vychozi_je_cestina(self):
+        """Vault bez --lang se postavi cesky, vcetne nazvu stranek."""
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        self.assertIn('hledani.html', self.stranky())
+        index = self.vystupni('index.html')
+        self.assertIn('<html lang="cs">', index)
+        self.assertIn('Titulka', index)
+        self.assertIn('Nahoru', index)
+
+    def test_K100_anglicky_web_ma_anglicke_texty(self):
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web('--lang', 'en')
+        self.assertEqual(kod, 0, vypis)
+
+        index = self.vystupni('index.html')
+        self.assertIn('<html lang="en">', index)
+        self.assertIn('Home', index)
+        self.assertIn('Top', index)
+        self.assertNotIn('Titulka', index)
+
+    def test_K100_jazyk_urcuje_i_nazvy_stranek(self):
+        """Ceska adresa hledani se tim nehne, anglicka dostane svou."""
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web('--lang', 'en')
+        self.assertEqual(kod, 0, vypis)
+
+        stranky = self.stranky()
+        self.assertIn('search.html', stranky)
+        self.assertNotIn('hledani.html', stranky)
+        self.assertIn('search.html', self.vystupni('index.html'))
+
+    def test_K100_pseudotag_bez_tagu_ma_svuj_slug(self):
+        self.clanek('Prvni', 'Text.', tagy='')
+        kod, vypis = self.web('--lang', 'en')
+        self.assertEqual(kod, 0, vypis)
+
+        stranky = self.stranky()
+        self.assertIn('tag-no-tag.html', stranky)
+        self.assertNotIn('tag-bez-tagu.html', stranky)
+
+    def test_K100_tabulka_textu_je_zapecena_ve_strance_hledani(self):
+        """Skloňování resi prohlizec pres Intl.PluralRules, tvary nese tabulka."""
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('hledani.html')
+        self.assertIn('const TXT =', html)
+        self.assertIn('Intl.PluralRules', html)
+        self.assertIn('článek', html)
+        self.assertIn('článků', html)
+
+    def test_K100_neznamy_jazyk_skonci_chybou(self):
+        """Mlcky spadnout na cestinu by znamenalo tise vyrobit jiny web."""
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web('--lang', 'de')
+        self.assertEqual(kod, 2, vypis)
+        self.assertIn('Unknown language', vypis)
+
+    def test_K100_feed_hlasi_jazyk(self):
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web('--lang', 'en', '--base-url', 'https://example.com')
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('<language>en</language>', self.vystupni('rss.xml'))
+
+
+# ==============================================================================
 # Obsidian syntaxe
 # ==============================================================================
 
