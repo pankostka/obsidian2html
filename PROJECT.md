@@ -47,11 +47,15 @@ PKVault je zmigrovaný (`8aef5b9`): `_web` přejmenováno na `.obsidian2html`, `
 
 Při ověřování se ukázala drobná vada, opravena hned: kurátorovaná lišta smí jmenovat tag, který žádný publikovaný článek nemá, a takový odkaz se zplošťoval na holý neostylovaný text mezi stylovanými pilulkami. Záruka Z10 platila, mrtvý odkaz nevznikl, ale řešilo se to až dodatečně nad hotovým HTML. Teď se štítek ztlumí rovnou při generování lišty a build to ohlásí.
 
-### 3. Testy
+### 3. Testy - HOTOVO
 
-Musí vzniknout **před** přejmenováváním v krocích 4 a 5. Skript má 2233 řádků a ani jeden test; hromadné přejmenování bez nich je místo, kde se něco tiše rozbije a zjistí se to za měsíc.
+41 testů v `test_md2html.py`, spouští se `python test_md2html.py`, běží pod sekundu a nepotřebují nic nad rámec toho, co potřebuje generátor.
 
-Zadáním jsou **záruky Z10 až Z60** z `README.cs.md`. Každá je věta, kterou test buď potvrdí, nebo shodí.
+Zadáním jsou konvence z `README.cs.md`, ne implementace. Název testu začíná kódem konvence, takže když spadne, rovnou říká, která věta přestala platit.
+
+Několik testů je záměrně v párech: vedle mrtvého odkazu se ověřuje i živý, vedle náhledu podle názvu i příloha s názvem jiným. Bez protějšku by testu vyhověl i generátor, který zplošťuje nebo zobrazuje úplně všechno.
+
+**Hned našly regresi**, kterou zavlekl krok 2. Chybějící datum se bralo ze souboru, ale `na_html` si frontmatter četla znovu ze zdroje, takže o dopočítaném datu nevěděla: datum se objevilo na titulce a v řazení, v patičce článku ne. Dokud se datum zapisovalo do zdroje, rozpor nemohl nastat. Nikdo by si toho nevšiml, protože všechny články PKVaultu datum mají.
 
 ### 4. Vnitřek do angličtiny
 
@@ -76,6 +80,8 @@ Vyrobit `README.md` překladem z `README.cs.md`. Založit repozitář na GitHubu
 `gh` ani `git filter-repo` na stroji nejsou. `gh` se dá doinstalovat, nebo se prázdný repozitář založí ručně přes web.
 
 ## Otevřené otázky
+
+- **Perex u odstavce, který začíná obrázkem.** Dnes je prázdný, protože se přeskočí celý blok. K40 přitom říká, že se obrázek vyhodí a text zůstane. Obrázek uprostřed odstavce i obrázek na vlastním řádku se chovají správně.
 
 - **Vynucovat tagy?** `dokumentace_JD.md` chce PascalCase a jednu variantu na tag, protože se porovnávají jako řetězce a dvě varianty tiše rozpůlí stránku tagu. Skript to nekontroluje ani nehlásí.
 
