@@ -916,8 +916,15 @@ def zkopiruj_obrazky(html, zaklad, vault, kam, prejmenovane):
 
 
 def na_html(cesta, prevod, meta=None, titul=None,
-            kam=None, prejmenovane=None, web=None):
-    """Vrati (titulek, kompletni HTML). S kam= sazi web mode."""
+            kam=None, prejmenovane=None, web=None, datum=None):
+    """Vrati (titulek, kompletni HTML). S kam= sazi web mode.
+
+    `datum` je zaloha pro clanek, ktery ho ve frontmatteru nema. Predava se
+    zvenci, protoze uz je spocitane pri sestavovani davky a poradi na titulce
+    z nej vychazi - paticka clanku musi ukazovat totez. Dokud se datum
+    zapisovalo do zdroje, tenhle rozpor nemohl nastat: frontmatter se precetl
+    znovu a datum uz v nem bylo.
+    """
     try:
         import markdown
     except ImportError:
@@ -925,6 +932,8 @@ def na_html(cesta, prevod, meta=None, titul=None,
 
     zaklad = os.path.dirname(os.path.abspath(cesta))
     vlastni_meta, telo = oddel_frontmatter(zdroj_text(cesta))
+    if datum and not vlastni_meta.get('datum'):
+        vlastni_meta['datum'] = datum
     if meta is not None:
         meta.update(vlastni_meta)
     nadpis = titul or titulek(vlastni_meta, cesta)
@@ -1892,7 +1901,7 @@ def main():
                 cesta, prevod,
                 titul=None if davka_rezim else args.titul,
                 kam=kam if args.web else None, prejmenovane=prejmenovane,
-                web=web)
+                web=web, datum=meta.get('datum'))
             # -o je zaklad cesty, priponu doplnujeme.
             if kam:
                 zaklad_cesty = os.path.join(kam, nazev)
