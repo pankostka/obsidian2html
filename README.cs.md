@@ -32,8 +32,6 @@ Konvence jsou dvojího druhu:
 **Vaultové** říkají, co musí splnit autor, aby generátor věci našel/zohlednil.  
 **Záruky** říkají, co za to nástroj slibuje. 
 
-Značka **[?]** označuje konvenci, u které je otevřená otázka do kroku revize.
-
 ### Vaultové konvence
 
 **K10. Publikují se jen články, jejichž název končí globusem 🌐.** Článek `Název článku 🌐.md` jde ven, článek `Název článku.md` ne. Chybějící marker tedy znamená neveřejné, takže se zveřejňuje vědomým úkonem, nikdy opomenutím. Je to vidět hned ve stromu souborů, což je příjemné a jasné.
@@ -67,15 +65,6 @@ Značka **[?]** označuje konvenci, u které je otevřená otázka do kroku revi
 
 **Z45. Do vstupního adresáře se jen čte, nikdy nezapisuje.** Vault je zdroj, ne pracovní plocha. Generátor v něm nesmí nic vytvořit, změnit ani smazat, a to ani konfiguraci, ani evidenci, ani dočasný soubor. Kdo pustí build, nemá mít důvod zjišťovat, co to udělalo s jeho poznámkami.
 
-**Z50. Výstup patří mimo repo.** Aby commit vygenerovaného HTML nebyl možný, ne jen zakázaný, a aby generátor neskenoval adresář, do kterého zapisuje. Smazat smí skript jen adresář se značkou `.vygenerovano`, takže překlep v cestě cizí složku nesmaže. **[?]** Výchozí kořen je dnes napevno `c:\_web`, což je cesta na jeden konkrétní stroj. Musí se zparametrizovat.
+**Z50. Výstup patří mimo repo.** Aby commit vygenerovaného HTML nebyl možný, ne jen zakázaný, a aby generátor neskenoval adresář, do kterého zapisuje. Kam se zapisuje, **určuje parametr skriptu** - žádná výchozí cesta zadrátovaná v kódu. Smazat smí skript jen adresář se značkou `.vygenerovano`, takže překlep v cestě cizí složku nesmaže.
 
 **Z60. Přílohy se na webu ukládají malými písmeny v ASCII.** Na Linuxu je `Foo.png` a `foo.png` rozdíl, takže špatně napsaný odkaz funguje na Windows a na serveru vrátí 404. Velikost písmen v odkazech se navíc ověřuje proti skutečným souborům a kolize adres je chyba.
-
-### Otevřené otázky mimo jednotlivé konvence
-
-- **Lokalizace.** Rozhraní i generovaný web jsou dnes česky. Vyřešeno bude v kroku 6: rozhraní anglicky, výstup lokalizovaný s `cs` jako výchozím.
-- **Tagy.** `dokumentace_JD.md` chce PascalCase a jednu variantu na tag, protože generátor je porovnává jako řetězce. Není to ale nikde vynucené ani ohlášené.
-
-
-
-
