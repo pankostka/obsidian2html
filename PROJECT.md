@@ -57,13 +57,23 @@ Několik testů je záměrně v párech: vedle mrtvého odkazu se ověřuje i ž
 
 **Hned našly regresi**, kterou zavlekl krok 2. Chybějící datum se bralo ze souboru, ale `na_html` si frontmatter četla znovu ze zdroje, takže o dopočítaném datu nevěděla: datum se objevilo na titulce a v řazení, v patičce článku ne. Dokud se datum zapisovalo do zdroje, rozpor nemohl nastat. Nikdo by si toho nevšiml, protože všechny články PKVaultu datum mají.
 
-### 4. Vnitřek do angličtiny
+### 4. Vnitřek do angličtiny - ČÁSTEČNĚ
 
-51 funkcí s českými názvy, komentáře, docstringy. Mechanické, ale bez testů riskantní.
+Hotovo: **1044 identifikátorů** - názvy funkcí, tříd, konstant a proměnných.
 
-### 5. Rozhraní do angličtiny
+Přejmenovával **tokenizér, ne hledání v textu**. Spousta českých slov v tom souboru nejsou jména, ale výstup: `class="perex"`, `class="karta"`, `hledani.html`. Hledání v textu by je přepsalo a rozbilo `styl.css` ve vaultech, tedy Z40. Druhá pojistka je na `args.*` - ta jména vyrobil argparse z přepínačů.
 
-Přepínače (`--titul`, `--jen-publikovane`, `--vedle`, `--adresa`, `--kontrola`, `--uklid`, `--nazev`) a klíče frontmatteru (`titul`, `datum`, `perex`, `slug`). **Rozbije to PKVault**, takže k tomu patří jeho migrace.
+Testy hned našly chybu: `HTML_WEB.format` předával argument `hlavicka`, jenže zástupný symbol `{hlavicka}` uvnitř šablony je řetězec a přejmenování se ho správně netklo.
+
+**Zbývá:** komentáře a docstringy (~1250 řádků prózy), vnitřní klíče slovníků (~88 výskytů) a proměnné ve vloženém JavaScriptu (~300). JavaScript a klíče se musí přejmenovat naráz, protože index hledání je jejich společné rozhraní.
+
+### 5. Rozhraní do angličtiny - HOTOVO
+
+Konvence **K90**. Přepínače `--title`, `--published-only`, `--site`, `--base-url`, `--check`, `--clean`, `--site-name`, poziční `input`. Klíče frontmatteru `date`, `title`, `excerpt`; `slug`, `tags` a `publish` anglické už byly.
+
+Staré české klíče se nečtou, ale build je ohlásí - jinak by článek tiše přišel o datum nebo titulek. Stejný vzor jako u přejmenované složky `_web`.
+
+PKVault zmigrován (`551eea5`, `f520cd2`): deset článků, jen klíč `datum` na `date`. Web je proti stavu před zásahem shodný bajt za bajtem.
 
 ### 6. Lokalizace výstupu
 
