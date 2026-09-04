@@ -28,14 +28,18 @@ Tisk v prohlížeči teď vytiskne stránku i s hlavičkou a lištou. Vědomě p
 
 ### 2. Srovnat kód s konvencemi
 
-Čtyři místa, kde `README.cs.md` slibuje něco jiného, než kód dělá:
+| Konvence | Stav |
+|---|---|
+| **Z45** ze vstupu se jen čte | **hotovo** |
+| **Z50** kořen výstupu parametrem | **hotovo** |
+| **K80** datum souboru jako záloha | **hotovo** |
+| **K70** složka `.obsidian2html/` | zbývá, kód pořád čte z `_web/` |
 
-| Konvence | Dnešní kód | Co udělat |
-|---|---|---|
-| **Z45** ze vstupu se jen čte | zapisuje `_web/vydano.md` do vaultu | zrušit evidenci vydaných adres úplně |
-| **K70** složka `.obsidian2html/` | čte z `_web/` | přejmenovat, starý název nepodporovat |
-| **K80** datum souboru jako záloha | bez `datum` build spadne | doplnit zálohu, při shodě řadit podle názvu |
-| **Z50** kořen výstupu | napevno `c:\_web` | **udělat z něj parametr skriptu** |
+Do vaultu zapisovala **dvě** místa, ne jedno. Vedle evidence vydaných adres to byla `doplnit_datum`, která dopisovala datum přímo do frontmatteru článku; její docstring přitom tvrdil, že jiné takové místo není.
+
+Evidence vydaných adres zrušena celá. `doplnit_datum` nahrazena funkcí `datum_souboru`, která jen čte. Konstanta `KOREN_WEBU` pryč, `--web` bez `-o` končí s kódem 2.
+
+Ověřeno: výstup PKVaultu shodný bajt za bajtem, otisk vaultu před buildem a po něm totožný.
 
 ### 3. Testy
 
