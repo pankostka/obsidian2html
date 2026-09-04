@@ -83,9 +83,15 @@ Staré české klíče se nečtou, ale build je ohlásí - jinak by článek ti�
 
 PKVault zmigrován (`551eea5`, `f520cd2`): deset článků, jen klíč `datum` na `date`. Web je proti stavu před zásahem shodný bajt za bajtem.
 
+### 5b. Hlášky do angličtiny - HOTOVO
+
+38 hlášek (`b2dfa0d`): chyby, varování i výpis průběhu. Čte je týž člověk, který čte `--help`, takže patří ke krokům 5, ne k lokalizaci.
+
+Pětice testů ověřovala české řetězce a správně spadla.
+
 ### 6. Lokalizace výstupu
 
-Osmnáct řetězců, které vidí návštěvník webu. Výchozí jazyk `cs`, aby PKVault vypadal stejně jako dnes.
+Osmnáct řetězců, které vidí návštěvník webu. Hlášky pro toho, kdo build spouští, sem nepatří, ty jsou od kroku 5b anglicky. Výchozí jazyk `cs`, aby PKVault vypadal stejně jako dnes.
 
 Drobná komplikace je skloňování: čeština má tři tvary, angličtina dvě. V prohlížeči to řeší `Intl.PluralRules`, na straně Pythonu je to pár řádků. Řetězce jsou na dvou místech, v Pythonu i ve vloženém JavaScriptu - mechanismus na propsání do JS už existuje, `@TAGY@` v šabloně hledání.
 
