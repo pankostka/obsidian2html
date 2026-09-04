@@ -26,20 +26,24 @@ Ověřeno porovnáním: PKVault postaven oběma verzemi ze složek stejného jm�
 
 Tisk v prohlížeči teď vytiskne stránku i s hlavičkou a lištou. Vědomě přijato.
 
-### 2. Srovnat kód s konvencemi
+### 2. Srovnat kód s konvencemi - HOTOVO
 
 | Konvence | Stav |
 |---|---|
 | **Z45** ze vstupu se jen čte | **hotovo** |
 | **Z50** kořen výstupu parametrem | **hotovo** |
 | **K80** datum souboru jako záloha | **hotovo** |
-| **K70** složka `.obsidian2html/` | zbývá, kód pořád čte z `_web/` |
+| **K70** složka `.obsidian2html/` | **hotovo** |
 
 Do vaultu zapisovala **dvě** místa, ne jedno. Vedle evidence vydaných adres to byla `doplnit_datum`, která dopisovala datum přímo do frontmatteru článku; její docstring přitom tvrdil, že jiné takové místo není.
 
 Evidence vydaných adres zrušena celá. `doplnit_datum` nahrazena funkcí `datum_souboru`, která jen čte. Konstanta `KOREN_WEBU` pryč, `--web` bez `-o` končí s kódem 2.
 
+Cesta ke konfiguraci už není roztroušená po kódu, drží ji konstanta `KONFIG`. Lišta se vrátila k názvu `menu.md`, podpora starého názvu odešla. Starou složku `_web` build nečte, ale ohlásí ji - jinak by se web postavil bez loga, lišty i stylů a vypadalo by to jako chyba generátoru.
+
 Ověřeno: výstup PKVaultu shodný bajt za bajtem, otisk vaultu před buildem a po něm totožný.
+
+**PKVault čeká migrace**: přejmenovat `_web` na `.obsidian2html`, uvnitř `menu_webu.md` na `menu.md` a smazat `vydano.md`.
 
 ### 3. Testy
 
@@ -71,7 +75,6 @@ Vyrobit `README.md` překladem z `README.cs.md`. Založit repozitář na GitHubu
 
 ## Otevřené otázky
 
-- **Přejmenovat `menu_webu.md` na `menu.md`?** Původní důvod pro delší název byl, že `menu.md` je ve vaultu obsazené navigací samotného vaultu. Konfigurace teď ale sedí ve vlastní skryté složce, kde se srazit nemůže.
 - **Vynucovat tagy?** `dokumentace_JD.md` chce PascalCase a jednu variantu na tag, protože se porovnávají jako řetězce a dvě varianty tiše rozpůlí stránku tagu. Skript to nekontroluje ani nehlásí.
 
 ## Slepé cesty
