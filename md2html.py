@@ -1,104 +1,113 @@
 # -*- coding: utf-8 -*-
 r"""
 ================================================================================
- POPIS
-   Prevede Markdown na SAMOSTATNY HTML soubor pro uzivatele - obrazky vlozene
-   jako data URI, styly uvnitr, zadne relativni odkazy. Snese to mail,
-   SharePoint, sitovy disk, Teams i tlacitko v Power BI reportu.
+ WHAT THIS IS
+   Turns Markdown into a SELF-CONTAINED HTML file - images inlined as data
+   URIs, styles inside, no relative links. Such a file survives email,
+   SharePoint, a network share, Teams, or a button in a Power BI report.
 
-   Rozumi Obsidian syntaxi, protoze zdrojem je vault:
-     frontmatter        odstrizne se (jinak by se vykreslil jako text)
-     ![[obrazek.png]]   vlozi obrazek, hleda ho jako Obsidian
-     ![[obrazek.png|300]] totez, sirka 300 px
-     ![[Nota]]          vlozi obsah te noty (transkluze, jako v Obsidianu)
-     [[Nota]]           odkaz, kdyz je nota v davce; jinak jen text
-     [[Nota|jinak]]     totez se svym textem
+   It understands Obsidian syntax, because the source is a vault:
+     frontmatter        stripped (it would otherwise render as text)
+     ![[image.png]]     embeds the image, resolved the way Obsidian does
+     ![[image.png|300]] the same, 300 px wide
+     ![[Note]]          inlines that note's content (transclusion)
+     [[Note]]           a link when the note is in the batch, otherwise text
+     [[Note|label]]     the same, with its own label
 
-   MRTVY ODKAZ SE NIKDY NEVYROBI. Kdyz cil odkazu v davce neni, zustane z
-   nej holy text a skript rekne kolik. Dokument jde uzivateli - odkaz, ktery
-   nikam nevede, je horsi nez zadny.
+   A DEAD LINK IS NEVER PRODUCED. When a link target is not part of the
+   batch, the link degrades to plain text and the script reports how many
+   did. The document goes to a person, and a link that leads nowhere is
+   worse than no link at all.
 
-   PDF SE TADY NEVYRABI. Drive to skript umel a jmenoval se md2pdf.py, ale
-   tisk je samostatna uloha pro samostatny nastroj.
+   NO PDF IS PRODUCED HERE. The script used to do it and was called
+   md2pdf.py, but printing is a separate job for a separate tool.
 
- SPUSTENI
-   python md2html.py <soubor.md>              jeden soubor -> <slug>.html
-   python md2html.py <adresar>                davka, vcetne index.html
-   python md2html.py <vstup> -o <kam>         kam to ulozit
-   python md2html.py <vstup> --vault <cesta>  kde hledat ![[obrazky]]
-   python md2html.py <soubor.md> --title "Text"  titulek bez zasahu do zdroje
-   python md2html.py <vstup> --published-only  jen clanky s markerem v nazvu
-   python md2html.py <vault> --site -o <kam>  web: sdilene styl.css, img/,
-                                              vystup do zadaneho adresare
+ USAGE
+   python md2html.py <file.md>                one file -> <slug>.html
+   python md2html.py <directory>              a batch, plus index.html
+   python md2html.py <input> -o <where>       where to put the result
+   python md2html.py <input> --vault <path>   where to look for ![[images]]
+   python md2html.py <file.md> --title "Text" a title without touching the source
+   python md2html.py <input> --published-only only articles carrying the marker
+   python md2html.py <vault> --site -o <where>  site: shared styl.css, img/,
+                                              output into the given directory
 
-   Zavislost: pip install markdown.
+   Dependency: pip install markdown.
 
-   Navratovy kod 0 = hotovo, 1 = chyba pri prevodu, 2 = spatne parametry.
+   Exit code 0 = done, 1 = conversion error, 2 = bad arguments.
 
- FASETOVY FILTR TAGU
-   Stitky se KOMBINUJI A ZAROVEN (AND), nenahrazuji se. `Obsidian` + `Video` da
-   clanky o Obsidianu, ktere maji video. Stitek, ktery by v kombinaci s uz
-   vybranymi dal nulu, se ZTLUMI a nejde kliknout - proto se neda proklikat do
-   prazdna. Ztlumi se, nezmizi: kdyby mizel, lista pri kazdem kliknuti poskoci.
+ FACETED TAG FILTER
+   Tags COMBINE WITH AND, they do not replace one another. `Obsidian` plus
+   `Video` yields articles about Obsidian that have a video. A tag that would
+   yield nothing in combination with those already picked is DIMMED and
+   cannot be clicked, so there is no way to click into an empty result. It is
+   dimmed rather than hidden: were it to disappear, the bar would jump on
+   every click.
 
-   Zije to na dvou mistech, ktera se doplnuji:
+   This lives in two places that complement each other:
 
-   hledani.html   ziva verze. Stitky, textovy dotaz i pocty se prepocitavaji
-                  spolecne - dotaz zuzuje i to, ktere stitky jeste sviti. Stav
-                  je v adrese (`?tag=a&tag=b&q=...`), takze se da poslat a
-                  vratit tlacitkem zpet. Lista tagu se tam vynechava, dve rady
-                  stitku na jedne strance jsou zmatek.
-   tag-*.html     staticka verze BEZ JavaScriptu. Stitek v liste vede na
-                  hledani.html s OBEMA tagy, tedy pridava; nedosazitelny je
-                  ztlumeny uz v HTML, protoze co s cim se potkava, vi build.
+   hledani.html   the live version. Tags, the text query and the counts are
+                  recomputed together - the query also narrows which tags
+                  still light up. State lives in the address
+                  (`?tag=a&tag=b&q=...`), so it can be sent and restored with
+                  the back button. The tag bar is left out there; two rows of
+                  tags on one page only confuse.
+   tag-*.html     the static version, WITHOUT JavaScript. A tag in the bar
+                  leads to hledani.html carrying BOTH tags, so it adds rather
+                  than replaces; an unreachable one is already dimmed in the
+                  HTML, because the build knows what co-occurs with what.
 
-   Predgenerovat kombinace nejde - dvacet tagu je milion podmnozin. Proto je
-   kombinovani v prohlizeci, zatimco jednotlive stranky tagu zustavaji staticke
-   kvuli odkazum zvenci a vyhledavacum.
+   Pre-generating the combinations is not an option - twenty tags make a
+   million subsets. Hence combining happens in the browser, while individual
+   tag pages stay static for the sake of inbound links and search engines.
 
-   POZOR: ten filtr je jen tak dobry, jak dobre je tagovani. Kdyz ma clanek
-   jeden tag, neni co kombinovat. Vyplati se az u vic nezavislych osi, tedy
-   napriklad tema + forma (`Video`, `Navod`) + uroven.
+   NOTE: the filter is only as good as the tagging. When an article carries a
+   single tag there is nothing to combine. It pays off with several
+   independent axes, say topic plus form (`Video`, `Howto`) plus level.
 
- PRIZNAK PUBLIKACE
-   Nese ho MARKER V NAZVU SOUBORU - globus na konci, tedy 'Nazev clanku X.md'.
-   Chybejici marker znamena neverejne. Frontmatter klic publish uz neznamena
-   nic; kdyz na nej skript narazi u clanku bez markeru, ohlasi to, protoze
-   autor si nejspis mysli, ze clanek publikuje.
+ THE PUBLISH FLAG
+   It is carried by a MARKER IN THE FILENAME - a globe at the end, so
+   'Article name X.md'. A missing marker means not public. The frontmatter
+   key publish no longer means anything; when the script meets it on an
+   article without the marker it says so, because the author most likely
+   believes the article is being published.
 
-   Duvod je viditelnost: ve strome souboru je videt, co je verejne, kdezto
-   frontmatter videt neni. Do adresy se marker nepropise, slug() ho zahodi.
+   The reason is visibility: the file tree shows what is public, whereas
+   frontmatter does not. The marker never reaches the address, slug() drops it.
 
  FRONTMATTER
-   title    prebije titulek dokumentu, jinak je jim nazev souboru
-   date     datum vydani. Kdyz chybi, vezme se datum souboru a build to
-            ohlasi. Pri shode dat rozhoduje nazev clanku
-   excerpt  prebije perex, jinak je jim prvni odstavec
-   slug     prebije nazev vystupniho souboru. Bezne se NEPOUZIVA: adresa je
-            ocisteny nazev souboru a slug se neudrzuje. Je to unikovy vychod
-            pro jednu adresu, na ktere zalezi i po prejmenovani clanku
+   title    overrides the document title, otherwise the filename is used
+   date     publication date. When missing, the file's date is used and the
+            build says so. On equal dates the article name decides
+   excerpt  overrides the excerpt, otherwise the first paragraph is used
+   slug     overrides the output filename. Normally NOT USED: the address is
+            the cleaned-up filename and no slug is maintained. It is an
+            escape hatch for the one address that must survive a rename
 
-   Klice jsou ANGLICKY, stejne jako prepinace. Obsah clanku je cesky, ale
-   rozhrani nastroje ne - je to to jedine, co cizi uzivatel musi napsat sam.
-   Stare ceske klice datum, titul a perex se necti a build je ohlasi.
+   The keys are ENGLISH, as are the flags. Article content is Czech, the
+   tool's interface is not - it is the only thing a foreign user has to type.
+   The old Czech keys datum, titul and perex are not read; the build reports
+   them.
 
- VYSTUPY
-   <nazev>.html   samostatny HTML, obrazky jako data URI
-   index.html     jen v davce, rozcestnik na HTML
+ OUTPUTS
+   <name>.html    self-contained HTML, images as data URIs
+   index.html     in a batch only, an index of the pages
 
-   S --web je to jinak: styl je v jednom styl.css vedle stranek a obrazky v
-   img/ jako soubory, protoze v samostatnem rezimu ma jedna stranka s pati
-   screenshoty 598 kB a prohlizec nekesuje nic. K tomu tri kontroly - kolize
-   adresy je chyba a velikost pismen v odkazech se overuje proti skutecnym
-   souborum (na Linuxu je Foo.png a foo.png rozdil).
+   With --site it works differently: the style sits in a single styl.css next
+   to the pages and images go into img/ as files, because in self-contained
+   mode a single page with five screenshots weighs 598 kB and the browser
+   caches nothing. Plus two checks - an address clash is an error, and the
+   letter case of links is verified against the actual files (on Linux
+   Foo.png and foo.png are different).
 
-   DO VSTUPNIHO ADRESARE SE JEN CTE. Vault je zdroj, ne pracovni plocha:
-   generator v nem nic nevytvori, nezmeni ani nesmaze. Drive zapisoval dve
-   veci - evidenci vydanych adres a datum do frontmatteru clanku, ktery ho
-   nemel. Evidence zrusena, datum se bere z data souboru.
+   THE INPUT DIRECTORY IS ONLY EVER READ. The vault is a source, not a
+   workspace: the generator creates, changes and deletes nothing in it. It
+   used to write two things - a record of published addresses, and a date
+   into the frontmatter of an article that lacked one. The record is gone and
+   the date now comes from the file's own timestamp.
 
-   -o urcuje zaklad cesty a pripona se doplni, takze z -o vystup/napoveda
-   vznikne napoveda.html.
+   -o gives the base of the path and the extension is appended, so
+   -o out/help produces help.html.
 ================================================================================
 """
 import argparse
@@ -121,28 +130,30 @@ if hasattr(sys.stdout, 'reconfigure'):
 MAX_TRANSCLUSION = 3
 ATTACHMENT_DIRS = ('Attachments', 'img', 'assets')
 
-# Slozka se vstupy pro web: menu.md, index.md, styl.css, logo. Tecka na
-# zacatku ji v Obsidianu skryje, coz je zamer - nejsou to clanky a edituji se
-# mimo Obsidian. Nazev rika, ke kteremu nastroji patri, takze vedle .obsidian
-# nevznika nejasnost. posbirej() ji preskoci uz kvuli te tecce.
+# The directory holding the site inputs: menu.md, index.md, styl.css, logo.
+# The leading dot hides it in Obsidian, which is the point - these are not
+# articles and they are edited outside Obsidian. The name says which tool owns
+# it, so nothing is ambiguous next to .obsidian. collect() skips it thanks to
+# that dot anyway.
 CONFIG_DIR = '.obsidian2html'
 
-# Priznak publikace je MARKER V NAZVU SOUBORU, ne frontmatter klic. Duvod je
-# viditelnost: ve strome souboru je videt, ktery clanek je verejny, kdezto
-# frontmatter videt neni. Chybejici marker znamena neverejne.
+# The publish flag is a MARKER IN THE FILENAME, not a frontmatter key. The
+# reason is visibility: the file tree shows which article is public, whereas
+# frontmatter does not. A missing marker means not public.
 #
-# Do adresy se marker nepropise - slug() zahodi vsechno, co neni \w ani \s.
-# Ze textu odkazu ho strhava preloz_wikilinky, jinak by byl globus uprostred
-# prozy.
+# The marker never reaches the address - slug() drops everything that is
+# neither \w nor \s. resolve_wikilinks() strips it from link text as well,
+# which would otherwise put a globe in the middle of a sentence.
 PUBLISH_MARKER = '🌐'
 
-# Znacka ve vystupnim adresari. Mazat smi skript jen adresar, ktery ji ma,
-# nebo je prazdny. Cizi adresar se tim nesmaze ani pri preklepu v ceste.
+# A marker file inside the output directory. The script may only wipe a
+# directory that carries it, or one that is empty. A directory that belongs to
+# somebody else survives even a typo in the path.
 OUTPUT_MARKER = '.vygenerovano'
 
-# Pseudotag pro clanky bez tagu. V liste je z nej tlacitko '#', stranka se
-# jmenuje tag-bez-tagu.html a nadpis zni 'Bez tagu' - samotna mrizka je jako
-# titulek stranky i pro ctecku pro nevidome k nicemu.
+# The pseudo-tag for articles without tags. In the bar it is a '#' button, its
+# page is called tag-bez-tagu.html and the heading reads 'Bez tagu' - a bare
+# hash is useless as a page title, and useless to a screen reader too.
 NO_TAG_SLUG = 'bez-tagu'
 NO_TAG_LABEL = '#'
 NO_TAG_HEADING = 'Bez tagu'
@@ -204,14 +215,14 @@ hr { border: 0; border-top: 1px solid var(--linka); margin: 2rem 0; }
 # Chrom webu: hlavicka s logem a listou, paticka, tmavy rezim. Do samostatneho
 # souboru pro mail to nepatri - tam neni kam navigovat.
 CSS_CHROME = """
-/* Sirka textu. Uzka nudle uprostred obrazovky je presne to, proc je v
-   Obsidianu doporuceno vypnout Readable line length - na tabulky a kod je
-   to k nepouziti. Na webu proto 64rem misto 46rem, ktere zustava
-   samostatnemu souboru.
-   Prepsat jde v .obsidian2html/styl.css. */
+/* Text width. A narrow ribbon down the middle of the screen is exactly why
+   Obsidian users are told to turn Readable line length off - it is unusable
+   for tables and code. Hence 64rem on the site, while the self-contained
+   file keeps 46rem.
+   Override it in .obsidian2html/styl.css. */
 body { max-width: 64rem; padding-top: 1.25rem; }
-/* Zahlavi clanku: nadpis, pod nim tagy, linka az pod obojim. V samostatnem
-   souboru zustava linka na h1, protoze tam zadne tagy nejsou. */
+/* Article masthead: heading, tags below it, the rule below both. In the
+   self-contained file the rule stays on the h1, there being no tags. */
 .zahlavi { border-bottom: 2px solid var(--odkaz); padding-bottom: .5rem;
            margin-bottom: 1.4rem; }
 .zahlavi h1 { border-bottom: 0; padding-bottom: 0; margin-bottom: .35rem; }
@@ -222,9 +233,9 @@ body { max-width: 64rem; padding-top: 1.25rem; }
 .jen-ctecka { position: absolute; width: 1px; height: 1px; overflow: hidden;
               clip-path: inset(50%); white-space: nowrap; }
 
-/* Hlavicka ma dva radky: nahore logo vlevo a hledani vpravo, pod tim tagy
-   odleva. Hledani v hlavicce je formular - index lezi jen ve hledani.html,
-   takze z ostatnich stranek se dotaz posila tam pres ?q=. */
+/* The header has two rows: the logo on the left and search on the right,
+   with tags underneath. Search in the header is a form - the index lives
+   only in hledani.html, so other pages send the query there via ?q=. */
 .hlavicka { padding-bottom: .9rem; margin-bottom: 2rem;
             border-bottom: 1px solid var(--linka); }
 .pas { display: flex; align-items: center; gap: 1rem 1.5rem; flex-wrap: wrap; }
@@ -250,15 +261,15 @@ body { max-width: 64rem; padding-top: 1.25rem; }
 .hlavicka nav a:hover { background: var(--th); }
 .hlavicka nav a[aria-current="page"] { background: var(--odkaz); color: #fff;
                                        border-color: var(--odkaz); }
-/* Nedosazitelny stitek se ZTLUMI, nezmizi. Kdyby zmizel, lista se pri kazdem
-   kliknuti prelozi a ctenar ztrati orientaci, kde co bylo. */
+/* An unreachable tag is DIMMED, not hidden. Were it hidden, the bar would
+   reflow on every click and the reader would lose track of what sat where. */
 .hlavicka nav .zhasnuty { font-size: .88rem; padding: .25rem .6rem;
                           border: 1px solid var(--linka); border-radius: 999px;
                           white-space: nowrap; color: var(--tlum);
                           opacity: .45; cursor: default; }
 .hlavicka nav .pocet-tagu { opacity: .6; font-size: .8em; margin-left: .3em; }
 
-/* Fasetovy filtr na strance hledani. Stitky se kombinuji a zaroven. */
+/* The faceted filter on the search page. Tags combine with AND. */
 .fasety { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.5rem; }
 .stitek { font: inherit; font-size: .88rem; padding: .25rem .6rem;
           border: 1px solid var(--linka); border-radius: 999px;
@@ -266,8 +277,8 @@ body { max-width: 64rem; padding-top: 1.25rem; }
           white-space: nowrap; }
 .stitek:hover { background: var(--th); }
 .stitek.vybrany { background: var(--odkaz); color: #fff; border-color: var(--odkaz); }
-/* Nedosazitelny stitek se ZTLUMI, nezmizi - jinak lista pri kazdem kliknuti
-   poskakuje a clovek ztrati orientaci, kde co bylo. */
+/* An unreachable tag is DIMMED, not hidden - otherwise the bar jumps on
+   every click and one loses track of what sat where. */
 .stitek.zhasnuty { color: var(--tlum); opacity: .45; cursor: default; }
 .stitek.zrusit { border-style: dashed; }
 .stitek .pocet-tagu { opacity: .6; font-size: .8em; margin-left: .35em; }
@@ -284,16 +295,18 @@ body { max-width: 64rem; padding-top: 1.25rem; }
                   text-decoration: underline; cursor: pointer; }
 .paticka .kopie:hover { color: var(--odkaz); }
 
-/* Vypis perexu je mrizka, ne seznam. auto-fill misto pevnych tri sloupcu:
-   pri 64rem vyjdou tri, na mobilu jeden, a nepotrebuje to breakpointy. */
+/* The excerpt listing is a grid, not a list. auto-fill instead of three
+   fixed columns: at 64rem three fit, on a phone one, and no breakpoints
+   are needed. */
 .vypis { display: grid; gap: 1.2rem; margin-top: 1.4rem;
          grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); }
 .karta { padding: 1rem 1.1rem; border: 1px solid var(--linka);
          border-radius: 8px; background: var(--pozadi); }
-/* Nahled ma pevnou vysku a orizne se, aby karty v mrizce drzely radek.
-   Orez je odspodu (object-position: top) - u screenshotu je zajimavy vrsek.
-   Obrazek je dekorace k titulku, ktery je hned pod nim - proto prazdny
-   alt, aby ho ctecka pro nevidome necetla dvakrat. */
+/* The thumbnail has a fixed height and is cropped, so cards keep their row
+   in the grid. Cropping happens from the bottom (object-position: top) - on
+   a screenshot the top is the interesting part. The image decorates the
+   title sitting right below it, hence the empty alt, so a screen reader
+   does not read the same thing twice. */
 .karta .nahled { display: block; margin: -1rem -1.1rem .7rem; }
 .karta .nahled img { display: block; width: 100%; height: 9rem;
                      object-fit: cover; object-position: top;
@@ -362,22 +375,24 @@ SEARCH_PAGE = r"""<h1 class="jen-ctecka">Hledání</h1>
   @LIST@
 </noscript>
 <script>
-// Index je ZAPECENY v teto strance, nikoli nacitany. Pod file:// nepada
-// JavaScript, ale fetch() - prohlizec zakaze cteni lokalniho JSON kvuli CORS.
-// Zapecenim ta prekazka mizi a tentyz soubor funguje z hostingu i z disku.
+// The index is BAKED INTO this page, not fetched. Under file:// it is not
+// JavaScript that fails but fetch() - the browser refuses to read local JSON
+// because of CORS. Baking it in removes that obstacle, and the very same file
+// then works from a host and from a disk alike.
 //
-// Pole pro dotaz je v HLAVICCE, tedy na kazde strance. Index je ale jen tady,
-// takze na ostatnich strankach formular odesle dotaz sem pres ?q=. Kdyz je
-// stranka zafiltrovana na tag, prilozi k tomu jeste ?tag= a hleda se jen v
-// clancich toho tagu.
+// The query field lives in the HEADER, so on every page. The index is only
+// here, though, so other pages send the query over via ?q=. When a page is
+// filtered to a tag it adds ?tag= as well, and only that tag's articles are
+// searched.
 const ARTICLES = @DATA@;
 const NO_TAG = '@NO_TAG@';
-// Poradi stitku prebira lista, aby oko hledalo tag na temze miste jako jinde.
+// Tag order is taken from the bar, so the eye looks for a tag in the same
+// place as everywhere else.
 const ALL_TAGS = @TAGS@;
 
 const fold = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-// Ceske sklonovani: 1 clanek, 2-4 clanky, 5+ clanku.
+// Czech plurals: 1 clanek, 2-4 clanky, 5+ clanku.
 const countLabel = n => n + (n === 1 ? ' článek' : (n < 5 ? ' články' : ' článků'));
 
 ARTICLES.forEach(c => {
@@ -387,8 +402,8 @@ ARTICLES.forEach(c => {
 });
 
 const params = new URLSearchParams(location.search);
-// Stav filtru je MENITELNY: stitek se pridava, nenahrazuje. Tag z adresy je
-// jen vychozi nastaveni, dal se s nim da pracovat.
+// Filter state is MUTABLE: a tag is added, not substituted. The tag from the
+// address is merely the starting point, it can be worked with afterwards.
 let filters = params.getAll('tag').filter(Boolean);
 let scope = [];
 
@@ -409,7 +424,7 @@ function score(c, words) {
     if (c.nTitle.includes(w)) s += 5;
     else if (c.nTags.includes(w)) s += 3;
     else if (c.nText.includes(w)) s += 1;
-    else return 0;            // vsechna slova musi byt nalezena
+    else return 0;            // every word has to be found
   }
   return s;
 }
@@ -467,17 +482,18 @@ function search(query) {
 }
 
 // ---------------------------------------------------------------------------
-// Fasetovy filtr
+// Faceted filter
 //
-// Stitky se KOMBINUJI A ZAROVEN (AND). Diky tomu pridani stitku mnozinu nikdy
-// nezvetsi, a kdyz se zhasnou stitky, ktere by daly nulu, NEDA SE proklikat do
-// prazdna. Ta vlastnost je duvod, proc to jde pouzivat - neni to nahoda.
+// Tags COMBINE WITH AND. Adding a tag therefore never grows the set, and once
+// the tags that would yield nothing are dimmed, THERE IS NO WAY to click into
+// an empty result. That property is what makes the thing usable - it is not
+// an accident.
 //
-// Zhasnuty stitek ZUSTAVA na svem miste. Kdyby se skryval, lista by se pri
-// kazdem kliknuti prelozila a clovek by ztratil orientaci.
+// A dimmed tag STAYS where it is. Were it hidden, the bar would reflow on
+// every click and one would lose all bearings.
 //
-// Pocty se prepocitavaji pri kazdem prekresleni, vcetne textoveho dotazu.
-// Jinak by lhaly - a pocet, ktery lze, je horsi nez zadny.
+// The counts are recomputed on every redraw, the text query included.
+// Otherwise they would lie - and a count that lies is worse than no count.
 // ---------------------------------------------------------------------------
 
 function countFor(combo, words) {
@@ -494,9 +510,10 @@ function renderFacets(words) {
                            : filters.concat([tag.name]);
     const count = countFor(combo, words);
     if (selected) {
-      // Bez poctu zamerne: u vybraneho stitku by cislo znamenalo 'kdyz ho
-      // odeberu', tedy vic nez je videt, a cetlo by se jako pocet jeho clanku.
-      // Kolik je vysledku ted, rika udaj v hlavicce.
+      // No count here, deliberately: on a selected tag the number would mean
+      // 'if I remove it', so more than is on screen, and it would read as
+      // that tag's article count. How many results there are right now is
+      // what the header says.
       parts.push('<button type="button" class="stitek vybrany" data-tag="'
                  + esc(tag.name) + '" aria-pressed="true" title="odebrat filtr">#'
                  + esc(tag.label) + '</button>');
@@ -517,7 +534,8 @@ function renderFacets(words) {
 }
 
 function writeUrl(query) {
-  // Stav patri do adresy, aby se dal poslat a vratit tlacitkem zpet.
+  // State belongs in the address, so it can be sent and restored with the
+  // back button.
   const p = new URLSearchParams();
   filters.forEach(f => p.append('tag', f));
   if (query) { p.set('q', query); }
@@ -536,8 +554,8 @@ function render() {
 }
 
 const field = document.getElementById('dotaz');
-// Na teto strance se nikam neodesila, hleda se na miste. Filtr ale musi ve
-// formulari zustat, aby ho dalsi dotaz neztratil.
+// On this page nothing is submitted anywhere, searching happens in place.
+// The filter has to stay in the form, though, so the next query keeps it.
 field.form.addEventListener('submit', e => e.preventDefault());
 field.addEventListener('input', render);
 
@@ -558,14 +576,15 @@ render();
 </script>"""
 
 
-# Tlacitko, ktere zkopiruje nazev clanku do schranky. Odkaz file:// by
-# prozradil usporadani disku a prohlizec ho ze stranky nactene pres https
-# stejne nepusti; nazev je neskodny, protoze uz je videt jako titulek.
+# A button that copies the article name to the clipboard. A file:// link
+# would give away the layout of the disk, and a browser would refuse it from a
+# page served over https anyway; the name is harmless, being on screen as the
+# title already.
 COPY_SCRIPT = r"""<script>
-// Zkopiruje NAZEV clanku, ne cestu k souboru. Cesta by prozradila usporadani
-// disku a odkaz file:// prohlizec ze stranky nacetene pres https stejne
-// nepusti. Nazev staci: v Obsidianu ho vezme CTRL+O a fuzzy hledani si
-// dohleda i marker na konci nazvu.
+// Copies the article NAME, not the path to the file. The path would give away
+// the layout of the disk, and a browser refuses a file:// link from a page
+// served over https anyway. The name is enough: in Obsidian CTRL+O takes it,
+// and fuzzy matching finds it despite the marker at the end.
 (function () {
   var tlacitko = document.getElementById('kopirovat');
   if (!tlacitko) { return; }
@@ -578,8 +597,9 @@ COPY_SCRIPT = r"""<script>
   }
 
   tlacitko.addEventListener('click', function () {
-    // Clipboard API chce zabezpeceny kontext. file:// se za nej povazuje, ale
-    // http bez sifrovani ne - proto zalozni cesta pres docasny textarea.
+    // The Clipboard API wants a secure context. file:// counts as one,
+    // unencrypted http does not - hence the fallback through a temporary
+    // textarea.
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(nazev).then(hotovo, zaloha);
     } else {
