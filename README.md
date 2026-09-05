@@ -57,7 +57,7 @@ Builds a site from the vault into the given directory. Without `--site`, a singl
 
 Exit code: `0` done, `1` conversion error, `2` bad arguments.
 
-Tests run with `python test_md2html.py`; there are 58 of them and they finish in under a second.
+Tests run with `python test_md2html.py`; there are 64 of them and they finish in under a second.
 
 ## Conventions
 
@@ -86,6 +86,7 @@ That flag is **`--all`**, which switches the filter off altogether. It is not a 
 **K70. Site configuration lives in `.obsidian2html/`** in the root of the vault. It holds `menu.md` (the curated bar), `index.md` (a hand-written intro for the front page), `styl.css` (custom styles) and `logo.svg`. The leading dot hides the directory in Obsidian, which is the point: these are inputs for the generator, not articles, and they are edited outside Obsidian. The name says which tool owns the directory, so nothing is ambiguous next to `.obsidian/`. When the directory is absent, the generator manages without it.
 
 **K80. A published article ought to carry `date` in its frontmatter.** When it does not, the file's own date is used. That is shaky, because a file date changes when copying and when syncing, but it is simple and needs no git - and git need not work in the input directory at all. On equal dates the article name decides, so the ordering is unambiguous and the build repeatable.
+The `YYYY-MM-DD` shape is checked and the build warns about anything else. Refusing it is not an option - what a date should look like is the author's business - but a forgotten template placeholder such as `{{date:YYYY-MM-DD}}` beats every real date in a string sort and lands the article at the top of the front page with nothing to say why.
 
 **K90. Frontmatter keys and command-line flags are English.** So `date`, `title`, `excerpt`, `slug`, `tags`, and the flags `--site`, `--published-only`, `--base-url`, `--check`, `--clean`, `--site-name`. Article content is Czech, the tool's interface is not - the tool is public, and its command line and its keys are the only thing a foreign user has to type. The old Czech keys `datum`, `titul` and `perex` are no longer read; when the build meets one it says so, because the article would otherwise quietly lose its date or its title.
 

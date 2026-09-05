@@ -1685,6 +1685,21 @@ RSS_MONTHS = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
               'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
 
 
+def is_date(value):
+    """Is this YYYY-MM-DD? Anything else cannot order the front page.
+
+    A date is not decoration - the ordering of the front page rests on it, and
+    a string sort puts an unrecognised one wherever it happens to fall. A
+    template placeholder like {{date:YYYY-MM-DD}} left in an article therefore
+    lands it at the very top, ahead of everything real, and nothing says why.
+    """
+    try:
+        time.strptime(value, '%Y-%m-%d')
+    except (ValueError, TypeError):
+        return False
+    return True
+
+
 def rfc822(date):
     """2026-08-28 -> Fri, 28 Aug 2026 00:00:00 +0000. Vraci None pri nesmyslu."""
     try:
@@ -2100,6 +2115,7 @@ def main():
         # see Conversion.resolve_wikilinks. Were the key the overriding slug,
         # links to such a note would stop leading anywhere.
         plan, batch, used, clashes, guessed_dates = [], {}, set(), [], []
+        bad_dates = []
         oversized = []
         for path, meta, body_text in items:
             stem = os.path.splitext(os.path.basename(path))[0]
@@ -2124,6 +2140,11 @@ def main():
                 # used. Nothing is written into the source, see guarantee Z45.
                 meta['date'] = file_date(path)
                 guessed_dates.append((path, meta['date']))
+            elif meta.get('date') and not is_date(meta['date']):
+                # Reported rather than refused: what a date should look like is
+                # the author's business, and a build that stops over one article
+                # is worse than one that says which article it is.
+                bad_dates.append((path, meta['date']))
             used.add(name)
             batch.setdefault(key, name + '.html')
             plan.append((path, meta, body_text, name))
@@ -2329,6 +2350,13 @@ def main():
                   ' 9rem high, so a smaller file is enough.' % len(oversized))
             for c, kb in oversized:
                 print('  %.0f kB  %s' % (kb, c))
+
+        if bad_dates:
+            print('\nNOTE: a date that is not a date (%d). The front page is'
+                  ' ordered by it, so an unrecognised one lands wherever the'
+                  ' string sort puts it - usually at the top:' % len(bad_dates))
+            for c, d in bad_dates:
+                print('  %r  %s' % (d, c))
 
         if guessed_dates:
             print('\nNo date in the frontmatter, taken from the file (%d).'

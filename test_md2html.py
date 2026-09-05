@@ -573,6 +573,30 @@ class Konvence(Zaklad):
         self.assertIn('2020-05-05', html)
         self.assertNotIn('2019-03-07', html)
 
+    def test_K80_datum_ktere_datem_neni_se_ohlasi(self):
+        """Zbyly zastupny symbol sablony by tise rozhodil poradi na titulce."""
+        self.soubor('Prvni %s.md' % MARKER,
+                    '---\ndate: {{date:YYYY-MM-DD}}\n---\nText.\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('not a date', vypis)
+        self.assertIn('{{date:YYYY-MM-DD}}', vypis)
+
+    def test_K80_spravne_datum_se_neohlasi(self):
+        """Protejsek: bez tohohle by testu vyhovela i kontrola, ktera hlasi vzdy."""
+        self.clanek('Prvni', 'Text.', datum='2026-01-01')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertNotIn('not a date', vypis)
+
+    def test_K80_nesmyslne_datum_build_neshodi(self):
+        """Jak ma datum vypadat, je vec autora - build to rekne a jede dal."""
+        self.soubor('Prvni %s.md' % MARKER,
+                    '---\ndate: vcera\n---\nText.\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('prvni.html', self.stranky())
+
     def test_K80_pri_shode_dat_rozhoduje_nazev(self):
         """Poradi na titulce musi byt jednoznacne, jinak build neni opakovatelny."""
         for nazev in ('Cecko', 'Acko', 'Becko'):

@@ -57,7 +57,7 @@ Postaví web z vaultu do zadaného adresáře. Bez `--site` se z jednoho `.md` u
 
 Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
 
-Testy se pouštějí `python test_md2html.py`, je jich 58 a běží pod sekundu.
+Testy se pouštějí `python test_md2html.py`, je jich 64 a běží pod sekundu.
 
 
 ## Konvence
@@ -86,7 +86,8 @@ Tím přepínačem je **`--all`**, který filtr vypne úplně. Není to druhá c
 
 **K70. Konfigurace webu leží ve složce `.obsidian2html/`** v kořeni vaultu. Drží `menu.md` (kurátorovaná lišta), `index.md` (ruční úvod na titulce), `styl.css` (vlastní styly) a `logo.svg`. Tečka na začátku složku v Obsidianu skryje, což je záměr: jsou to vstupy pro generátor, ne články, a editují se mimo Obsidian. Název říká, ke kterému nástroji ta složka patří, takže vedle `.obsidian/` nevzniká nejasnost. Když složka ve vaultu není, generátor si poradí bez ní.
 
-**K80. Publikovaný článek by měl mít ve frontmatteru `date`.** Když ho nemá, použije se datum souboru. Je to vratké, protože datum souboru se mění při kopírování i při synchronizaci, ale je to jednoduché a nepotřebuje to git - ten ve vstupním adresáři fungovat nemusí. Při shodě dat rozhoduje název článku, aby bylo pořadí jednoznačné a build opakovatelný.
+**K80. Publikovaný článek by měl mít ve frontmatteru `date`.** Když ho nemá, použije se datum souboru. Je to vratké, protože datum souboru se mění při kopírování i při synchronizaci, ale je to jednoduché a nepotřebuje to git - ten ve vstupním adresáři fungovat nemusí. Při shodě dat rozhoduje název článku, aby bylo pořadí jednoznačné a build opakovatelný.  
+Tvar `RRRR-MM-DD` se kontroluje a build na cokoli jiného upozorní. Odmítnout to nejde, jak má datum vypadat je věc autora - ale zapomenutý zástupný symbol šablony jako `{{date:YYYY-MM-DD}}` je při řetězcovém řazení silnější než každé skutečné datum a článek vyskočí na začátek titulky, aniž by cokoli řeklo proč.
 
 **K90. Klíče frontmatteru a přepínače jsou anglicky.** Tedy `date`, `title`, `excerpt`, `slug`, `tags`, a přepínače `--site`, `--published-only`, `--base-url`, `--check`, `--clean`, `--site-name`. Obsah článků je česky, rozhraní nástroje ne - nástroj je veřejný a jeho příkazová řádka i klíče jsou to jediné, co cizí uživatel musí napsat sám. České klíče `datum`, `titul` a `perex` se už nečtou; když na ně build narazí, ohlásí to, protože jinak by článek tiše přišel o datum nebo titulek.
 
