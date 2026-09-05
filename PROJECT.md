@@ -105,6 +105,20 @@ Vyrobit `README.md` překladem z `README.cs.md`. Založit repozitář na GitHubu
 
 `gh` ani `git filter-repo` na stroji nejsou. `gh` se dá doinstalovat, nebo se prázdný repozitář založí ručně přes web.
 
+### 8. Štítek se zaškrtávátkem - HOTOVO
+
+Štítek na `hledani.html` je nově dvojice ovladačů v jedné pilulce: **zaškrtávátko tag drží** ve filtru, **jméno prohlíží** - nastaví jeden tag navíc a další kliknuté jméno ho vystřídá. Filtr je průnik obojího, takže se dá držet `#Obsidian` a proklikat se jeho podmnožinami, aniž by se `#Obsidian` pokaždé obnovoval.
+
+Podstatné je, že **žádný z těch dvou ovladačů nesahá na stav toho druhého**. Zaškrtávátko, které by se odškrtlo proto, že se kliklo na souseda, slibuje nezávislost, kterou nedodrží.
+
+Do adresy přibyl parametr `pick` pro prohlížený tag; `tag` zůstal pro držené. Odkaz ze statické stránky tagu nese jen `tag`, takže se to, co přinesl, drží - jinak by první kliknutí smazalo obojí.
+
+Číslo na štítku teď znamená **kolik bude vidět po kliknutí na jméno**, tedy držené plus tenhle. Na tagu, který už ve filtru je, žádné číslo není - odpovídalo by na jinou otázku než číslo na sousedovi. Zhasnutý štítek má zakázané i zaškrtávátko, jinak by se dalo držením spadnout do prázdného výsledku, což je celá pointa tlumení.
+
+Zkoušelo se a zahodilo: **Ctrl+klik** jako přidávání (na Macu koliduje s kontextovým menu a nikdo ho neuhodne), **jedno zaškrtávátko na celou lištu** ve smyslu "kombinovat tagy" (režim, který se nehledá tam, kde je potřeba) a varianta, kde klik na jméno odškrtává cizí čtverečky (viz odstavec o nezávislosti). Rozhodovalo se nad klikací maketou všech variant.
+
+Ověřeno v prohlížeči nad PKVaultem: držení, střídání, čtení stavu z adresy, kombinace s textovým dotazem, zrušení filtru. Porovnání staré a nové verze říká, že se liší jen `hledani.html` a `styl.css`, ostatních 17 stránek je bajt za bajtem shodných.
+
 ## Otevřené otázky
 
 

@@ -37,21 +37,29 @@ r"""
    Exit code 0 = done, 1 = conversion error, 2 = bad arguments.
 
  FACETED TAG FILTER
-   Tags COMBINE WITH AND, they do not replace one another. `Obsidian` plus
-   `Video` yields articles about Obsidian that have a video. A tag that would
-   yield nothing in combination with those already picked is DIMMED and
-   cannot be clicked, so there is no way to click into an empty result. It is
-   dimmed rather than hidden: were it to disappear, the bar would jump on
-   every click.
+   Tags COMBINE WITH AND. `Obsidian` plus `Video` yields articles about
+   Obsidian that have a video. A tag that would yield nothing in combination
+   with those already picked is DIMMED and cannot be clicked, so there is no
+   way to click into an empty result. It is dimmed rather than hidden: were it
+   to disappear, the bar would jump on every click.
+
+   A tag in the live bar is a PAIR OF CONTROLS in one pill: a checkbox that
+   HOLDS the tag in the filter, and the name, which BROWSES - it sets one tag
+   more and the next name clicked exchanges it. So one holds `Obsidian` and
+   clicks through `Howto`, `Video`, `Backups` to see its subsets without
+   renewing `Obsidian` every time. Neither control ever changes the other's
+   state; a checkbox that unticked itself because a neighbour was clicked
+   would promise an independence it does not keep.
 
    This lives in two places that complement each other:
 
    hledani.html   the live version. Tags, the text query and the counts are
                   recomputed together - the query also narrows which tags
                   still light up. State lives in the address
-                  (`?tag=a&tag=b&q=...`), so it can be sent and restored with
-                  the back button. The tag bar is left out there; two rows of
-                  tags on one page only confuse.
+                  (`?tag=a&tag=b&pick=c&q=...`, `tag` held and `pick`
+                  browsed), so it can be sent and restored with the back
+                  button. The tag bar is left out there; two rows of tags on
+                  one page only confuse.
    tag-*.html     the static version, WITHOUT JavaScript. A tag in the bar
                   leads to hledani.html carrying BOTH tags, so it adds rather
                   than replaces; an unreachable one is already dimmed in the
@@ -217,6 +225,9 @@ TEXTS = {
         'no_overlap': 's #%s se nepotkává v žádném článku',
         'clear_filter': 'zrušit filtr',
         'remove_filter': 'odebrat filtr',
+        'hold_tag': 'držet #%s ve filtru',
+        'release_tag': 'přestat držet #%s',
+        'filter_tag': 'filtrovat na #%s',
         'nothing_found': 'nic nenalezeno',
         'in_scope': ' v ',
         'and': ' a ',
@@ -254,6 +265,9 @@ TEXTS = {
         'no_overlap': 'never occurs together with #%s',
         'clear_filter': 'clear the filter',
         'remove_filter': 'remove the filter',
+        'hold_tag': 'keep #%s in the filter',
+        'release_tag': 'stop keeping #%s',
+        'filter_tag': 'filter to #%s',
         'nothing_found': 'nothing found',
         'in_scope': ' in ',
         'and': ' and ',
@@ -388,19 +402,42 @@ body { max-width: 64rem; padding-top: 1.25rem; }
                           opacity: .45; cursor: default; }
 .hlavicka nav .pocet-tagu { opacity: .6; font-size: .8em; margin-left: .3em; }
 
-/* The faceted filter on the search page. Tags combine with AND. */
-.fasety { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.5rem; }
+/* The faceted filter on the search page. A tag is a pair: a checkbox that
+   HOLDS it in the filter and a name that browses. The two are one pill to the
+   eye and two controls to the hand. */
+.fasety { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.5rem;
+          align-items: center; }
 .stitek { font: inherit; font-size: .88rem; padding: .25rem .6rem;
           border: 1px solid var(--linka); border-radius: 999px;
           background: none; color: var(--odkaz); cursor: pointer;
           white-space: nowrap; }
 .stitek:hover { background: var(--th); }
-.stitek.vybrany { background: var(--odkaz); color: #fff; border-color: var(--odkaz); }
+.stitek.zrusit { border-style: dashed; }
+.parstitek { display: inline-flex; align-items: center;
+             border: 1px solid var(--linka); border-radius: 999px;
+             overflow: hidden; }
+.parstitek > label { display: flex; align-items: center;
+                     padding: .25rem .1rem .25rem .45rem; cursor: pointer; }
+.parstitek > label input { margin: 0; cursor: pointer; }
+.parstitek > button { font: inherit; font-size: .88rem;
+                      padding: .25rem .6rem .25rem .4rem;
+                      border: 0; background: none; color: var(--odkaz);
+                      cursor: pointer; white-space: nowrap; }
+.parstitek > button:hover { background: var(--th); }
+/* Held is a PALE fill, the browsed one a FULL fill. The held tag stays put
+   while the browsed one is exchanged, so the quieter mark belongs to it. */
+.parstitek.drzeny { border-color: var(--odkaz); background: var(--th); }
+/* The name of a held tag does nothing - the checkbox beside it is the way
+   out - so it must not offer itself to the hand. */
+.parstitek.drzeny > button { cursor: default; }
+.parstitek.drzeny > button:hover { background: none; }
+.parstitek.vybrany { border-color: var(--odkaz); }
+.parstitek.vybrany > button { background: var(--odkaz); color: #fff; }
 /* An unreachable tag is DIMMED, not hidden - otherwise the bar jumps on
    every click and one loses track of what sat where. */
-.stitek.zhasnuty { color: var(--tlum); opacity: .45; cursor: default; }
-.stitek.zrusit { border-style: dashed; }
-.stitek .pocet-tagu { opacity: .6; font-size: .8em; margin-left: .35em; }
+.parstitek.zhasnuty { opacity: .45; }
+.parstitek.zhasnuty > button { color: var(--tlum); cursor: default; }
+.parstitek .pocet-tagu { opacity: .6; font-size: .8em; margin-left: .35em; }
 
 .paticka { margin-top: 3.5rem; padding-top: 1rem;
            border-top: 1px solid var(--linka);
@@ -533,10 +570,30 @@ ARTICLES.forEach(c => {
 });
 
 const params = new URLSearchParams(location.search);
-// Filter state is MUTABLE: a tag is added, not substituted. The tag from the
-// address is merely the starting point, it can be worked with afterwards.
-let filters = params.getAll('tag').filter(Boolean);
+// The filter has TWO INDEPENDENT PARTS. `held` are the tags pinned with the
+// checkbox: they survive every further click. `current` is the one tag whose
+// name was clicked, and the next click on a name exchanges it. The filter is
+// the intersection of both, so holding #Obsidian and clicking through
+// #Howto, #Video, #Backups walks its subsets without renewing #Obsidian.
+//
+// The point of the split is that NEITHER CONTROL TOUCHES THE OTHER'S STATE.
+// A checkbox that unticked itself because a neighbour was clicked would
+// promise an independence it does not keep.
+//
+// A tag in the address is HELD - a link from a tag page carries the tags it
+// combined, and those are meant to stay.
+let held = params.getAll('tag').filter(Boolean);
+let current = params.get('pick') || null;
+if (held.includes(current)) { current = null; }
+let filters = [];
 let scope = [];
+
+function syncFilters() {
+  // The guard is for an address typed by hand. Clicking cannot get a tag into
+  // both parts at once, but `?tag=a&pick=a` would otherwise say '#a and #a'.
+  filters = (current && !held.includes(current)) ? held.concat([current])
+                                                 : held.slice();
+}
 
 function matchesTags(c, combo) {
   return combo.every(f => f === NO_TAG ? c.tags.length === 0
@@ -623,6 +680,9 @@ function search(query) {
 //
 // The counts are recomputed on every redraw, the text query included.
 // Otherwise they would lie - and a count that lies is worse than no count.
+// The number says WHAT A CLICK ON THE NAME WOULD YIELD, so the held tags plus
+// this one. On a tag already in the filter there is no number at all: it
+// would answer a different question than the number on its neighbour.
 // ---------------------------------------------------------------------------
 
 function countFor(combo, words) {
@@ -630,30 +690,41 @@ function countFor(combo, words) {
                               && (!words.length || score(c, words) > 0)).length;
 }
 
+const withTag = (text, tag) => text.replace('%s', tag);
+
 function renderFacets(words) {
   const target = document.getElementById('fasety');
   const parts = [];
   for (const tag of ALL_TAGS) {
-    const selected = filters.includes(tag.name);
-    const combo = selected ? filters.filter(f => f !== tag.name)
-                           : filters.concat([tag.name]);
-    const count = countFor(combo, words);
-    if (selected) {
-      // No count here, deliberately: on a selected tag the number would mean
-      // 'if I remove it', so more than is on screen, and it would read as
-      // that tag's article count. How many results there are right now is
-      // what the header says.
-      parts.push('<button type="button" class="stitek vybrany" data-tag="'
-                 + esc(tag.name) + '" aria-pressed="true" title="'
-                 + TXT.remove_filter + '">#' + esc(tag.label) + '</button>');
-    } else if (count === 0) {
-      parts.push('<span class="stitek zhasnuty" aria-disabled="true">#'
-                 + esc(tag.label) + '<span class="pocet-tagu">0</span></span>');
-    } else {
-      parts.push('<button type="button" class="stitek" data-tag="'
-                 + esc(tag.name) + '" aria-pressed="false">#' + esc(tag.label)
-                 + '<span class="pocet-tagu">' + count + '</span></button>');
-    }
+    const isHeld = held.includes(tag.name);
+    const isCurrent = current === tag.name;
+    const inFilter = isHeld || isCurrent;
+    const count = inFilter ? null : countFor(held.concat([tag.name]), words);
+    const dead = count === 0;
+    const classes = 'parstitek' + (isHeld ? ' drzeny' : '')
+                    + (isCurrent ? ' vybrany' : '') + (dead ? ' zhasnuty' : '');
+    const hint = isHeld ? withTag(TXT.release_tag, tag.label)
+                        : withTag(TXT.hold_tag, tag.label);
+    parts.push('<span class="' + classes + '">'
+               // The checkbox holds the tag and nothing else. It is a real
+               // input, so the keyboard and the screen reader get it for free.
+               // On a dimmed tag it is disabled along with the name: holding
+               // one yields the same empty result as clicking it.
+               + '<label title="' + esc(hint) + '"><input type="checkbox"'
+               + ' data-hold="' + esc(tag.name) + '" aria-label="' + esc(hint)
+               + '"' + (isHeld ? ' checked' : '') + (dead ? ' disabled' : '')
+               + '></label>'
+               // The name is dead on a held tag: it is in the filter already,
+               // and the checkbox right next to it is how one gets it out.
+               // Promising 'filter to this' there would be a lie.
+               + '<button type="button" data-tag="' + esc(tag.name) + '"'
+               + (dead || isHeld ? ' disabled' : '')
+               + ' aria-pressed="' + (isCurrent ? 'true' : 'false') + '"'
+               + (isHeld ? '' : ' title="' + esc(isCurrent ? TXT.remove_filter
+                                : withTag(TXT.filter_tag, tag.label)) + '"')
+               + '>#' + esc(tag.label)
+               + (inFilter ? '' : '<span class="pocet-tagu">' + count + '</span>')
+               + '</button></span>');
   }
   if (filters.length) {
     parts.push('<button type="button" class="stitek zrusit" id="zrusit">'
@@ -666,7 +737,8 @@ function writeUrl(query) {
   // State belongs in the address, so it can be sent and restored with the
   // back button.
   const p = new URLSearchParams();
-  filters.forEach(f => p.append('tag', f));
+  held.forEach(f => p.append('tag', f));
+  if (current) { p.set('pick', current); }
   if (query) { p.set('q', query); }
   const queryString = p.toString();
   history.replaceState(null, '',
@@ -676,6 +748,7 @@ function writeUrl(query) {
 function render() {
   const query = field.value;
   const words = fold(query).split(/\s+/).filter(Boolean);
+  syncFilters();
   scope = ARTICLES.filter(c => matchesTags(c, filters));
   search(query);
   renderFacets(words);
@@ -688,13 +761,27 @@ const field = document.getElementById('dotaz');
 field.form.addEventListener('submit', e => e.preventDefault());
 field.addEventListener('input', render);
 
+// The checkbox works on `held` ALONE, the name on `current` alone. The single
+// exception is holding the tag one is browsing: it would otherwise sit in the
+// filter twice, so it stops being the browsed one and becomes held.
+document.getElementById('fasety').addEventListener('change', e => {
+  const box = e.target.closest('input[data-hold]');
+  if (!box) { return; }
+  const tag = box.getAttribute('data-hold');
+  held = box.checked ? held.concat([tag]) : held.filter(f => f !== tag);
+  if (box.checked && current === tag) { current = null; }
+  render();
+});
+
 document.getElementById('fasety').addEventListener('click', e => {
-  if (e.target.id === 'zrusit') { filters = []; render(); return; }
+  if (e.target.id === 'zrusit') { held = []; current = null; render(); return; }
   const chip = e.target.closest('button[data-tag]');
   if (!chip) { return; }
   const tag = chip.getAttribute('data-tag');
-  filters = filters.includes(tag) ? filters.filter(f => f !== tag)
-                                  : filters.concat([tag]);
+  // The name of a held tag is disabled, so this is only a safety net - but it
+  // is what keeps `current` from ever being a held tag, and with it the
+  // address canonical.
+  current = (current === tag || held.includes(tag)) ? null : tag;
   render();
 });
 

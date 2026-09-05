@@ -57,7 +57,7 @@ Postaví web z vaultu do zadaného adresáře. Bez `--site` se z jednoho `.md` u
 
 Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
 
-Testy se pouštějí `python test_md2html.py`, je jich 69 a běží pod sekundu.
+Testy se pouštějí `python test_md2html.py`, je jich 70 a běží pod sekundu.
 
 
 ## Konvence

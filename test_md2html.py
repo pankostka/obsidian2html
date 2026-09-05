@@ -719,6 +719,23 @@ class Lokalizace(Zaklad):
         self.assertIn('článek', html)
         self.assertIn('článků', html)
 
+    def test_stitek_ma_ctverecek_i_jmeno_a_kazdy_svuj_stav(self):
+        """Ctverecek tag drzi, jmeno prohlizi. Zadny z nich nesahne na druhy.
+
+        Listu kresli az prohlizec, takze se testuje skript, ktery stranka nese:
+        obe casti stitku a obe casti stavu, ktere jim odpovidaji.
+        """
+        self.clanek('Prvni', 'Text.', tagy='obsidian')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('hledani.html')
+        self.assertIn('data-hold=', html)          # checkbox: drzi
+        self.assertIn('data-tag=', html)           # jmeno: prohlizi
+        self.assertIn("params.getAll('tag')", html)
+        self.assertIn("params.get('pick')", html)
+        self.assertIn("'parstitek'", html)
+
     def test_K100_neznamy_jazyk_skonci_chybou(self):
         """Mlcky spadnout na cestinu by znamenalo tise vyrobit jiny web."""
         self.clanek('Prvni', 'Text.')
