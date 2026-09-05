@@ -45,6 +45,8 @@ Postaví web z vaultu do zadaného adresáře. Bez `--site` se z jednoho `.md` u
 | `--site` | režim webu: sdílený `styl.css`, obrázky do `img/`. Vyžaduje `-o` |
 | `-o <kam>` | kam se má web postavit. Povinné s `--site` |
 | `--lang cs\|en` | jazyk webu, výchozí `cs` |
+| `--marker` | znak publikace na konci názvu, výchozí globus |
+| `--all` | převede všechny články, i neoznačené |
 | `--site-name` | název webu do hlavičky, výchozí je jméno složky vaultu |
 | `--base-url` | absolutní adresa webu. Bez ní se negeneruje `rss.xml` |
 | `--published-only` | jen články s markerem. `--site` to zapíná samo |
@@ -55,7 +57,7 @@ Postaví web z vaultu do zadaného adresáře. Bez `--site` se z jednoho `.md` u
 
 Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
 
-Testy se pouštějí `python test_md2html.py`, je jich 52 a běží pod sekundu.
+Testy se pouštějí `python test_md2html.py`, je jich 58 a běží pod sekundu.
 
 
 ## Konvence
@@ -66,7 +68,9 @@ Konvence jsou dvojího druhu:
 
 ### Vaultové konvence
 
-**K10. Publikují se jen články, jejichž název končí globusem 🌐.** Článek `Název článku 🌐.md` jde ven, článek `Název článku.md` ne. Chybějící marker tedy znamená neveřejné, takže se zveřejňuje vědomým úkonem, nikdy opomenutím. Je to vidět hned ve stromu souborů, což je příjemné a jasné.
+**K10. Publikují se jen články, jejichž název končí globusem 🌐.** Článek `Název článku 🌐.md` jde ven, článek `Název článku.md` ne. Chybějící marker tedy znamená neveřejné, takže se zveřejňuje vědomým úkonem, nikdy opomenutím. Je to vidět hned ve stromu souborů, což je příjemné a jasné.  
+Znak určuje `--marker`, výchozí je globus. Vault si smí zvolit jiný, ale **znak z běžné klávesnice je špatný marker**: strhává se i z titulku, takže s `--marker '!'` půjde ven článek `Pozor!.md` s titulkem `Pozor`. Build na to upozorní. Prázdný marker je chyba, na "všechno" je jiný přepínač.  
+Tím přepínačem je **`--all`**, který filtr vypne úplně. Není to druhá cesta, jak článek publikovat omylem - je to jeden vědomý příkaz a build nahlas řekne, kolik neoznačených článků vzal s sebou. Vzniká tím adresář s HTML; nahrát ho někam je samostatný úkon, který tenhle nástroj neumí.
 
 **K20. Složka začínající tečkou nebo podtržítkem se přeskakuje.** Spolu s K70 to dává jednoduché pravidlo: co má být mimo web, dostane podtržítko.
 

@@ -45,6 +45,8 @@ Builds a site from the vault into the given directory. Without `--site`, a singl
 | `--site` | site mode: shared `styl.css`, images into `img/`. Requires `-o` |
 | `-o <where>` | where to build the site. Mandatory with `--site` |
 | `--lang cs\|en` | language of the site, `cs` by default |
+| `--marker` | the publish marker at the end of a name, a globe by default |
+| `--all` | convert every article, marked or not |
 | `--site-name` | site name for the header, defaults to the vault directory name |
 | `--base-url` | absolute address of the site. Without it no `rss.xml` is written |
 | `--published-only` | only articles carrying the marker. `--site` turns this on itself |
@@ -55,7 +57,7 @@ Builds a site from the vault into the given directory. Without `--site`, a singl
 
 Exit code: `0` done, `1` conversion error, `2` bad arguments.
 
-Tests run with `python test_md2html.py`; there are 52 of them and they finish in under a second.
+Tests run with `python test_md2html.py`; there are 58 of them and they finish in under a second.
 
 ## Conventions
 
@@ -66,6 +68,8 @@ Conventions come in two kinds:
 ### Vault conventions
 
 **K10. Only articles whose name ends with the globe 🌐 are published.** `Article name 🌐.md` goes out, `Article name.md` does not. A missing marker therefore means not public, so publishing is a deliberate act and never an oversight. It is visible right there in the file tree, which is pleasant and unambiguous.
+The character is set by `--marker`, a globe by default. A vault may pick another one, but **a character off the ordinary keyboard makes a poor marker**: it is stripped off the title as well, so with `--marker '!'` the article `Careful!.md` goes out titled `Careful`. The build says so. An empty marker is an error; there is a different flag for "everything".
+That flag is **`--all`**, which switches the filter off altogether. It is not a second way for an article to be published by accident - it is one deliberate instruction, and the build says out loud how many unmarked articles came along. What comes out is a directory of HTML; uploading it anywhere is a separate act, and one this tool does not perform.
 
 **K20. A directory starting with a dot or an underscore is skipped.** Together with K70 that gives one simple rule: whatever should stay off the site gets an underscore.
 

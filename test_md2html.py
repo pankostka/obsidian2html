@@ -294,6 +294,63 @@ class Konvence(Zaklad):
         self.assertIn('verejny.html', stranky)
         self.assertNotIn('soukromy.html', stranky)
 
+    def test_K10_marker_se_da_zmenit(self):
+        """Vault smi pouzivat jiny znak. Vychozi zustava globus."""
+        self.soubor('Verejny ★.md', '---\ndate: 2026-01-01\n---\nText.\n')
+        self.soubor('Soukromy.md', '---\ndate: 2026-01-01\n---\nText.\n')
+        kod, vypis = self.web('--marker', '★')
+        self.assertEqual(kod, 0, vypis)
+
+        stranky = self.stranky()
+        self.assertIn('verejny.html', stranky)
+        self.assertNotIn('soukromy.html', stranky)
+        self.assertNotIn('★', self.vystupni('verejny.html'))
+
+    def test_K10_vychozi_marker_je_globus(self):
+        """Protejsek predchoziho: bez --marker plati globus, ne hvezda."""
+        self.soubor('Hvezda ★.md', '---\ndate: 2026-01-01\n---\nText.\n')
+        self.clanek('Globus', 'Text.')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        stranky = self.stranky()
+        self.assertIn('globus.html', stranky)
+        self.assertNotIn('hvezda.html', stranky)
+
+    def test_K10_marker_z_bezneho_znaku_se_ohlasi(self):
+        """Vykricnik se nedá odlisit od nazvu, ktery tak proste konci."""
+        self.soubor('Pozor!.md', '---\ndate: 2026-01-01\n---\nText.\n')
+        kod, vypis = self.web('--marker', '!')
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('ordinary characters', vypis)
+
+    def test_K10_prazdny_marker_je_chyba(self):
+        """Prazdny marker by znamenal, ze publikuje vsechno - na to je --all."""
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web('--marker', '')
+        self.assertEqual(kod, 2, vypis)
+        self.assertIn('--all', vypis)
+
+    def test_K10_all_vezme_i_neoznacene(self):
+        """Vyroba HTML neni publikace, nahrani nekam je samostatny ukon."""
+        self.clanek('Verejny', 'Text.', publikovany=True)
+        self.clanek('Soukromy', 'Text.', publikovany=False)
+        kod, vypis = self.web('--all')
+        self.assertEqual(kod, 0, vypis)
+
+        stranky = self.stranky()
+        self.assertIn('verejny.html', stranky)
+        self.assertIn('soukromy.html', stranky)
+
+    def test_K10_all_to_rekne_nahlas(self):
+        """Pojistka je vedomy ukon, takze prepinac, ktery ji vypina, musi byt slyset."""
+        self.clanek('Prvni', 'Text.', publikovany=False)
+        self.clanek('Druha', 'Text.', publikovany=False)
+        kod, vypis = self.web('--all')
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('--all', vypis)
+        self.assertIn('2 of the 2 articles carry no marker', vypis)
+
     def test_K10_klic_publish_marker_nenahradi(self):
         """Klic publish uz nic neznamena, ale build na nej upozorni."""
         self.soubor('Soukromy.md', '---\npublish: true\ndate: 2026-01-01\n---\nText.\n')

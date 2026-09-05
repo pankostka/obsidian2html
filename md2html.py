@@ -146,6 +146,22 @@ CONFIG_DIR = '.obsidian2html'
 # which would otherwise put a globe in the middle of a sentence.
 PUBLISH_MARKER = '🌐'
 
+
+def set_marker(mark):
+    """Change the publish marker. A vault may use whatever it likes.
+
+    The marker is stripped off the title, the slug and the alt text, so a
+    character that also occurs in ordinary names takes a piece of them with it:
+    with '!' the article 'Careful!.md' goes out titled 'Careful'. A symbol that
+    nobody writes by accident is therefore the safer choice, and the build warns
+    about the rest.
+    """
+    global PUBLISH_MARKER
+    if not mark:
+        raise Error('The publish marker cannot be empty.'
+                    ' Use --all when everything should be converted.')
+    PUBLISH_MARKER = mark
+
 # A marker file inside the output directory. The script may only wipe a
 # directory that carries it, or one that is empty. A directory that belongs to
 # somebody else survives even a typo in the path.
@@ -1976,6 +1992,16 @@ def main():
     p.add_argument('--site-name', help='name of the site, used in the header and'
                                        ' in page titles (default: the vault'
                                        ' directory name)')
+    p.add_argument('--marker', default='🌐',
+                   help='the publish marker at the end of a filename'
+                        ' (default: a globe). A character that also turns up in'
+                        ' ordinary names is a poor marker - it is stripped off'
+                        ' the title as well')
+    p.add_argument('--all', action='store_true',
+                   help='convert every article, marker or not. The output is'
+                        ' still only a directory of HTML - uploading it'
+                        ' anywhere is a separate act. The build says how many'
+                        ' unmarked articles came along')
     p.add_argument('--lang', default='cs',
                    help='language of the generated site: cs or en (default: cs).'
                         ' It also decides the page names, so a Czech site keeps'
@@ -1984,9 +2010,18 @@ def main():
 
     try:
         set_language(args.lang)
+        set_marker(args.marker)
     except Error as e:
         print('ERROR: %s' % e)
         return 2
+
+    # A marker made of ordinary characters cannot be told apart from a name
+    # that simply ends that way. It still works, but the author should hear it
+    # once rather than wonder later why an article went out.
+    if not any(ord(z) > 0x2000 for z in args.marker):
+        print('NOTE: the marker %r is made of ordinary characters, so an'
+              ' article whose name merely ends that way goes out too.'
+              % args.marker)
 
     if not os.path.exists(args.input):
         print('ERROR: input does not exist: %s' % args.input)
@@ -2001,6 +2036,11 @@ def main():
         args.site = True
     if args.site:
         args.published_only = True
+    # --all wins over everything, site mode included. It is not a second way for
+    # an article to be published by accident - it is one explicit instruction,
+    # and the build repeats out loud what it did.
+    if args.all:
+        args.published_only = False
     # Where output goes is decided by a flag - no default path in the code. The
     # output belongs outside the repository and outside the vault, and only the
     # author knows where, see guarantee Z50.
@@ -2019,6 +2059,15 @@ def main():
 
     try:
         items, forgotten, legacy = collect(args.input, args.published_only)
+        # --all is loud on purpose. The safeguard is that publishing is a
+        # deliberate act; a flag that switches it off has to say so, or the
+        # next person to read the log will not know what went out.
+        if args.all:
+            unmarked = [c for c, _, _ in items if not is_published(c)]
+            print('\nNOTE: --all, so %d of the %d articles carry no marker.'
+                  % (len(unmarked), len(items)))
+            print('A directory of HTML is what comes out; uploading it anywhere'
+                  ' is a separate act.')
         if not items:
             print('Nothing to convert.')
             return 1
