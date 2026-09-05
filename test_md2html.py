@@ -687,6 +687,37 @@ class Syntaxe(Zaklad):
         self.assertEqual(kod, 0, vypis)
         self.assertIn('Zacatek.', self.vystupni('prvni.html'))
 
+    def test_wikilink_s_escapovanou_rourou(self):
+        """V tabulce Obsidian rouru escapuje, jinak by rozdelila bunku."""
+        self.clanek('Prvni',
+                    '| Kdo | Kde |\n| --- | --- |\n'
+                    '| [[Druha\\|zkratka]] | trida |\n')
+        self.clanek('Druha', 'Text.')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('prvni.html')
+        self.assertIn('<a href="druha.html">zkratka</a>', html)
+        self.assertNotIn('Flattened links', vypis)
+
+    def test_wikilink_s_escapovanou_rourou_a_kotvou(self):
+        self.clanek('Prvni', 'Viz [[Druha#Sekce\\|jinam]].')
+        self.clanek('Druha', '## Sekce\n\nText.\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('>jinam</a>', self.vystupni('prvni.html'))
+
+    def test_embed_obrazku_s_escapovanou_sirkou(self):
+        """Totez u obrazku: ![[obr.png\\|300]] uvnitr tabulky."""
+        self.clanek('Prvni', 'Obrazek: ![[schema.png\\|300]]\n')
+        self.obrazek('Attachments/schema.png')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('prvni.html')
+        self.assertIn('width="300"', html)
+        self.assertIn('src="img/schema.png"', html)
+
     def test_wikilink_s_vlastnim_popisem(self):
         self.clanek('Prvni', 'Jdi na [[Druha|jinou notu]].')
         self.clanek('Druha', 'Text.')

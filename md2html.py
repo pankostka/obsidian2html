@@ -867,8 +867,15 @@ def slug(text):
 # Obsidian syntax
 # ==============================================================================
 
-RE_EMBED = re.compile(r'!\[\[([^\]|#]+?)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]')
-RE_WIKILINK = re.compile(r'(?<!!)\[\[([^\]|#]+?)(?:#([^\]|]*))?(?:\|([^\]]*))?\]\]')
+# THE PIPE MAY BE ESCAPED. Inside a Markdown table a bare | would split the
+# cell, so Obsidian writes [[Target\|label]] there - and it does that on its
+# own, whenever an alias is added to a link in a table. Without the optional
+# backslash the target reads as 'Target\', no such note is found and the link
+# degrades to plain text. A whole vault can be full of those and every one of
+# them would go quietly, because a flattened link is a warning, not an error.
+RE_EMBED = re.compile(r'!\[\[([^\]|#]+?)(?:#[^\]|]*)?(?:\\?\|([^\]]*))?\]\]')
+RE_WIKILINK = re.compile(
+    r'(?<!!)\[\[([^\]|#]+?)(?:#([^\]|]*))?(?:\\?\|([^\]]*))?\]\]')
 IMAGE_EXTS = ('.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp')
 
 # A fenced code block and inline code. Nothing is substituted inside.
@@ -1193,7 +1200,7 @@ def menu_items(text, tags, no_tag=False):
         # so older files keep working.
         if len(r) > 2 and r.startswith('`') and r.endswith('`'):
             r = r[1:-1].strip()
-        m = re.match(r'^\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]$', r)
+        m = re.match(r'^\[\[([^\]|]+?)(?:\\?\|([^\]]+))?\]\]$', r)
         if m:
             target = m.group(1).strip()
             label = (m.group(2) or strip_marker(target)).strip()
@@ -1234,13 +1241,13 @@ def wikilinks_in_intro(text, batch):
         return text
 
     def replace(m):
-        target, label = m.group(1).strip(), (m.group(2) or '')[1:].strip()
+        target, label = m.group(1).strip(), (m.group(2) or '').strip()
         fpath = batch.get(slug(strip_marker(target)))
         link_text = label or strip_marker(target)
         return '[%s](%s)' % (link_text, fpath) if fpath else link_text
 
-    return outside_code(text, lambda t: re.sub(r'\[\[([^\]|]+?)(\|[^\]]*)?\]\]',
-                                          replace, t))
+    return outside_code(text, lambda t: re.sub(
+        r'\[\[([^\]|]+?)(?:\\?\|([^\]]*))?\]\]', replace, t))
 
 
 def site_inputs(vault, batch=None):
