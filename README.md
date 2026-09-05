@@ -57,7 +57,7 @@ Builds a site from the vault into the given directory. Without `--site`, a singl
 
 Exit code: `0` done, `1` conversion error, `2` bad arguments.
 
-Tests run with `python test_md2html.py`; there are 70 of them and they finish in under a second.
+Tests run with `python test_md2html.py`; there are 71 of them and they finish in under a second.
 
 ## Conventions
 

@@ -20,7 +20,7 @@ Generátor statického webu z Obsidian vaultu. Jeden skript, jedna závislost.
 
 **V commit zprávě nepoužívej dvojité uvozovky.** Zprávu předávej souborem přes `git commit -F`, ne rourou - PowerShell 5.1 přidá do roury BOM. Git volej po jednom příkazu, zvlášť `add`, zvlášť `commit`.
 
-**Po každé změně pusť testy**, `python test_md2html.py`. Je jich 70 a běží pod sekundu.
+**Po každé změně pusť testy**, `python test_md2html.py`. Je jich 71 a běží pod sekundu.
 
 **Testy ale nestačí.** U zásahu, který nemá měnit výstup, postav navíc PKVault starou i novou verzí a porovnej - testy pokrývají konvence, ne každý detail vzhledu.
 

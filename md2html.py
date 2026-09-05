@@ -53,13 +53,18 @@ r"""
 
    This lives in two places that complement each other:
 
-   hledani.html   the live version. Tags, the text query and the counts are
-                  recomputed together - the query also narrows which tags
-                  still light up. State lives in the address
+   hledani.html   the live version, in TWO ROWS: the tags the curated bar
+                  carries lead, the rest follow underneath, and a row with
+                  nothing in it is not drawn. Curating the bar is therefore
+                  the one place that says which tag matters, and no article
+                  has to be renamed to say it. Tags, the text query and the
+                  counts are recomputed together - the query also narrows
+                  which tags still light up. State lives in the address
                   (`?tag=a&tag=b&pick=c&q=...`, `tag` held and `pick`
                   browsed), so it can be sent and restored with the back
-                  button. The tag bar is left out there; two rows of tags on
-                  one page only confuse.
+                  button. The header's own tag bar is left out of this page -
+                  next to the filter it would be one more row of tags saying
+                  something else.
    tag-*.html     the static version, WITHOUT JavaScript. A tag in the bar
                   leads to hledani.html carrying BOTH tags, so it adds rather
                   than replaces; an unreachable one is already dimmed in the
@@ -405,8 +410,14 @@ body { max-width: 64rem; padding-top: 1.25rem; }
 /* The faceted filter on the search page. A tag is a pair: a checkbox that
    HOLDS it in the filter and a name that browses. The two are one pill to the
    eye and two controls to the hand. */
-.fasety { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.5rem;
+.fasety { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .45rem;
           align-items: center; }
+/* Two rows: the curated tags lead, the rest follow. A row with nothing in it
+   carries the `hidden` attribute - and `display: flex` above would otherwise
+   beat the browser's own rule for it and draw an empty line. */
+.fasety[hidden] { display: none; }
+.fasety.posledni { margin-bottom: 1.5rem; }
+.fasety.dalsi { font-size: .94em; }
 .stitek { font: inherit; font-size: .88rem; padding: .25rem .6rem;
           border: 1px solid var(--linka); border-radius: 999px;
           background: none; color: var(--odkaz); cursor: pointer;
@@ -525,7 +536,8 @@ HTML_WEB = ('<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
 # because of CORS. Baking it in removes that obstacle and the very same file
 # works from a host and from a disk alike.
 SEARCH_PAGE = r"""<h1 class="jen-ctecka">@SEARCH@</h1>
-<div id="fasety" class="fasety"></div>
+<div id="fasety" class="fasety hlavni" hidden></div>
+<div id="fasety-dalsi" class="fasety dalsi" hidden></div>
 <div id="vysledky"></div>
 <noscript>
   <p>@NEEDS_JS@</p>
@@ -692,9 +704,21 @@ function countFor(combo, words) {
 
 const withTag = (text, tag) => text.replace('%s', tag);
 
+// The bar is drawn in TWO ROWS: the tags the curated menu carries lead, the
+// rest follow underneath. A row with nothing in it is not drawn at all - an
+// empty line above the results would read as a loading glitch.
+function paintRow(id, parts, last) {
+  const target = document.getElementById(id);
+  target.innerHTML = parts.join('');
+  target.hidden = !parts.length;
+  // The gap before the results belongs to the LAST row drawn, whichever it
+  // turns out to be. CSS cannot see that on its own without :has().
+  target.classList.toggle('posledni', last && parts.length > 0);
+}
+
 function renderFacets(words) {
-  const target = document.getElementById('fasety');
-  const parts = [];
+  const lead = [];      // tags the curated bar carries
+  const rest = [];      // everything else, alphabetically
   for (const tag of ALL_TAGS) {
     const isHeld = held.includes(tag.name);
     const isCurrent = current === tag.name;
@@ -705,32 +729,37 @@ function renderFacets(words) {
                     + (isCurrent ? ' vybrany' : '') + (dead ? ' zhasnuty' : '');
     const hint = isHeld ? withTag(TXT.release_tag, tag.label)
                         : withTag(TXT.hold_tag, tag.label);
-    parts.push('<span class="' + classes + '">'
-               // The checkbox holds the tag and nothing else. It is a real
-               // input, so the keyboard and the screen reader get it for free.
-               // On a dimmed tag it is disabled along with the name: holding
-               // one yields the same empty result as clicking it.
-               + '<label title="' + esc(hint) + '"><input type="checkbox"'
-               + ' data-hold="' + esc(tag.name) + '" aria-label="' + esc(hint)
-               + '"' + (isHeld ? ' checked' : '') + (dead ? ' disabled' : '')
-               + '></label>'
-               // The name is dead on a held tag: it is in the filter already,
-               // and the checkbox right next to it is how one gets it out.
-               // Promising 'filter to this' there would be a lie.
-               + '<button type="button" data-tag="' + esc(tag.name) + '"'
-               + (dead || isHeld ? ' disabled' : '')
-               + ' aria-pressed="' + (isCurrent ? 'true' : 'false') + '"'
-               + (isHeld ? '' : ' title="' + esc(isCurrent ? TXT.remove_filter
-                                : withTag(TXT.filter_tag, tag.label)) + '"')
-               + '>#' + esc(tag.label)
-               + (inFilter ? '' : '<span class="pocet-tagu">' + count + '</span>')
-               + '</button></span>');
+    // The checkbox holds the tag and nothing else. It is a real input, so
+    // the keyboard and the screen reader get it for free. On a dimmed tag it
+    // is disabled along with the name: holding one yields the same empty
+    // result as clicking it.
+    //
+    // The name is dead on a held tag - it is in the filter already and the
+    // checkbox right next to it is how one gets it out, so promising
+    // 'filter to this' there would be a lie.
+    const pill = '<span class="' + classes + '">'
+      + '<label title="' + esc(hint) + '"><input type="checkbox"'
+      + ' data-hold="' + esc(tag.name) + '" aria-label="' + esc(hint) + '"'
+      + (isHeld ? ' checked' : '') + (dead ? ' disabled' : '') + '></label>'
+      + '<button type="button" data-tag="' + esc(tag.name) + '"'
+      + (dead || isHeld ? ' disabled' : '')
+      + ' aria-pressed="' + (isCurrent ? 'true' : 'false') + '"'
+      + (isHeld ? '' : ' title="' + esc(isCurrent ? TXT.remove_filter
+                       : withTag(TXT.filter_tag, tag.label)) + '"')
+      + '>#' + esc(tag.label)
+      + (inFilter ? '' : '<span class="pocet-tagu">' + count + '</span>')
+      + '</button></span>';
+    (tag.lead ? lead : rest).push(pill);
   }
   if (filters.length) {
-    parts.push('<button type="button" class="stitek zrusit" id="zrusit">'
-               + TXT.clear_filter + '</button>');
+    // The clear button closes the LAST row that exists, so it never hangs
+    // under a bar on a line of its own.
+    (rest.length ? rest : lead).push('<button type="button"'
+                 + ' class="stitek zrusit" id="zrusit">' + TXT.clear_filter
+                 + '</button>');
   }
-  target.innerHTML = parts.join('');
+  paintRow('fasety', lead, !rest.length);
+  paintRow('fasety-dalsi', rest, true);
 }
 
 function writeUrl(query) {
@@ -764,16 +793,16 @@ field.addEventListener('input', render);
 // The checkbox works on `held` ALONE, the name on `current` alone. The single
 // exception is holding the tag one is browsing: it would otherwise sit in the
 // filter twice, so it stops being the browsed one and becomes held.
-document.getElementById('fasety').addEventListener('change', e => {
+function onHold(e) {
   const box = e.target.closest('input[data-hold]');
   if (!box) { return; }
   const tag = box.getAttribute('data-hold');
   held = box.checked ? held.concat([tag]) : held.filter(f => f !== tag);
   if (box.checked && current === tag) { current = null; }
   render();
-});
+}
 
-document.getElementById('fasety').addEventListener('click', e => {
+function onPick(e) {
   if (e.target.id === 'zrusit') { held = []; current = null; render(); return; }
   const chip = e.target.closest('button[data-tag]');
   if (!chip) { return; }
@@ -783,7 +812,16 @@ document.getElementById('fasety').addEventListener('click', e => {
   // address canonical.
   current = (current === tag || held.includes(tag)) ? null : tag;
   render();
-});
+}
+
+// Both rows listen. The clear button lives in whichever of them is the last
+// one drawn, so hanging the handler on the leading row alone would leave it
+// dead on every site whose bar carries no tags.
+for (const id of ['fasety', 'fasety-dalsi']) {
+  const bar = document.getElementById(id);
+  bar.addEventListener('change', onHold);
+  bar.addEventListener('click', onPick);
+}
 
 const fromUrl = params.get('q');
 if (fromUrl) { field.value = fromUrl; }
@@ -1400,7 +1438,8 @@ def header_html(site, active=None, active_tag=None, reachable=None,
 
     `fixed_only` leaves the tag chips out of the bar and keeps only the fixed
     items. It is for the search page, where tags are handled by the faceted
-    filter - two rows of chips, one live and one made of links, only confuse.
+    filter - a row of links above a live filter of the same tags only
+    confuses.
 
     THE BAR ADDS TAGS, IT DOES NOT REPLACE THEM. On an unfiltered page a chip
     leads to its own tag page, as it always did. On a tag page it leads to
@@ -1731,6 +1770,10 @@ def search_page(articles, site):
     # as everywhere else. Tags that are not in the bar are appended after it
     # alphabetically.
     #
+    # `lead` also SPLITS THE FILTER INTO TWO ROWS: what the bar carries leads,
+    # the rest follows underneath. Curating the bar is thus the one place where
+    # a tag is called important, and no article has to be touched to say so.
+    #
     # THE BAR IS CURATED, THE FILTER IS COMPLETE. The reason
     # `.obsidian2html/menu.md` selects is the width of the header - twenty chips
     # stop working there. The filter, though, has a page of its own and room of
@@ -1739,18 +1782,23 @@ def search_page(articles, site):
     # filter and nobody would know why.
     chips = []
     in_menu = set()
+    pseudo = False
     for label, url, tag in site['menu']:
         if tag:
-            chips.append({'name': tag, 'label': label})
+            chips.append({'name': tag, 'label': label, 'lead': True})
             in_menu.add(tag)
         elif url == tag_page(T['no_tag_slug']):
-            chips.append({'name': T['no_tag_slug'], 'label': NO_TAG_LABEL})
+            pseudo = True
             in_menu.add(T['no_tag_slug'])
     for tag in site['tags']:
         if tag not in in_menu:
-            chips.append({'name': tag, 'label': tag})
-    if T['no_tag_slug'] not in in_menu and any(not c['tags'] for c in articles):
-        chips.append({'name': T['no_tag_slug'], 'label': NO_TAG_LABEL})
+            chips.append({'name': tag, 'label': tag, 'lead': False})
+    if pseudo or any(not c['tags'] for c in articles):
+        # The pseudo-tag closes the second row wherever the bar puts it. It
+        # names no topic, it collects what fell through, and the leading row
+        # is for the axes one filters by on purpose.
+        chips.append({'name': T['no_tag_slug'], 'label': NO_TAG_LABEL,
+                      'lead': False})
 
     content = (SEARCH_PAGE.replace('@DATA@', cards)
                     .replace('@TAGS@', json.dumps(chips, ensure_ascii=False))

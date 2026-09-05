@@ -736,6 +736,24 @@ class Lokalizace(Zaklad):
         self.assertIn("params.get('pick')", html)
         self.assertIn("'parstitek'", html)
 
+    def test_filtr_ma_dve_rady_a_delitkem_je_kuratorovana_lista(self):
+        """Co je v liste, je dulezite a vede prvni radu. Zbytek jde pod ni.
+
+        Dulezitost se tedy rika na jednom miste v konfiguraci webu, ne v nazvu
+        tagu - prejmenovat tag by znamenalo prepsat kazdy clanek, ktery ho nese,
+        a Obsidian by z jine velikosti pismen udelal tag druhy.
+        """
+        self.clanek('Prvni', 'Text.', tagy='obsidian')
+        self.clanek('Druha', 'Text.', tagy='vedlejsi')
+        self.soubor('.obsidian2html/menu.md', '- `#obsidian`\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('hledani.html')
+        self.assertIn('"name": "obsidian", "label": "obsidian", "lead": true', html)
+        self.assertIn('"name": "vedlejsi", "label": "vedlejsi", "lead": false', html)
+        self.assertIn('id="fasety-dalsi"', html)
+
     def test_K100_neznamy_jazyk_skonci_chybou(self):
         """Mlcky spadnout na cestinu by znamenalo tise vyrobit jiny web."""
         self.clanek('Prvni', 'Text.')

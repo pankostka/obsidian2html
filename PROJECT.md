@@ -119,6 +119,18 @@ Zkoušelo se a zahodilo: **Ctrl+klik** jako přidávání (na Macu koliduje s ko
 
 Ověřeno v prohlížeči nad PKVaultem: držení, střídání, čtení stavu z adresy, kombinace s textovým dotazem, zrušení filtru. Porovnání staré a nové verze říká, že se liší jen `hledani.html` a `styl.css`, ostatních 17 stránek je bajt za bajtem shodných.
 
+### 9. Dvě řady štítků - HOTOVO
+
+Filtr kreslí štítky do dvou řad: **co nese kurátorovaná lišta, vede**, zbytek jde pod ni abecedně. Prázdná řada se nekreslí. Rozdělení v kódu už bylo, `search_page` skládala štítky přesně takhle za sebe; přibyl jen příznak `lead` a druhý `div`.
+
+Důležitost se tedy říká **v `menu.md`, ne v názvu tagu**. Zvažovaly se VELKÁ PÍSMENA a zahodily se: jméno tagu se ukazuje i na kartách a v patičce, Obsidian bere jinou velikost písmen jako druhý tag (přesně to riziko, které mají otevřené otázky zapsané), a povýšit nebo degradovat tag by znamenalo přepsat každý článek, který ho nese. V `menu.md` je to přesun řádku.
+
+Pseudotag `#` (bez tagu) uzavírá druhou řadu, i když ho lišta jmenuje. Není to osa, podle které se filtruje záměrně, je to zbytek.
+
+Mezera před výsledky patří **poslední vykreslené řadě**, což se řeší třídou `posledni` z JavaScriptu - `:has()` by to uměl taky, ale tohle je jistota. Obsluha kliknutí visí na obou řadách, protože tlačítko "zrušit filtr" sedí v té poslední, která existuje.
+
+Ověřeno v prohlížeči na kopii PKVaultu s ořezanou lištou: dvě řady, jen důležité, jen ostatní, a zrušení filtru z druhé řady.
+
 ## Otevřené otázky
 
 
