@@ -1937,7 +1937,39 @@ def check_links(out_dir):
 LEGACY_KEYS = {'datum': 'date', 'titul': 'title', 'perex': 'excerpt'}
 
 
-def collect(src, published_only):
+def template_dirs(vault):
+    """Folders that Obsidian itself calls templates, as relative paths.
+
+    A template is not an article: it is a skeleton with placeholders in it, and
+    publishing one puts {{date:YYYY-MM-DD}} on the web. Reading the setting
+    beats asking the author to rename the folder - the vault already says which
+    one it is, and every Obsidian user has it configured without knowing.
+
+    The core Templates plugin keeps it in .obsidian/templates.json, Templater in
+    its own data.json. Both are read; a vault may well have both.
+
+    A broken or missing file is not an error. The setting is a convenience, and
+    a vault without it simply has no templates to skip.
+    """
+    found = set()
+    kde = (('templates.json', 'folder'),
+           (os.path.join('plugins', 'templater-obsidian', 'data.json'),
+            'templates_folder'))
+    for rel, key in kde:
+        path = os.path.join(vault, '.obsidian', rel)
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, encoding='utf-8') as f:
+                folder = (json.load(f) or {}).get(key)
+        except (ValueError, OSError, AttributeError):
+            continue
+        if folder:
+            found.add(os.path.normpath(folder).replace(os.sep, '/').strip('/'))
+    return found
+
+
+def collect(src, published_only, skip_dirs=()):
     """Return ([(path, meta, body)], forgotten, legacy) for a file or directory.
 
     `forgotten` are articles carrying the frontmatter key publish but no marker.
@@ -1947,14 +1979,35 @@ def collect(src, published_only):
 
     `legacy` are articles with an old Czech key. Same reason: the key is not
     read, so the article would quietly lose its date or its title.
+
+    `templates` are marked articles inside a template folder. They are skipped
+    the same way the rest of that folder is, but a marker on one of them is a
+    contradiction the author should hear about rather than discover on the site
+    that is missing them.
     """
+    templates = []
     if os.path.isfile(src):
         paths = [src]
     else:
         paths = []
         for root, dirs, files in os.walk(src):
-            dirs[:] = [a for a in dirs
-                           if not a.startswith(('.', '_')) and a not in ATTACHMENT_DIRS]
+            rel = os.path.relpath(root, src).replace(os.sep, '/').strip('./')
+            ponechat = []
+            for a in dirs:
+                if a.startswith(('.', '_')) or a in ATTACHMENT_DIRS:
+                    continue
+                if ('%s/%s' % (rel, a) if rel else a) in skip_dirs:
+                    # A marked article in here is a contradiction: the folder
+                    # says template, the marker says publish. It stays skipped
+                    # and the build says which one it was.
+                    templates.extend(
+                        os.path.join(root, a, x)
+                        for x in sorted(os.listdir(os.path.join(root, a)))
+                        if x.lower().endswith('.md')
+                        and is_published(os.path.join(root, a, x)))
+                    continue
+                ponechat.append(a)
+            dirs[:] = ponechat
             paths.extend(os.path.join(root, s) for s in sorted(files)
                          if s.lower().endswith('.md'))
     result, forgotten, legacy = [], [], []
@@ -1968,7 +2021,7 @@ def collect(src, published_only):
             if old in meta and new not in meta:
                 legacy.append((c, old, new))
         result.append((c, meta, body_text))
-    return result, forgotten, legacy
+    return result, forgotten, legacy, templates
 
 
 def index_page(items):
@@ -2080,7 +2133,8 @@ def main():
                              else os.path.dirname(os.path.abspath(args.input))))
 
     try:
-        items, forgotten, legacy = collect(args.input, args.published_only)
+        items, forgotten, legacy, templates = collect(
+            args.input, args.published_only, template_dirs(vault))
         # --all is loud on purpose. The safeguard is that publishing is a
         # deliberate act; a flag that switches it off has to say so, or the
         # next person to read the log will not know what went out.
@@ -2371,6 +2425,14 @@ def main():
                   ' read, so the article loses its date or its title:' % len(legacy))
             for c, old, new in legacy:
                 print('  %s -> %s  %s' % (old, new, c))
+
+        if templates:
+            # Skipping is right, staying silent is not: the author marked the
+            # article on purpose and would otherwise look for it on the site.
+            print('\nNOTE: a marked article inside the template folder (%d).'
+                  ' Templates never go out, so it was skipped:' % len(templates))
+            for c in templates:
+                print('  %s' % c)
 
         if forgotten:
             print('\nNOTE: a publish key without the marker in the name (%d) -'

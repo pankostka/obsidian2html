@@ -361,6 +361,54 @@ class Konvence(Zaklad):
         self.assertNotIn('soukromy.html', self.stranky())
         self.assertIn('publish', vypis)
 
+    def test_K15_slozka_sablon_se_preskoci(self):
+        """Sablona neni clanek. Ktera slozka to je, rekne Obsidian sam."""
+        self.soubor('.obsidian/templates.json', '{"folder": "Sablony"}')
+        self.clanek('Clanek', 'Text.')
+        self.clanek('Vzor', 'Text.', slozka='Sablony', publikovany=False)
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        stranky = self.stranky()
+        self.assertIn('clanek.html', stranky)
+        self.assertNotIn('vzor.html', stranky)
+
+    def test_K15_bez_konfigurace_se_nepreskakuje_nic(self):
+        """Protejsek: slozka jmenem Sablony sama o sobe nic neznamena."""
+        self.clanek('Clanek', 'Text.')
+        self.clanek('Vzor', 'Text.', slozka='Sablony')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('vzor.html', self.stranky())
+
+    def test_K15_oznacena_sablona_se_preskoci_ale_ohlasi(self):
+        """Slozka rika sablona, marker rika publikuj - to si autor ma slyset."""
+        self.soubor('.obsidian/templates.json', '{"folder": "Sablony"}')
+        self.clanek('Clanek', 'Text.')
+        self.clanek('Vzor', 'Text.', slozka='Sablony', publikovany=True)
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        self.assertNotIn('vzor.html', self.stranky())
+        self.assertIn('template folder', vypis)
+
+    def test_K15_cte_se_i_nastaveni_Templateru(self):
+        self.soubor('.obsidian/plugins/templater-obsidian/data.json',
+                    '{"templates_folder": "Meta/Vzory"}')
+        self.clanek('Clanek', 'Text.')
+        self.clanek('Vzor', 'Text.', slozka='Meta/Vzory')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertNotIn('vzor.html', self.stranky())
+
+    def test_K15_rozbita_konfigurace_build_neshodi(self):
+        """Nastaveni je pohodli, ne podminka - vault bez nej proste sablony nema."""
+        self.soubor('.obsidian/templates.json', 'tohle neni JSON {{{')
+        self.clanek('Clanek', 'Text.')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('clanek.html', self.stranky())
+
     def test_K20_slozka_s_teckou_a_podtrzitkem_se_preskoci(self):
         """Co ma byt mimo web, dostane tecku nebo podtrzitko."""
         self.clanek('Verejny', 'Text.')

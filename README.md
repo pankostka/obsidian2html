@@ -57,7 +57,7 @@ Builds a site from the vault into the given directory. Without `--site`, a singl
 
 Exit code: `0` done, `1` conversion error, `2` bad arguments.
 
-Tests run with `python test_md2html.py`; there are 64 of them and they finish in under a second.
+Tests run with `python test_md2html.py`; there are 69 of them and they finish in under a second.
 
 ## Conventions
 
@@ -70,6 +70,8 @@ Conventions come in two kinds:
 **K10. Only articles whose name ends with the globe 🌐 are published.** `Article name 🌐.md` goes out, `Article name.md` does not. A missing marker therefore means not public, so publishing is a deliberate act and never an oversight. It is visible right there in the file tree, which is pleasant and unambiguous.
 The character is set by `--marker`, a globe by default. A vault may pick another one, but **a character off the ordinary keyboard makes a poor marker**: it is stripped off the title as well, so with `--marker '!'` the article `Careful!.md` goes out titled `Careful`. The build says so. An empty marker is an error; there is a different flag for "everything".
 That flag is **`--all`**, which switches the filter off altogether. It is not a second way for an article to be published by accident - it is one deliberate instruction, and the build says out loud how many unmarked articles came along. What comes out is a directory of HTML; uploading it anywhere is a separate act, and one this tool does not perform.
+
+**K15. Templates are ignored, and which folder that is comes from Obsidian's own settings.** A template is not an article: it is a skeleton with placeholders, so publishing one puts `{{date:YYYY-MM-DD}}` on the web. Both `.obsidian/templates.json` and Templater's own settings are read, because the vault already knows and nobody should have to say it twice. An article in there carrying the marker is skipped all the same - but the build says which one it was, the folder and the marker being in contradiction at that point.
 
 **K20. A directory starting with a dot or an underscore is skipped.** Together with K70 that gives one simple rule: whatever should stay off the site gets an underscore.
 

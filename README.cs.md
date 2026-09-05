@@ -57,7 +57,7 @@ Postaví web z vaultu do zadaného adresáře. Bez `--site` se z jednoho `.md` u
 
 Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
 
-Testy se pouštějí `python test_md2html.py`, je jich 64 a běží pod sekundu.
+Testy se pouštějí `python test_md2html.py`, je jich 69 a běží pod sekundu.
 
 
 ## Konvence
@@ -71,6 +71,8 @@ Konvence jsou dvojího druhu:
 **K10. Publikují se jen články, jejichž název končí globusem 🌐.** Článek `Název článku 🌐.md` jde ven, článek `Název článku.md` ne. Chybějící marker tedy znamená neveřejné, takže se zveřejňuje vědomým úkonem, nikdy opomenutím. Je to vidět hned ve stromu souborů, což je příjemné a jasné.  
 Znak určuje `--marker`, výchozí je globus. Vault si smí zvolit jiný, ale **znak z běžné klávesnice je špatný marker**: strhává se i z titulku, takže s `--marker '!'` půjde ven článek `Pozor!.md` s titulkem `Pozor`. Build na to upozorní. Prázdný marker je chyba, na "všechno" je jiný přepínač.  
 Tím přepínačem je **`--all`**, který filtr vypne úplně. Není to druhá cesta, jak článek publikovat omylem - je to jeden vědomý příkaz a build nahlas řekne, kolik neoznačených článků vzal s sebou. Vzniká tím adresář s HTML; nahrát ho někam je samostatný úkon, který tenhle nástroj neumí.
+
+**K15. Šablony se ignorují a která složka to je, se čte z konfigurace Obsidianu.** Šablona není článek: je to kostra se zástupnými symboly, takže publikovat ji znamená vystavit na web `{{date:YYYY-MM-DD}}`. Čte se `.obsidian/templates.json` i nastavení Templateru, protože vault to už ví a nikdo to nemusí opisovat podruhé. Když je složka označená markerem, přeskočí se stejně - build ale řekne, který článek to byl, protože složka a marker si v tu chvíli odporují.
 
 **K20. Složka začínající tečkou nebo podtržítkem se přeskakuje.** Spolu s K70 to dává jednoduché pravidlo: co má být mimo web, dostane podtržítko.
 
@@ -86,8 +88,7 @@ Tím přepínačem je **`--all`**, který filtr vypne úplně. Není to druhá c
 
 **K70. Konfigurace webu leží ve složce `.obsidian2html/`** v kořeni vaultu. Drží `menu.md` (kurátorovaná lišta), `index.md` (ruční úvod na titulce), `styl.css` (vlastní styly) a `logo.svg`. Tečka na začátku složku v Obsidianu skryje, což je záměr: jsou to vstupy pro generátor, ne články, a editují se mimo Obsidian. Název říká, ke kterému nástroji ta složka patří, takže vedle `.obsidian/` nevzniká nejasnost. Když složka ve vaultu není, generátor si poradí bez ní.
 
-**K80. Publikovaný článek by měl mít ve frontmatteru `date`.** Když ho nemá, použije se datum souboru. Je to vratké, protože datum souboru se mění při kopírování i při synchronizaci, ale je to jednoduché a nepotřebuje to git - ten ve vstupním adresáři fungovat nemusí. Při shodě dat rozhoduje název článku, aby bylo pořadí jednoznačné a build opakovatelný.  
-Tvar `RRRR-MM-DD` se kontroluje a build na cokoli jiného upozorní. Odmítnout to nejde, jak má datum vypadat je věc autora - ale zapomenutý zástupný symbol šablony jako `{{date:YYYY-MM-DD}}` je při řetězcovém řazení silnější než každé skutečné datum a článek vyskočí na začátek titulky, aniž by cokoli řeklo proč.
+**K80. Publikovaný článek by měl mít ve frontmatteru `date`.** Když ho nemá, použije se datum souboru. Je to vratké, protože datum souboru se mění při kopírování i při synchronizaci, ale je to jednoduché a nepotřebuje to git - ten ve vstupním adresáři fungovat nemusí. Při shodě dat rozhoduje název článku, aby bylo pořadí jednoznačné.  Tvar `RRRR-MM-DD` se kontroluje a build na cokoli jiného upozorní (třeba datum šablony `{{date:YYYY-MM-DD}}`)
 
 **K90. Klíče frontmatteru a přepínače jsou anglicky.** Tedy `date`, `title`, `excerpt`, `slug`, `tags`, a přepínače `--site`, `--published-only`, `--base-url`, `--check`, `--clean`, `--site-name`. Obsah článků je česky, rozhraní nástroje ne - nástroj je veřejný a jeho příkazová řádka i klíče jsou to jediné, co cizí uživatel musí napsat sám. České klíče `datum`, `titul` a `perex` se už nečtou; když na ně build narazí, ohlásí to, protože jinak by článek tiše přišel o datum nebo titulek.
 
