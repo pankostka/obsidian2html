@@ -206,8 +206,6 @@ NO_TAG_LABEL = '#'
 TEXTS = {
     'cs': {
         'lang': 'cs',
-        'search': 'Hledání',
-        'search_file': 'hledani.html',
         'search_button': 'Hledat',
         'search_placeholder': 'Hledat…',
         'search_aria': 'Hledaný výraz',
@@ -246,8 +244,6 @@ TEXTS = {
     },
     'en': {
         'lang': 'en',
-        'search': 'Search',
-        'search_file': 'search.html',
         'search_button': 'Search',
         'search_placeholder': 'Search…',
         'search_aria': 'Search query',
@@ -373,9 +369,14 @@ body { max-width: 64rem; padding-top: 1.25rem; }
 
 /* The header has two rows: the logo on the left and search on the right,
    with tags underneath. Search in the header is a form - the index lives
-   only in hledani.html, so other pages send the query there via ?q=. */
+   only on the front page, so other pages send the query there via ?q=. */
 .hlavicka { padding-bottom: .9rem; margin-bottom: 2rem;
             border-bottom: 1px solid var(--linka); }
+/* The front page draws the rule under the FILTER instead, so that the line
+   sits below the tags there as well. Its own bottom gap goes with it. */
+.hlavicka.bez-linky { padding-bottom: 0; margin-bottom: .9rem; border-bottom: 0; }
+.filtr { padding-bottom: .5rem; margin-bottom: 2rem;
+         border-bottom: 1px solid var(--linka); }
 .pas { display: flex; align-items: center; gap: 1rem 1.5rem; flex-wrap: wrap; }
 .pas .logo { display: flex; align-items: center; gap: .6rem;
              text-decoration: none; color: var(--nadpis);
@@ -412,11 +413,13 @@ body { max-width: 64rem; padding-top: 1.25rem; }
    eye and two controls to the hand. */
 .fasety { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .45rem;
           align-items: center; }
+/* The row drawn LAST touches the rule, so it drops its gap. Which row that
+   is depends on what exists, and the script marks it. */
+.fasety.posledni { margin-bottom: 0; }
 /* Two rows: the curated tags lead, the rest follow. A row with nothing in it
    carries the `hidden` attribute - and `display: flex` above would otherwise
    beat the browser's own rule for it and draw an empty line. */
 .fasety[hidden] { display: none; }
-.fasety.posledni { margin-bottom: 1.5rem; }
 .fasety.dalsi { font-size: .94em; }
 .stitek { font: inherit; font-size: .88rem; padding: .25rem .6rem;
           border: 1px solid var(--linka); border-radius: 999px;
@@ -531,13 +534,21 @@ HTML_WEB = ('<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
             '{header}<main>{body}</main>{footer}'
             '</body></html>')
 
-# The search page. The index is BAKED INSIDE, because under file:// it is not
-# JavaScript that fails but fetch() - the browser refuses to read local JSON
-# because of CORS. Baking it in removes that obstacle and the very same file
-# works from a host and from a disk alike.
-SEARCH_PAGE = r"""<h1 class="jen-ctecka">@SEARCH@</h1>
+# THE FRONT PAGE IS THE FILTER. There is no separate search page: one place
+# to look for an article beats two that behave differently, and the tags in
+# the header led to static pages while the ones on the search page filtered
+# live - the same pill doing two things.
+#
+# The index is BAKED INSIDE, because under file:// it is not JavaScript that
+# fails but fetch() - the browser refuses to read local JSON because of CORS.
+# Baking it in removes that obstacle and the very same file works from a host
+# and from a disk alike.
+FRONT_PAGE = r"""<h1 class="jen-ctecka">@HEADING@</h1>
+<div class="filtr">
 <div id="fasety" class="fasety hlavni" hidden></div>
 <div id="fasety-dalsi" class="fasety dalsi" hidden></div>
+</div>
+@INTRO@
 <div id="vysledky"></div>
 <noscript>
   <p>@NEEDS_JS@</p>
@@ -711,8 +722,9 @@ function paintRow(id, parts, last) {
   const target = document.getElementById(id);
   target.innerHTML = parts.join('');
   target.hidden = !parts.length;
-  // The gap before the results belongs to the LAST row drawn, whichever it
-  // turns out to be. CSS cannot see that on its own without :has().
+  // The rule under the filter belongs to the LAST row drawn, whichever it
+  // turns out to be, and that row drops its own gap. CSS cannot see that on
+  // its own without :has().
   target.classList.toggle('posledni', last && parts.length > 0);
 }
 
@@ -1424,8 +1436,8 @@ def tag_page(name):
 
 
 def combination_url(tags):
-    """The address of the search page with tags pre-selected."""
-    return T['search_file'] + '?' + '&'.join('tag=%s' % quote(t) for t in tags)
+    """The address of the front page with the tags already held."""
+    return 'index.html?' + '&'.join('tag=%s' % quote(t) for t in tags)
 
 
 def header_html(site, active=None, active_tag=None, reachable=None,
@@ -1458,12 +1470,16 @@ def header_html(site, active=None, active_tag=None, reachable=None,
     else:
         mark = name
     # Row 1: logo on the left, search on the right. Row 2: tags from the left.
-    # The search field is on EVERY page, but the index lives only in
-    # hledani.html - the form therefore sends the query there via ?q=. If every
-    # page carried the index, its size would be paid on every load.
-    parts = ['<header class="hlavicka">', '<div class="pas">',
+    # The search field is on EVERY page, but the index lives only on the front
+    # page - the form therefore sends the query there via ?q=. If every page
+    # carried the index, its size would be paid on every load.
+    # On the page that carries the filter the rule moves DOWN, under the tags
+    # of the filter - the same place it sits on every other page, just with
+    # the live tags above it instead of the static ones.
+    parts = ['<header class="hlavicka%s">' % (' bez-linky' if fixed_only else ''),
+            '<div class="pas">',
             '<a class="logo" href="index.html">%s</a>' % mark,
-            '<form class="hledani" action="%s" method="get">' % T['search_file'],
+            '<form class="hledani" action="index.html" method="get">',
             '<input type="search" name="q" id="dotaz" placeholder="%s"'
             % T['search_placeholder'],
             ' autocomplete="off" aria-label="%s">' % T['search_aria'],
@@ -1528,9 +1544,8 @@ def footer_html(site, date=None, tags=(), name=None):
         links.append('<button type="button" id="kopirovat" class="kopie"'
                       ' data-nazev="%s">%s</button>'
                       % (name.replace('"', '&quot;'), T['copy_name']))
+    # No separate link to search: the front page IS the search.
     links.append('<a href="index.html">%s</a>' % T['home'])
-    if site.get('search'):
-        links.append('<a href="%s">%s</a>' % (T['search_file'], T['search']))
     if site.get('rss'):
         links.append('<a href="rss.xml">RSS</a>')
     links.append('<a href="#">%s</a>' % T['top'])
@@ -1673,7 +1688,7 @@ def card(c):
 
 
 def page_name(base, number):
-    """The first page carries no number, so the front page is index.html."""
+    """The first page carries no number, so a tag page is tag-x.html."""
     return base + ('.html' if number == 1 else '-%d.html' % number)
 
 
@@ -1692,9 +1707,12 @@ def pagination(base, number, total):
     return '<nav class="strankovani">%s</nav>' % ''.join(parts)
 
 
-def card_grid(articles, base, heading, site, active=None, intro='',
+def card_grid(articles, base, heading, site, active=None,
                  hidden_heading=False, active_tag=None, reachable=None):
     """Return [(filename, html)] - excerpts paginated PER_PAGE at a time.
+
+    Tag pages are built with this. The front page is not: there the listing is
+    drawn by the script, so there is nothing to paginate.
 
     An empty list yields one empty page, so the bar does not link nowhere.
     """
@@ -1702,15 +1720,11 @@ def card_grid(articles, base, heading, site, active=None, intro='',
              for i in range(0, len(articles), PER_PAGE)] or [[]]
     result = []
     for number, chunk in enumerate(pages, start=1):
-        # On the front page the heading is HIDDEN, not removed: a page without
-        # an h1 is a broken structure for screen readers and search engines
-        # alike. On tag pages it stays visible, because it says what the filter
-        # is.
+        # Where the heading is HIDDEN it is hidden, not removed: a page
+        # without an h1 is a broken structure for screen readers and search
+        # engines alike.
         css_class = ' class="jen-ctecka"' if hidden_heading else ''
         content = ['<h1%s>%s</h1>' % (css_class, heading)]
-        # The intro goes on the first page only - on index-2 it would repeat.
-        if number == 1 and intro:
-            content.append(intro)
         content.append('<div class="vypis">')
         content.extend(card(c) for c in chunk)
         content.append('</div>')
@@ -1741,8 +1755,12 @@ def text_from_html(html):
                   unescape(re.sub(r'<[^>]+>', ' ', without_code))).strip()
 
 
-def search_page(articles, site):
-    """Return the HTML of the search page with the index baked inside.
+def front_page(articles, site, intro='', heading=None):
+    """The front page: the live filter, with the index baked inside.
+
+    It replaced both the paginated listing and the separate search page. The
+    listing is drawn by the script, so there is nothing to paginate - what
+    narrows the page is the filter, not a page number.
 
     The scale this is built for: five PKVault articles hold 24 kB of text, the
     whole vault 91 kB. As long as the index fits in single-digit megabytes it
@@ -1761,10 +1779,10 @@ def search_page(articles, site):
     # cannot close the script element sooner than it should.
     cards = json.dumps(data, ensure_ascii=False).replace('</', '<' + chr(92) + '/')
 
-    plain = ['<ul class="rozcestnik">']
-    for c in articles:
-        plain.append('<li><a href="%s">%s</a></li>' % (c['file'], c['heading']))
-    plain.append('</ul>')
+    # Without a script the page shows THE SAME GRID OF CARDS, just whole and
+    # unfiltered. This is the front page now, and a bare list of names would
+    # cost it the excerpts and the thumbnails.
+    plain = ['<div class="vypis">'] + [card(c) for c in articles] + ['</div>']
 
     # Order is taken from the bar, so the eye looks for a tag in the same place
     # as everywhere else. Tags that are not in the bar are appended after it
@@ -1800,15 +1818,18 @@ def search_page(articles, site):
         chips.append({'name': T['no_tag_slug'], 'label': NO_TAG_LABEL,
                       'lead': False})
 
-    content = (SEARCH_PAGE.replace('@DATA@', cards)
+    heading = heading or T['articles']
+    content = (FRONT_PAGE.replace('@DATA@', cards)
                     .replace('@TAGS@', json.dumps(chips, ensure_ascii=False))
                     .replace('@TEXTS@', json.dumps(T, ensure_ascii=False))
                     .replace('@LIST@', ''.join(plain))
                     .replace('@NO_TAG@', T['no_tag_slug'])
                     .replace('@NEEDS_JS@', escape(T['needs_js']))
-                    .replace('@SEARCH@', escape(T['search'])))
-    return site_page(T['search'], content, site, T['search_file'],
-                     fixed_only=True)
+                    .replace('@INTRO@', intro)
+                    .replace('@HEADING@', escape(heading)))
+    # The tag chips are left out of the header here - the filter right below
+    # it carries the same tags and does more with them.
+    return site_page(heading, content, site, 'index.html', fixed_only=True)
 
 
 RSS_ITEMS = 20         # kolik nejnovejsich clanku jde do feedu
@@ -2380,7 +2401,6 @@ def main():
                    'tags': sorted(all_tags),
                    'menu': menu_items(menu_source, sorted(all_tags), no_tag),
                    'logo': None,
-                   'search': True,
                    'rss': bool(args.base_url),
                    'description': text_from_html(intro) if intro else None,
                    'head_extra': ('<link rel="alternate" type="application/rss+xml"'
@@ -2449,10 +2469,10 @@ def main():
             ordered = sorted(produced, key=lambda c: c['heading'].lower())
             ordered.sort(key=lambda c: c['date'], reverse=True)
 
-            for nazev_s, html_s in card_grid(
-                    ordered, 'index', home_title or T['articles'], site,
-                    intro=intro, hidden_heading=True):
-                print('  %s' % zapis(nazev_s, html_s))
+            print('  %s  (a filter over %d articles)'
+                  % (zapis('index.html',
+                           front_page(ordered, site, intro, home_title)),
+                     len(ordered)))
 
             # Tag pages use the same listing. They are produced here because
             # the bar on every page links to them, and the link check would
@@ -2483,9 +2503,6 @@ def main():
                         active_tag=T['no_tag_slug']):
                     print('  %s  (%d articles without tags)'
                           % (zapis(nazev_s, html_s), len(sem)))
-
-            print('  %s' % zapis(T['search_file'],
-                                 search_page(ordered, site)))
 
             if args.base_url:
                 print('  %s  (%d items)'

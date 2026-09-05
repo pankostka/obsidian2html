@@ -93,7 +93,8 @@ The `YYYY-MM-DD` shape is checked and the build warns about anything else. Refus
 **K90. Frontmatter keys and command-line flags are English.** So `date`, `title`, `excerpt`, `slug`, `tags`, and the flags `--site`, `--published-only`, `--base-url`, `--check`, `--clean`, `--site-name`. Article content is Czech, the tool's interface is not - the tool is public, and its command line and its keys are the only thing a foreign user has to type. The old Czech keys `datum`, `titul` and `perex` are no longer read; when the build meets one it says so, because the article would otherwise quietly lose its date or its title.
 
 **K100. The language of the site is set by `--lang`, `cs` by default.** Only what a **visitor** sees is localised - messages printed while building are read by whoever runs the build, and those are English unconditionally.
-**Page names are part of the language** too: a Czech site has `hledani.html`, an English one `search.html`. An address once published is a commitment, and deriving it from the language keeps that promise on both sides.
+**Page names are part of the language** too: a Czech site has `tag-bez-tagu.html`, an English one `tag-no-tag.html`.
+An address once published is a commitment, and deriving it from the language keeps that promise on both sides.
 Plurals are handled by `Intl.PluralRules` in the browser, so there are no counting rules in the code - the table carries only the wording. Czech needs three forms, English two.
 An unknown language stops the build. Falling back to Czech quietly would mean producing a different site than the one asked for.
 

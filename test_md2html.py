@@ -170,9 +170,12 @@ class Zaruky(Zaklad):
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
 
-        html = self.vystupni('index.html')
+        # Lista s tagy je na kazde strance krome titulky - tam ji nahradil
+        # filtr, ktery takovy tag ztlumi taky, jen skriptem a s nulou.
+        html = self.vystupni('prvni.html')
         self.assertIn('class="zhasnuty"', html)
         self.assertNotIn('href="tag-prazdny.html"', html)
+        self.assertIn('"name": "prazdny"', self.vystupni('index.html'))
         self.assertIn('Tags in the bar with no articles', vypis)
 
     def test_Z20_kod_se_neprepisuje(self):
@@ -472,16 +475,21 @@ class Konvence(Zaklad):
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
 
+        # Titulka nese zapeceny index s celym textem clanku, takze se perex
+        # overuje tam, kde ho ctenar vidi: na karte a v poli indexu.
         index = self.vystupni('index.html')
-        self.assertIn('Prvni odstavec je perex.', index)
-        self.assertNotIn('Druhy uz ne.', index)
+        self.assertIn('<p class="perex">Prvni odstavec je perex.</p>', index)
+        self.assertIn('"excerpt": "Prvni odstavec je perex."', index)
+        self.assertNotIn('Druhy uz ne.</p>', index)
 
     def test_K40_nadpis_ukoncuje_hledani(self):
         """Kdyz clanek zacina rovnou sekci, perex neni prvni veta te sekce."""
         self.clanek('Prvni', '## Sekce\n\nText sekce, ktery perexem neni.\n')
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
-        self.assertNotIn('Text sekce', self.vystupni('index.html'))
+        # Ne na '<p class="perex">' - ten retezec je i ve skriptu titulky.
+        # Rozhoduje pole indexu, ze ktereho se karta kresli.
+        self.assertIn('"excerpt": ""', self.vystupni('index.html'))
 
     def test_K40_obrazek_uprostred_odstavce_se_vyhodi(self):
         """Perex je textova upoutavka, nahled ma karta vlastni."""
@@ -541,7 +549,8 @@ class Konvence(Zaklad):
         self.obrazek('Attachments/obsidian_co_je.png')
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
-        self.assertIn('class="nahled"', self.vystupni('index.html'))
+        self.assertIn('"image": "img/obsidian-co-je.png"',
+                      self.vystupni('index.html'))
 
     def test_K60_cizi_obrazek_nahledem_neni(self):
         """Protejsek: priloha s jinym nazvem se nahledem stat nesmi."""
@@ -549,7 +558,9 @@ class Konvence(Zaklad):
         self.obrazek('Attachments/jine.png')
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
-        self.assertNotIn('class="nahled"', self.vystupni('index.html'))
+        # Ne 'class="nahled"' - ten retezec je i ve skriptu titulky, ktery
+        # kartu s nahledem umi vykreslit. Rozhoduje pole indexu.
+        self.assertNotIn('"image": "img/', self.vystupni('index.html'))
 
     def test_K70_konfigurace_se_cte_z_obsidian2html(self):
         self.clanek('Prvni', 'Text.', tagy='obsidian')
@@ -670,7 +681,6 @@ class Lokalizace(Zaklad):
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
 
-        self.assertIn('hledani.html', self.stranky())
         index = self.vystupni('index.html')
         self.assertIn('<html lang="cs">', index)
         self.assertIn('Titulka', index)
@@ -687,18 +697,9 @@ class Lokalizace(Zaklad):
         self.assertIn('Top', index)
         self.assertNotIn('Titulka', index)
 
-    def test_K100_jazyk_urcuje_i_nazvy_stranek(self):
-        """Ceska adresa hledani se tim nehne, anglicka dostane svou."""
-        self.clanek('Prvni', 'Text.')
-        kod, vypis = self.web('--lang', 'en')
-        self.assertEqual(kod, 0, vypis)
-
-        stranky = self.stranky()
-        self.assertIn('search.html', stranky)
-        self.assertNotIn('hledani.html', stranky)
-        self.assertIn('search.html', self.vystupni('index.html'))
 
     def test_K100_pseudotag_bez_tagu_ma_svuj_slug(self):
+        """Nazev stranky je soucasti jazyka, tak jako texty na ni."""
         self.clanek('Prvni', 'Text.', tagy='')
         kod, vypis = self.web('--lang', 'en')
         self.assertEqual(kod, 0, vypis)
@@ -707,13 +708,23 @@ class Lokalizace(Zaklad):
         self.assertIn('tag-no-tag.html', stranky)
         self.assertNotIn('tag-bez-tagu.html', stranky)
 
-    def test_K100_tabulka_textu_je_zapecena_ve_strance_hledani(self):
+    def test_K100_pseudotag_ma_cesky_slug_na_ceskem_webu(self):
+        """Protejsek predchoziho, aby test neprosel generatoru s jednim jazykem."""
+        self.clanek('Prvni', 'Text.', tagy='')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        stranky = self.stranky()
+        self.assertIn('tag-bez-tagu.html', stranky)
+        self.assertNotIn('tag-no-tag.html', stranky)
+
+    def test_K100_tabulka_textu_je_zapecena_v_titulce(self):
         """Skloňování resi prohlizec pres Intl.PluralRules, tvary nese tabulka."""
         self.clanek('Prvni', 'Text.')
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
 
-        html = self.vystupni('hledani.html')
+        html = self.vystupni('index.html')
         self.assertIn('const TXT =', html)
         self.assertIn('Intl.PluralRules', html)
         self.assertIn('článek', html)
@@ -729,7 +740,7 @@ class Lokalizace(Zaklad):
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
 
-        html = self.vystupni('hledani.html')
+        html = self.vystupni('index.html')
         self.assertIn('data-hold=', html)          # checkbox: drzi
         self.assertIn('data-tag=', html)           # jmeno: prohlizi
         self.assertIn("params.getAll('tag')", html)
@@ -749,7 +760,7 @@ class Lokalizace(Zaklad):
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
 
-        html = self.vystupni('hledani.html')
+        html = self.vystupni('index.html')
         self.assertIn('"name": "obsidian", "label": "obsidian", "lead": true', html)
         self.assertIn('"name": "vedlejsi", "label": "vedlejsi", "lead": false', html)
         self.assertIn('id="fasety-dalsi"', html)

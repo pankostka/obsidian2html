@@ -131,6 +131,24 @@ Mezera před výsledky patří **poslední vykreslené řadě**, což se řeší
 
 Ověřeno v prohlížeči na kopii PKVaultu s ořezanou lištou: dvě řady, jen důležité, jen ostatní, a zrušení filtru z druhé řady.
 
+### 10. Filtr je titulka, hledání jako stránka zrušeno - HOTOVO
+
+Titulka je nově ta stránka, co bývala `hledani.html`, a `hledani.html` se negeneruje. Důvod je, že tatáž pilulka dělala na dvou stránkách dvě různé věci: v hlavičce vedla na statickou stránku tagu, ve filtru filtrovala živě. Jedno místo, kde se hledá článek, je lepší než dvě, která se chovají jinak.
+
+Pořadí na titulce: hlavička, filtr, **čára**, ruční úvod z `index.md`, výpis. Čáru drží obal `div.filtr`, hlavička ji na téhle stránce nemá (`bez-linky`) - je tedy pod tagy stejně jako na ostatních stránkách, jen jsou nad ní tagy živé místo statických. Když vault nemá ani jeden tag, sedne čára rovnou pod hlavičku, tam kde byla vždycky.
+
+Co odešlo: **stránkování titulky** (`index-2.html` a dál), protože výpis kreslí skript a co stránku zužuje, je filtr, ne číslo stránky. Dál klíče `search` a `search_file` z obou jazyků, odkaz "Hledání" z patičky (vedl by na titulku, kde už jsme) a parametr `intro` funkce `card_grid`, který po odstranění titulky z jejího seznamu nemá kdo naplnit.
+
+Bez JavaScriptu ukazuje titulka **tutéž mřížku karet** s perexy a náhledy, jen celou a nefiltrovanou. Dřív měla `hledani.html` v `noscript` holý seznam názvů, ale na titulce by to byla ztráta.
+
+Stránky tagů zůstávají statické a beze změny. Jsou pro odkazy zvenčí a pro vyhledávače, kde skript spolehnout nejde, a jejich štítky teď vedou do filtru na titulce (`index.html?tag=a&tag=b`).
+
+Stará adresa `hledani.html` se **nezachovala ani jako přesměrování**, vědomé rozhodnutí - repozitář je zatím lokální a web nikde nevisí, takže není co lámat. Kdyby se to publikovalo dřív, chtělo by to přesměrování.
+
+Testy padly na dvě věci, které stojí za zapsání. Titulka nese zapečený index s **celým textem** článků, takže test na perex nesmí říkat "druhý odstavec na titulce není" - je tam, jen ho nikdo nevidí; ověřuje se pole `excerpt` a karta. A skript titulky obsahuje řetězce `class="nahled"` i `<p class="perex">`, takže `assertNotIn` na ně projde vždycky a nic netestuje - i tady rozhoduje pole indexu.
+
+Ověřeno v prohlížeči nad PKVaultem i nad kopií s ořezanou lištou a ručním úvodem: pořadí prvků, čára pod tagy, filtr, stránka tagu i cesta z ní zpátky do filtru.
+
 ## Otevřené otázky
 
 
