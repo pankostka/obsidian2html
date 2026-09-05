@@ -39,9 +39,15 @@ r"""
  FACETED TAG FILTER
    Tags COMBINE WITH AND. `Obsidian` plus `Video` yields articles about
    Obsidian that have a video. A tag that would yield nothing in combination
-   with those already picked is DIMMED and cannot be clicked, so there is no
-   way to click into an empty result. It is dimmed rather than hidden: were it
-   to disappear, the bar would jump on every click.
+   with those already held IS NOT DRAWN, so there is no way to click into an
+   empty result and what is left is where there is still somewhere to go.
+   The bar shrinks as it goes, which would drag the listing up after it -
+   under the live bar therefore lies an invisible ghost of it in full, and the
+   block is as tall as the ghost whatever the filter says.
+
+   On the static tag pages, where there is no script to redraw anything, such
+   a tag is DIMMED instead. The page cannot know what the next click will be,
+   so it says what is reachable rather than hiding what is not.
 
    A tag in the live bar is a PAIR OF CONTROLS in one pill: a checkbox that
    HOLDS the tag in the filter, and the name, which BROWSES - it sets one tag
@@ -377,6 +383,15 @@ body { max-width: 64rem; padding-top: 1.25rem; }
 .hlavicka.bez-linky { padding-bottom: 0; margin-bottom: .9rem; border-bottom: 0; }
 .filtr { padding-bottom: .5rem; margin-bottom: 2rem;
          border-bottom: 1px solid var(--linka); }
+/* A tag that yields nothing is not drawn, so the bar shrinks as one clicks
+   and the listing under it would move. Under the real bar therefore lies a
+   GHOST of it in full - every tag, nothing filtered - invisible and in the
+   same grid cell. The browser sizes the block by the taller of the two, which
+   is always the ghost, so nothing below the filter ever moves. No measuring,
+   nothing to go wrong at a width nobody thought of. */
+.vrstvy { display: grid; }
+.vrstvy > .vrstva { grid-area: 1 / 1; }
+.duch { visibility: hidden; pointer-events: none; }
 .pas { display: flex; align-items: center; gap: 1rem 1.5rem; flex-wrap: wrap; }
 .pas .logo { display: flex; align-items: center; gap: .6rem;
              text-decoration: none; color: var(--nadpis);
@@ -400,8 +415,9 @@ body { max-width: 64rem; padding-top: 1.25rem; }
 .hlavicka nav a:hover { background: var(--th); }
 .hlavicka nav a[aria-current="page"] { background: var(--odkaz); color: #fff;
                                        border-color: var(--odkaz); }
-/* An unreachable tag is DIMMED, not hidden. Were it hidden, the bar would
-   reflow on every click and the reader would lose track of what sat where. */
+/* An unreachable tag in the STATIC bar is dimmed - the page has no script to
+   redraw it, so it says what is reachable rather than hiding what is not. The
+   live filter on the front page does the opposite and leaves it out. */
 .hlavicka nav .zhasnuty { font-size: .88rem; padding: .25rem .6rem;
                           border: 1px solid var(--linka); border-radius: 999px;
                           white-space: nowrap; color: var(--tlum);
@@ -427,6 +443,8 @@ body { max-width: 64rem; padding-top: 1.25rem; }
           white-space: nowrap; }
 .stitek:hover { background: var(--th); }
 .stitek.zrusit { border-style: dashed; }
+/* Space held, nothing shown - see the comment where it is drawn. */
+.stitek.zrusit.skryty { visibility: hidden; pointer-events: none; }
 .parstitek { display: inline-flex; align-items: center;
              border: 1px solid var(--linka); border-radius: 999px;
              overflow: hidden; }
@@ -447,10 +465,6 @@ body { max-width: 64rem; padding-top: 1.25rem; }
 .parstitek.drzeny > button:hover { background: none; }
 .parstitek.vybrany { border-color: var(--odkaz); }
 .parstitek.vybrany > button { background: var(--odkaz); color: #fff; }
-/* An unreachable tag is DIMMED, not hidden - otherwise the bar jumps on
-   every click and one loses track of what sat where. */
-.parstitek.zhasnuty { opacity: .45; }
-.parstitek.zhasnuty > button { color: var(--tlum); cursor: default; }
 .parstitek .pocet-tagu { opacity: .6; font-size: .8em; margin-left: .35em; }
 
 .paticka { margin-top: 3.5rem; padding-top: 1rem;
@@ -544,10 +558,16 @@ HTML_WEB = ('<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
 # Baking it in removes that obstacle and the very same file works from a host
 # and from a disk alike.
 FRONT_PAGE = r"""<h1 class="jen-ctecka">@HEADING@</h1>
-<div class="filtr">
+<div class="filtr"><div class="vrstvy">
+<div class="vrstva">
 <div id="fasety" class="fasety hlavni" hidden></div>
 <div id="fasety-dalsi" class="fasety dalsi" hidden></div>
 </div>
+<div class="vrstva duch" aria-hidden="true">
+<div id="duch-fasety" class="fasety hlavni" hidden></div>
+<div id="duch-fasety-dalsi" class="fasety dalsi" hidden></div>
+</div>
+</div></div>
 @INTRO@
 <div id="vysledky"></div>
 <noscript>
@@ -694,12 +714,14 @@ function search(query) {
 // Faceted filter
 //
 // Tags COMBINE WITH AND. Adding a tag therefore never grows the set, and once
-// the tags that would yield nothing are dimmed, THERE IS NO WAY to click into
+// the tags that would yield nothing are gone, THERE IS NO WAY to click into
 // an empty result. That property is what makes the thing usable - it is not
 // an accident.
 //
-// A dimmed tag STAYS where it is. Were it hidden, the bar would reflow on
-// every click and one would lose all bearings.
+// A tag that yields nothing is REMOVED, not dimmed. What stays is what one
+// can reach, so the bar says where there is still somewhere to go. It does
+// shift as tags come and go - the ghost underneath holds the height of the
+// block, so at least nothing below the filter moves.
 //
 // The counts are recomputed on every redraw, the text query included.
 // Otherwise they would lie - and a count that lies is worse than no count.
@@ -728,7 +750,9 @@ function paintRow(id, parts, last) {
   target.classList.toggle('posledni', last && parts.length > 0);
 }
 
-function renderFacets(words) {
+// The pills of both rows for the state the arguments describe. Pure, so the
+// ghost that reserves the height can be drawn with the very same code.
+function facetRows(words) {
   const lead = [];      // tags the curated bar carries
   const rest = [];      // everything else, alphabetically
   for (const tag of ALL_TAGS) {
@@ -736,15 +760,15 @@ function renderFacets(words) {
     const isCurrent = current === tag.name;
     const inFilter = isHeld || isCurrent;
     const count = inFilter ? null : countFor(held.concat([tag.name]), words);
-    const dead = count === 0;
+    // A tag that would yield nothing IS NOT DRAWN. What is left is what one
+    // can actually reach, and the eye has less to sort through.
+    if (count === 0) { continue; }
     const classes = 'parstitek' + (isHeld ? ' drzeny' : '')
-                    + (isCurrent ? ' vybrany' : '') + (dead ? ' zhasnuty' : '');
+                    + (isCurrent ? ' vybrany' : '');
     const hint = isHeld ? withTag(TXT.release_tag, tag.label)
                         : withTag(TXT.hold_tag, tag.label);
     // The checkbox holds the tag and nothing else. It is a real input, so
-    // the keyboard and the screen reader get it for free. On a dimmed tag it
-    // is disabled along with the name: holding one yields the same empty
-    // result as clicking it.
+    // the keyboard and the screen reader get it for free.
     //
     // The name is dead on a held tag - it is in the filter already and the
     // checkbox right next to it is how one gets it out, so promising
@@ -752,27 +776,56 @@ function renderFacets(words) {
     const pill = '<span class="' + classes + '">'
       + '<label title="' + esc(hint) + '"><input type="checkbox"'
       + ' data-hold="' + esc(tag.name) + '" aria-label="' + esc(hint) + '"'
-      + (isHeld ? ' checked' : '') + (dead ? ' disabled' : '') + '></label>'
+      + (isHeld ? ' checked' : '') + '></label>'
       + '<button type="button" data-tag="' + esc(tag.name) + '"'
-      + (dead || isHeld ? ' disabled' : '')
+      + (isHeld ? ' disabled' : '')
       + ' aria-pressed="' + (isCurrent ? 'true' : 'false') + '"'
       + (isHeld ? '' : ' title="' + esc(isCurrent ? TXT.remove_filter
                        : withTag(TXT.filter_tag, tag.label)) + '"')
-      + '>#' + esc(tag.label)
+      // No hash in front of the name: the pill already says this is a tag,
+      // and the pseudo-tag, whose label IS a hash, would read as two.
+      + '>' + esc(tag.label)
       + (inFilter ? '' : '<span class="pocet-tagu">' + count + '</span>')
       + '</button></span>';
     (tag.lead ? lead : rest).push(pill);
   }
-  if (filters.length) {
-    // The clear button closes the LAST row that exists, so it never hangs
-    // under a bar on a line of its own.
-    (rest.length ? rest : lead).push('<button type="button"'
-                 + ' class="stitek zrusit" id="zrusit">' + TXT.clear_filter
-                 + '</button>');
-  }
-  paintRow('fasety', lead, !rest.length);
-  paintRow('fasety-dalsi', rest, true);
+  // The clear button closes the LAST row that exists, so it never hangs under
+  // a bar on a line of its own. It is drawn even when there is nothing to
+  // clear, merely invisible: appearing on the first click would push the bar
+  // by a row and shove the listing down with it.
+  const idle = !filters.length;
+  (rest.length ? rest : lead).push('<button type="button" id="zrusit"'
+               + ' class="stitek zrusit' + (idle ? ' skryty' : '') + '"'
+               + (idle ? ' tabindex="-1" aria-hidden="true"' : '')
+               + '>' + TXT.clear_filter + '</button>');
+  return { lead: lead, rest: rest };
 }
+
+function paintFacets(words) {
+  const rows = facetRows(words);
+  paintRow('fasety', rows.lead, !rows.rest.length);
+  paintRow('fasety-dalsi', rows.rest, true);
+}
+
+// The ghost is drawn ONCE, in the state where the bar is at its tallest: no
+// tag held, no query, so every tag is there and every count is at its widest.
+// Whatever the real bar shows later is a subset of it.
+function paintGhost() {
+  const wasHeld = held, wasCurrent = current;
+  held = [];
+  current = null;
+  syncFilters();
+  // The clear button carries an id, and two of those in one document is
+  // broken HTML. The ghost is never clicked, so it gives it up.
+  const strip = parts => parts.map(x => x.replace(' id="zrusit"', ''));
+  const rows = facetRows([]);
+  paintRow('duch-fasety', strip(rows.lead), !rows.rest.length);
+  paintRow('duch-fasety-dalsi', strip(rows.rest), true);
+  held = wasHeld;
+  current = wasCurrent;
+  syncFilters();
+}
+
 
 function writeUrl(query) {
   // State belongs in the address, so it can be sent and restored with the
@@ -792,7 +845,7 @@ function render() {
   syncFilters();
   scope = ARTICLES.filter(c => matchesTags(c, filters));
   search(query);
-  renderFacets(words);
+  paintFacets(words);
   writeUrl(query);
 }
 
@@ -839,6 +892,7 @@ const fromUrl = params.get('q');
 if (fromUrl) { field.value = fromUrl; }
 field.focus();
 render();
+paintGhost();
 </script>"""
 
 
@@ -1289,10 +1343,40 @@ def to_html(path, conv, meta=None, title=None,
 # Batch
 # ==============================================================================
 
-def tags_from_meta(meta):
-    """Tags out of the frontmatter. Handles [a, b] and the block list form."""
+def raw_tags(meta):
+    """Tags as the frontmatter writes them. Handles [a, b] and the list form."""
     raw = (meta.get('tags') or '').strip().strip('[]')
     return [x.strip().strip('"\'') for x in raw.split(',') if x.strip()]
+
+
+def tags_from_meta(meta):
+    """Tags of an article, A HIERARCHY SPLIT INTO SEPARATE TAGS.
+
+    Obsidian writes a hierarchy with a slash, `Obsidian/Video`, and here that
+    is two tags: `Obsidian` and `Video`. Each gets its own page and its own
+    chip, so `Video` collects videos from the whole vault rather than only
+    those filed under Obsidian - which is what one wants to filter by.
+
+    What the hierarchy still says is WHICH TAG LEADS, see lead_tags.
+    """
+    out = []
+    for tag in raw_tags(meta):
+        for part in tag.split('/'):
+            part = part.strip()
+            if part and part not in out:
+                out.append(part)
+    return out
+
+
+def lead_tags(meta):
+    """The FIRST part of every hierarchical tag - those are the leading ones.
+
+    `Obsidian/Video` says Obsidian is the axis the article is filed under and
+    Video the detail. A tag that is nobody's first part is a secondary one,
+    and so is a tag written without a slash at all.
+    """
+    return [tag.split('/')[0].strip() for tag in raw_tags(meta)
+            if '/' in tag and tag.split('/')[0].strip()]
 
 
 def demote_headings(text):
@@ -1784,37 +1868,27 @@ def front_page(articles, site, intro='', heading=None):
     # cost it the excerpts and the thumbnails.
     plain = ['<div class="vypis">'] + [card(c) for c in articles] + ['</div>']
 
-    # Order is taken from the bar, so the eye looks for a tag in the same place
-    # as everywhere else. Tags that are not in the bar are appended after it
-    # alphabetically.
+    # `lead` SPLITS THE FILTER INTO TWO ROWS, and THE HIERARCHY OF THE TAGS
+    # decides which is which: the first part of `Obsidian/Video` leads, every
+    # other tag follows underneath. Nothing is configured anywhere - the vault
+    # already says it, in the place where the article is tagged.
     #
-    # `lead` also SPLITS THE FILTER INTO TWO ROWS: what the bar carries leads,
-    # the rest follows underneath. Curating the bar is thus the one place where
-    # a tag is called important, and no article has to be touched to say so.
+    # Both rows run ALPHABETICALLY. There is no curated order to follow here,
+    # and among twenty chips the alphabet is the only order a reader can
+    # predict.
     #
-    # THE BAR IS CURATED, THE FILTER IS COMPLETE. The reason
-    # `.obsidian2html/menu.md` selects is the width of the header - twenty chips
-    # stop working there. The filter, though, has a page of its own and room of
-    # its own, so it carries them all, and a tag that has a page must be
-    # filterable. Otherwise curating the bar would quietly drop a tag out of the
-    # filter and nobody would know why.
-    chips = []
-    in_menu = set()
-    pseudo = False
-    for label, url, tag in site['menu']:
-        if tag:
-            chips.append({'name': tag, 'label': label, 'lead': True})
-            in_menu.add(tag)
-        elif url == tag_page(T['no_tag_slug']):
-            pseudo = True
-            in_menu.add(T['no_tag_slug'])
-    for tag in site['tags']:
-        if tag not in in_menu:
-            chips.append({'name': tag, 'label': tag, 'lead': False})
-    if pseudo or any(not c['tags'] for c in articles):
-        # The pseudo-tag closes the second row wherever the bar puts it. It
-        # names no topic, it collects what fell through, and the leading row
-        # is for the axes one filters by on purpose.
+    # THE BAR IS CURATED, THE FILTER IS COMPLETE. `.obsidian2html/menu.md`
+    # selects what goes in the header, because twenty chips stop working
+    # there. The filter, though, has room of its own, so it carries them all,
+    # and a tag that has a page must be filterable. Otherwise curating the bar
+    # would quietly drop a tag out of the filter and nobody would know why.
+    leading = set(site.get('lead_tags') or ())
+    chips = [{'name': tag, 'label': tag, 'lead': tag in leading}
+             for tag in site['tags']]
+    if any(not c['tags'] for c in articles) or any(
+            url == tag_page(T['no_tag_slug']) for _, url, _ in site['menu']):
+        # The pseudo-tag closes the second row. It names no topic, it collects
+        # what fell through, and the leading row is for the axes one files by.
         chips.append({'name': T['no_tag_slug'], 'label': NO_TAG_LABEL,
                       'lead': False})
 
@@ -2383,8 +2457,10 @@ def main():
             # Lista je z TAGU, ne z adresaru. Adresare by do verejne navigace
             # propsaly strukturu vaultu - v menu by pristal i interni zapis.
             all_tags = set()
+            leading = set()
             for _, meta, _ in items:
                 all_tags.update(tags_from_meta(meta))
+                leading.update(lead_tags(meta))
             # Stara slozka _web se uz necte. Mlcet o ni nejde: web by se
             # built without a logo, without the bar and without the custom
             # styles, and it would look like a fault in the generator rather
@@ -2399,6 +2475,7 @@ def main():
             no_tag = any(not tags_from_meta(m) for _, m, _ in items)
             site = {'name': args.site_name or os.path.basename(vault),
                    'tags': sorted(all_tags),
+                   'lead_tags': sorted(leading),
                    'menu': menu_items(menu_source, sorted(all_tags), no_tag),
                    'logo': None,
                    'rss': bool(args.base_url),

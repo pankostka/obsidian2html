@@ -57,7 +57,7 @@ Builds a site from the vault into the given directory. Without `--site`, a singl
 
 Exit code: `0` done, `1` conversion error, `2` bad arguments.
 
-Tests run with `python test_md2html.py`; there are 71 of them and they finish in under a second.
+Tests run with `python test_md2html.py`; there are 72 of them and they finish in under a second.
 
 ## Conventions
 
@@ -91,6 +91,12 @@ That flag is **`--all`**, which switches the filter off altogether. It is not a 
 The `YYYY-MM-DD` shape is checked and the build warns about anything else. Refusing it is not an option - what a date should look like is the author's business - but a forgotten template placeholder such as `{{date:YYYY-MM-DD}}` beats every real date in a string sort and lands the article at the top of the front page with nothing to say why.
 
 **K90. Frontmatter keys and command-line flags are English.** So `date`, `title`, `excerpt`, `slug`, `tags`, and the flags `--site`, `--published-only`, `--base-url`, `--check`, `--clean`, `--site-name`. Article content is Czech, the tool's interface is not - the tool is public, and its command line and its keys are the only thing a foreign user has to type. The old Czech keys `datum`, `titul` and `perex` are no longer read; when the build meets one it says so, because the article would otherwise quietly lose its date or its title.
+
+**K95. A hierarchical tag `Obsidian/Video` splits into two separate tags.**
+It becomes `Obsidian` and `Video`, each with a page of its own, so `Video` collects videos from the whole vault rather than only those filed under Obsidian - which is what one wants to filter by.
+The hierarchy does not lose its meaning, though: **the first part is a leading tag** and heads the first row of the filter on the front page, everything else goes into the second.
+Which tag matters is therefore said by the vault, where the article is tagged, rather than by the configuration of the site - promoting a tag means writing one slash, not editing another file.
+Both rows run alphabetically; the curated `menu.md` governs the bar in the header and has no say in the filter.
 
 **K100. The language of the site is set by `--lang`, `cs` by default.** Only what a **visitor** sees is localised - messages printed while building are read by whoever runs the build, and those are English unconditionally.
 **Page names are part of the language** too: a Czech site has `tag-bez-tagu.html`, an English one `tag-no-tag.html`.

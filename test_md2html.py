@@ -175,7 +175,9 @@ class Zaruky(Zaklad):
         html = self.vystupni('prvni.html')
         self.assertIn('class="zhasnuty"', html)
         self.assertNotIn('href="tag-prazdny.html"', html)
-        self.assertIn('"name": "prazdny"', self.vystupni('index.html'))
+        # Ve filtru na titulce takovy tag neni vubec: filtr zna tagy clanku a
+        # stitek s nulou stejne nekresli.
+        self.assertNotIn('"name": "prazdny"', self.vystupni('index.html'))
         self.assertIn('Tags in the bar with no articles', vypis)
 
     def test_Z20_kod_se_neprepisuje(self):
@@ -747,23 +749,40 @@ class Lokalizace(Zaklad):
         self.assertIn("params.get('pick')", html)
         self.assertIn("'parstitek'", html)
 
-    def test_filtr_ma_dve_rady_a_delitkem_je_kuratorovana_lista(self):
-        """Co je v liste, je dulezite a vede prvni radu. Zbytek jde pod ni.
+    def test_hierarchicky_tag_se_rozpadne_na_dva_samostatne(self):
+        """`Obsidian/Video` jsou dva tagy, kazdy se svou strankou.
 
-        Dulezitost se tedy rika na jednom miste v konfiguraci webu, ne v nazvu
-        tagu - prejmenovat tag by znamenalo prepsat kazdy clanek, ktery ho nese,
-        a Obsidian by z jine velikosti pismen udelal tag druhy.
+        Kdyby zustal jeden, `Video` by sbiralo jen videa u Obsidianu - a to je
+        prave to, podle ceho chce clovek filtrovat napric vaultem.
         """
-        self.clanek('Prvni', 'Text.', tagy='obsidian')
-        self.clanek('Druha', 'Text.', tagy='vedlejsi')
-        self.soubor('.obsidian2html/menu.md', '- `#obsidian`\n')
+        self.clanek('Prvni', 'Text.', tagy='Obsidian/Video')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        stranky = self.stranky()
+        self.assertIn('tag-obsidian.html', stranky)
+        self.assertIn('tag-video.html', stranky)
+        self.assertNotIn('tag-obsidian-video.html', stranky)
+        self.assertIn('#Video', self.vystupni('prvni.html'))
+
+    def test_filtr_ma_dve_rady_a_delitkem_je_hierarchie_tagu(self):
+        """Prvni cast hierarchie vede prvni radu, zbytek jde pod ni.
+
+        Dulezitost tedy rika vault tam, kde se clanek taguje, a obe rady jdou
+        abecedne - jiny poradek uz neni podle ceho urcit.
+        """
+        self.clanek('Prvni', 'Text.', tagy='Obsidian/Video')
+        self.clanek('Druha', 'Text.', tagy='Alfa')
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
 
         html = self.vystupni('index.html')
-        self.assertIn('"name": "obsidian", "label": "obsidian", "lead": true', html)
-        self.assertIn('"name": "vedlejsi", "label": "vedlejsi", "lead": false', html)
+        self.assertIn('"name": "Obsidian", "label": "Obsidian", "lead": true', html)
+        self.assertIn('"name": "Video", "label": "Video", "lead": false', html)
+        self.assertIn('"name": "Alfa", "label": "Alfa", "lead": false', html)
         self.assertIn('id="fasety-dalsi"', html)
+        # Abecedne v ramci celku, ze ktereho si rady vybiraji: Alfa pred Video.
+        self.assertLess(html.index('"name": "Alfa"'), html.index('"name": "Video"'))
 
     def test_K100_neznamy_jazyk_skonci_chybou(self):
         """Mlcky spadnout na cestinu by znamenalo tise vyrobit jiny web."""

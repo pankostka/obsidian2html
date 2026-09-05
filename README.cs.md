@@ -57,7 +57,7 @@ Postaví web z vaultu do zadaného adresáře. Bez `--site` se z jednoho `.md` u
 
 Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
 
-Testy se pouštějí `python test_md2html.py`, je jich 71 a běží pod sekundu.
+Testy se pouštějí `python test_md2html.py`, je jich 72 a běží pod sekundu.
 
 
 ## Konvence
@@ -91,6 +91,12 @@ Tím přepínačem je **`--all`**, který filtr vypne úplně. Není to druhá c
 **K80. Publikovaný článek by měl mít ve frontmatteru `date`.** Když ho nemá, použije se datum souboru. Je to vratké, protože datum souboru se mění při kopírování i při synchronizaci, ale je to jednoduché a nepotřebuje to git - ten ve vstupním adresáři fungovat nemusí. Při shodě dat rozhoduje název článku, aby bylo pořadí jednoznačné.  Tvar `RRRR-MM-DD` se kontroluje a build na cokoli jiného upozorní (třeba datum šablony `{{date:YYYY-MM-DD}}`)
 
 **K90. Klíče frontmatteru a přepínače jsou anglicky.** Tedy `date`, `title`, `excerpt`, `slug`, `tags`, a přepínače `--site`, `--published-only`, `--base-url`, `--check`, `--clean`, `--site-name`. Obsah článků je česky, rozhraní nástroje ne - nástroj je veřejný a jeho příkazová řádka i klíče jsou to jediné, co cizí uživatel musí napsat sám. České klíče `datum`, `titul` a `perex` se už nečtou; když na ně build narazí, ohlásí to, protože jinak by článek tiše přišel o datum nebo titulek.
+
+**K95. Hierarchický tag `Obsidian/Video` se rozpadne na dva samostatné tagy.**  
+Vzniknou z něj `Obsidian` a `Video`, každý se svou stránkou, takže `Video` sbírá videa z celého vaultu, ne jen ta u Obsidianu - a přesně podle toho chce člověk filtrovat.  
+Hierarchie tím ale nepřijde o smysl: **první část je hlavní tag** a ve filtru na titulce vede první řadu, všechno ostatní jde do druhé.  
+Který tag je důležitý, tedy říká vault na místě, kde se článek taguje, ne konfigurace webu - povýšit tag znamená napsat jeden lomítkový zápis, ne přepsat soubor navíc.  
+Obě řady jsou abecedně; kurátorovaný `menu.md` řídí lištu v hlavičce, do filtru nemluví.
 
 **K100. Jazyk webu určuje přepínač `--lang`, výchozí je `cs`.** Lokalizuje se jen to, co vidí **návštěvník** - hlášky při buildu čte ten, kdo build spouští, a ty jsou anglicky vždycky.  
 Součástí jazyka jsou i **názvy stránek**: český web má `tag-bez-tagu.html`, anglický `tag-no-tag.html`.  

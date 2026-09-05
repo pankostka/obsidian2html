@@ -149,6 +149,40 @@ Testy padly na dvě věci, které stojí za zapsání. Titulka nese zapečený i
 
 Ověřeno v prohlížeči nad PKVaultem i nad kopií s ořezanou lištou a ručním úvodem: pořadí prvků, čára pod tagy, filtr, stránka tagu i cesta z ní zpátky do filtru.
 
+### 11. Nulový štítek se nekreslí - HOTOVO
+
+Změna záměru, ne oprava. Dosud se štítek, který by nic nevrátil, **ztlumil**, a bylo to tak zapsané i v hlavičce skriptu s odůvodněním, že jinak lišta poskakuje. Nově se **nekreslí vůbec** - zbyde jen to, kam se dá jít, a oko má míň co třídit.
+
+Ta původní obava platí dál, jen se řeší jinde: pod živou lištou leží její **neviditelný duch v plné podobě** (všechny tagy, nic odfiltrované) ve stejné buňce gridu. Výšku bloku určuje ten vyšší z obou, tedy vždycky duch, takže se výpis pod filtrem nehne, ať se lišta zúží jakkoli. Je to čisté CSS, žádné měření - první pokus výšku měřil a ukázalo se, že stačí jedno měření v nesprávnou chvíli (než se stihne uplatnit `styl.css`, nebo při šířce, kterou nikdo nečekal) a v hlavičce zůstane díra napořád.
+
+Tlačítko "zrušit filtr" se kreslí pořád, jen je při prázdném filtru neviditelné. Objevit se až při prvním kliknutí znamenalo posunout lištu o řádek a výpis s ní, což byl mimochodem jediný skok, který zbyl po zavedení ducha.
+
+Duch se kreslí týmž kódem jako lišta (`facetRows`), aby se nemohly rozejít, jen mu `paintGhost` sebere `id` u tlačítka - dvě stejná `id` v jednom dokumentu jsou rozbité HTML.
+
+Stránky tagů zůstávají u **ztlumení**. Nemají skript, který by lištu překreslil, takže nemůžou vědět, co bude další klik; říct, co je dosažitelné, je tam užitečnější než schovat, co není. Záruka Z10 se tím nehnula, jen ji teď test hledá na stránce článku.
+
+Ověřeno v prohlížeči: po zaškrtnutí `#Obsidian` zmizely čtyři nulové štítky a čára, úvod i první karta zůstaly na stejném pixelu.
+
+### 12. Hlavní tag říká hierarchie, ne menu.md - HOTOVO
+
+Konvence **K95**. Hierarchický tag `Obsidian/Video` se rozpadne na dva samostatné tagy, `Obsidian` a `Video`, každý se svou stránkou. Kdyby zůstal jeden, `Video` by sbíralo jen videa u Obsidianu, a to není osa, podle které chce člověk filtrovat napříč vaultem.
+
+Hierarchie ale neztratila smysl: **první část je hlavní tag** a vede první řadu filtru. Vystřídalo to `menu.md`, které tu roli drželo od kroku 9. Rozdíl je v tom, kdo to říká - dřív konfigurace webu, teď vault na místě, kde se článek taguje. Povýšit tag znamená napsat lomítko, ne editovat soubor navíc.
+
+Obě řady jdou **abecedně**. Kurátorované pořadí se sem nemá odkud vzít a mezi dvaceti štítky je abeceda jediný pořádek, který čtenář uhodne. `menu.md` dál řídí lištu v hlavičce, do filtru nemluví.
+
+Rozpad se děje **v `tags_from_meta`**, tedy hned při čtení frontmatteru, takže se projeví všude stejně: stránky tagů, patička článku, karty i zapečený index. Hierarchii si pamatuje `lead_tags`, která z původního zápisu vytáhne první části, a `site['lead_tags']` je nese do filtru.
+
+Vedlejší důsledek, který ukázal test: tag, který jmenuje lišta a nemá článek, **ve filtru na titulce už není vůbec**. Štítky se berou z tagů článků, a štítek s nulou se stejně nekreslí. V liště se dál ztlumí a build to dál hlásí, takže Z10 platí, jen se ověřuje na stránce článku.
+
+**PKVault zatím hierarchii nemá**, takže mu vyjde první řada prázdná a všech šest tagů spadne do druhé. Není to chyba, prázdná řada se nekreslí - ale dvě řady tam budou vidět, až se ve vaultu objeví první `Neco/Neco`.
+
+### 13. Štítek ve filtru bez mřížky - HOTOVO
+
+Pilulka sama říká, že jde o tag, takže `#` před názvem nic nepřidávalo. Odešlo jen ve **filtru**; na kartách a v patičce článku mřížka zůstává, tam stojí název tagu vedle data a odlišit je od sebe je potřeba.
+
+Spravilo to mimochodem i pseudotag: jeho popiska sama je `#`, takže se ve filtru kreslil jako `##`. V liště v hlavičce byl vždycky správně, protože ta popisku vypisuje rovnou.
+
 ## Otevřené otázky
 
 
