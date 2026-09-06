@@ -765,13 +765,13 @@ class Lokalizace(Zaklad):
         self.assertNotIn('tag-obsidian-video.html', stranky)
         self.assertIn('#Video', self.vystupni('prvni.html'))
 
-    def test_filtr_ma_dve_rady_a_delitkem_je_hierarchie_tagu(self):
-        """Prvni cast hierarchie vede prvni radu, zbytek jde pod ni.
+    def test_filtr_ma_dve_rady_a_delitkem_je_znacka_na_tagu(self):
+        """Podtrzitko pred jmenem vede prvni radu, zbytek jde pod ni.
 
         Dulezitost tedy rika vault tam, kde se clanek taguje, a obe rady jdou
         abecedne - jiny poradek uz neni podle ceho urcit.
         """
-        self.clanek('Prvni', 'Text.', tagy='Obsidian/Video')
+        self.clanek('Prvni', 'Text.', tagy='_Obsidian, Video')
         self.clanek('Druha', 'Text.', tagy='Alfa')
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
@@ -783,6 +783,58 @@ class Lokalizace(Zaklad):
         self.assertIn('id="fasety-dalsi"', html)
         # Abecedne v ramci celku, ze ktereho si rady vybiraji: Alfa pred Video.
         self.assertLess(html.index('"name": "Alfa"'), html.index('"name": "Video"'))
+
+    def test_znacka_neni_soucasti_jmena_tagu(self):
+        """`_Obsidian` a `Obsidian` je jeden tag, jedna stranka, jedna adresa.
+
+        Kdyby znacka prosla do jmena, vznikly by dva tagy s toutez temou a
+        adresa by nesla znak, ktery patri autorovi, ne ctenari.
+        """
+        self.clanek('Prvni', 'Text.', tagy='_Obsidian')
+        self.clanek('Druha', 'Text.', tagy='Obsidian')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        stranky = self.stranky()
+        self.assertIn('tag-obsidian.html', stranky)
+        self.assertNotIn('tag-_obsidian.html', stranky)
+        self.assertIn('#Obsidian', self.vystupni('prvni.html'))
+        self.assertNotIn('#_Obsidian', self.vystupni('prvni.html'))
+        # Jeden tag, tedy oba clanky na jeho strance.
+        stranka = self.vystupni('tag-obsidian.html')
+        self.assertIn('prvni.html', stranka)
+        self.assertIn('druha.html', stranka)
+
+    def test_znacka_se_posuzuje_na_kazde_casti_hierarchie_zvlast(self):
+        """`Obsidian/_Video` povysi Video, ne Obsidian.
+
+        Hierarchie uz o vedeni rady nerozhoduje, rozhoduje znacka - a ta plati
+        pro tag, u ktereho je napsana.
+        """
+        self.clanek('Prvni', 'Text.', tagy='Obsidian/_Video')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('index.html')
+        self.assertIn('"name": "Video", "label": "Video", "lead": true', html)
+        self.assertIn('"name": "Obsidian", "label": "Obsidian", "lead": false', html)
+
+    def test_znacka_jen_v_jednom_clanku_vede_a_build_to_ohlasi(self):
+        """Jeden vyskyt se znackou staci, ostatni build vyjmenuje.
+
+        Slucovat je spravne, tag je jeden. Mlcet ne: autor napsal znacku
+        jednou a desetkrat na ni zapomnel, a ze zapisu to nepozna.
+        """
+        self.clanek('Prvni', 'Text.', tagy='_Obsidian')
+        self.clanek('Druha', 'Text.', tagy='Obsidian')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        self.assertIn('"name": "Obsidian", "label": "Obsidian", "lead": true',
+                      self.vystupni('index.html'))
+        self.assertIn('without the mark', vypis)
+        self.assertIn('Druha', vypis)
+        self.assertNotIn('Prvni', vypis.split('without the mark')[1])
 
     def test_K100_neznamy_jazyk_skonci_chybou(self):
         """Mlcky spadnout na cestinu by znamenalo tise vyrobit jiny web."""

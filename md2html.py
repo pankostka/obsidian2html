@@ -737,7 +737,7 @@ function countFor(combo, words) {
 
 const withTag = (text, tag) => text.replace('%s', tag);
 
-// The bar is drawn in TWO ROWS: the tags the curated menu carries lead, the
+// The bar is drawn in TWO ROWS: the tags marked in the vault lead, the
 // rest follow underneath. A row with nothing in it is not drawn at all - an
 // empty line above the results would read as a loading glitch.
 function paintRow(id, parts, last) {
@@ -753,7 +753,7 @@ function paintRow(id, parts, last) {
 // The pills of both rows for the state the arguments describe. Pure, so the
 // ghost that reserves the height can be drawn with the very same code.
 function facetRows(words) {
-  const lead = [];      // tags the curated bar carries
+  const lead = [];      // tags marked as leading in the vault
   const rest = [];      // everything else, alphabetically
   for (const tag of ALL_TAGS) {
     const isHeld = held.includes(tag.name);
@@ -1343,6 +1343,20 @@ def to_html(path, conv, meta=None, title=None,
 # Batch
 # ==============================================================================
 
+LEAD_MARK = '_'
+
+
+def bare_tag(tag):
+    """A tag name without the leading mark. `_Obsidian` and `Obsidian` are one tag.
+
+    The mark says the tag leads the first row of the filter, see lead_tags. It
+    is not part of the name, so it must not reach a page, an address or a chip
+    - stripping it here is what makes the two spellings one tag.
+    """
+    tag = tag.strip()
+    return tag[len(LEAD_MARK):].strip() if tag.startswith(LEAD_MARK) else tag
+
+
 def raw_tags(meta):
     """Tags as the frontmatter writes them. Handles [a, b] and the list form."""
     raw = (meta.get('tags') or '').strip().strip('[]')
@@ -1357,26 +1371,35 @@ def tags_from_meta(meta):
     chip, so `Video` collects videos from the whole vault rather than only
     those filed under Obsidian - which is what one wants to filter by.
 
-    What the hierarchy still says is WHICH TAG LEADS, see lead_tags.
+    The leading mark is stripped from every part, see lead_tags.
     """
     out = []
     for tag in raw_tags(meta):
         for part in tag.split('/'):
-            part = part.strip()
+            part = bare_tag(part)
             if part and part not in out:
                 out.append(part)
     return out
 
 
 def lead_tags(meta):
-    """The FIRST part of every hierarchical tag - those are the leading ones.
+    """Tags written with the leading mark - those lead the first row.
 
-    `Obsidian/Video` says Obsidian is the axis the article is filed under and
-    Video the detail. A tag that is nobody's first part is a secondary one,
-    and so is a tag written without a slash at all.
+    `_Obsidian` says the tag is an axis one files by, a plain `Obsidian` a
+    detail among many. The mark is judged on every part of a hierarchy
+    separately, so `_Obsidian/Video` leads with Obsidian and `Obsidian/_Video`
+    with Video.
+
+    Which tag leads is a decision about the front page, but it is written on
+    the tag, where the article is tagged, not in the site configuration -
+    promoting a tag means typing one character, not editing a file apart.
     """
-    return [tag.split('/')[0].strip() for tag in raw_tags(meta)
-            if '/' in tag and tag.split('/')[0].strip()]
+    out = []
+    for tag in raw_tags(meta):
+        for part in tag.split('/'):
+            if part.strip().startswith(LEAD_MARK) and bare_tag(part):
+                out.append(bare_tag(part))
+    return out
 
 
 def demote_headings(text):
@@ -1437,7 +1460,9 @@ def menu_items(text, tags, no_tag=False):
                 items.append(pseudo)
             continue
         if r.startswith('#') and len(r) > 1 and not r[1].isspace():
-            tag = r[1:].strip()
+            # The mark is stripped here too, so a tag copied from an article
+            # as it is written there, `#_Obsidian`, names the same tag.
+            tag = bare_tag(r[1:])
             items.append((tag, tag_page(tag), tag))
     # When menu.md never mentions the pseudo-tag, it appends itself - articles
     # without tags would otherwise be reachable from nowhere but the front page.
@@ -1868,10 +1893,10 @@ def front_page(articles, site, intro='', heading=None):
     # cost it the excerpts and the thumbnails.
     plain = ['<div class="vypis">'] + [card(c) for c in articles] + ['</div>']
 
-    # `lead` SPLITS THE FILTER INTO TWO ROWS, and THE HIERARCHY OF THE TAGS
-    # decides which is which: the first part of `Obsidian/Video` leads, every
-    # other tag follows underneath. Nothing is configured anywhere - the vault
-    # already says it, in the place where the article is tagged.
+    # `lead` SPLITS THE FILTER INTO TWO ROWS, and THE MARK ON THE TAG decides
+    # which is which: `_Obsidian` leads, a plain `Obsidian` follows
+    # underneath. Nothing is configured anywhere - the vault already says it,
+    # in the place where the article is tagged.
     #
     # Both rows run ALPHABETICALLY. There is no curated order to follow here,
     # and among twenty chips the alphabet is the only order a reader can
@@ -2458,9 +2483,15 @@ def main():
             # propsaly strukturu vaultu - v menu by pristal i interni zapis.
             all_tags = set()
             leading = set()
-            for _, meta, _ in items:
-                all_tags.update(tags_from_meta(meta))
-                leading.update(lead_tags(meta))
+            plain_at = {}
+            for path, meta, _ in items:
+                tags = tags_from_meta(meta)
+                lead = lead_tags(meta)
+                all_tags.update(tags)
+                leading.update(lead)
+                for tag in tags:
+                    if tag not in lead:
+                        plain_at.setdefault(tag, []).append(path)
             # Stara slozka _web se uz necte. Mlcet o ni nejde: web by se
             # built without a logo, without the bar and without the custom
             # styles, and it would look like a fault in the generator rather
@@ -2618,6 +2649,25 @@ def main():
             # The opposite case: the bar names a tag that no published article
             # carries. Its page is never generated, so it is dimmed in the bar
             # - but the author should know why, or the bar just looks broken.
+            # `_Obsidian` and `Obsidian` are one tag, so a single marked
+            # occurrence is enough to lead. Staying silent about the rest
+            # would be wrong: the author wrote the mark once and forgot it ten
+            # times, and the next reading of the vault will not show that.
+            half_marked = sorted(x for x in leading if x in plain_at)
+            if half_marked:
+                print('\nA leading tag written without the mark (%d): the tag'
+                      ' leads the filter, but only some articles say so. Add'
+                      ' the %r, or drop it everywhere:'
+                      % (len(half_marked), LEAD_MARK))
+                for x in half_marked:
+                    where = plain_at[x]
+                    print('  `#%s%s`  ->  written as `#%s` in %d:'
+                          % (LEAD_MARK, x, x, len(where)))
+                    for c in where[:5]:
+                        print('      %s' % c)
+                    if len(where) > 5:
+                        print('      ... and %d more' % (len(where) - 5))
+
             empty_tags = [x for x in in_menu if x not in site['tags']]
             if empty_tags:
                 print('\nTags in the bar with no articles (%d): no page is'

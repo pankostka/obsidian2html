@@ -94,9 +94,16 @@ The `YYYY-MM-DD` shape is checked and the build warns about anything else. Refus
 
 **K95. A hierarchical tag `Obsidian/Video` splits into two separate tags.**
 It becomes `Obsidian` and `Video`, each with a page of its own, so `Video` collects videos from the whole vault rather than only those filed under Obsidian - which is what one wants to filter by.
-The hierarchy does not lose its meaning, though: **the first part is a leading tag** and heads the first row of the filter on the front page, everything else goes into the second.
-Which tag matters is therefore said by the vault, where the article is tagged, rather than by the configuration of the site - promoting a tag means writing one slash, not editing another file.
-Both rows run alphabetically; the curated `menu.md` governs the bar in the header and has no say in the filter.
+The hierarchy does not decide which tag leads; the mark of K97 says that.
+
+**K97. A tag with a leading underscore is a leading tag**, so `_Obsidian` against an ordinary `Obsidian`.
+It heads the first row of the filter on the front page, everything else goes into the second; both rows run alphabetically.
+The underscore is only a mark, not part of the name: the tag is still called `Obsidian`, its page is `tag-obsidian.html` and an article prints it without the mark.
+Which tag matters is therefore said by the vault, where the article is tagged, rather than by the configuration of the site - promoting a tag means typing one character, not editing another file.
+The underscore also sorts before letters, so the leading tags stay together in the tag list inside Obsidian as well.
+In a hierarchy **every part is judged on its own**: `_Obsidian/Video` promotes `Obsidian`, `Obsidian/_Video` promotes `Video`.
+Because `_Obsidian` and `Obsidian` are one tag, the mark on a single occurrence is enough to lead - but the build lists the articles that lack it, because the spelling alone does not show the gap.
+The curated `menu.md` governs the bar in the header and has no say in the filter; it needs no mark, and one copied into it is skipped.
 
 **K100. The language of the site is set by `--lang`, `cs` by default.** Only what a **visitor** sees is localised - messages printed while building are read by whoever runs the build, and those are English unconditionally.
 **Page names are part of the language** too: a Czech site has `tag-bez-tagu.html`, an English one `tag-no-tag.html`.

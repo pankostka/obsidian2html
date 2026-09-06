@@ -167,7 +167,7 @@ Ověřeno v prohlížeči: po zaškrtnutí `#Obsidian` zmizely čtyři nulové �
 
 Konvence **K95**. Hierarchický tag `Obsidian/Video` se rozpadne na dva samostatné tagy, `Obsidian` a `Video`, každý se svou stránkou. Kdyby zůstal jeden, `Video` by sbíralo jen videa u Obsidianu, a to není osa, podle které chce člověk filtrovat napříč vaultem.
 
-Hierarchie ale neztratila smysl: **první část je hlavní tag** a vede první řadu filtru. Vystřídalo to `menu.md`, které tu roli drželo od kroku 9. Rozdíl je v tom, kdo to říká - dřív konfigurace webu, teď vault na místě, kde se článek taguje. Povýšit tag znamená napsat lomítko, ne editovat soubor navíc.
+Hierarchie tehdy určovala i hlavní tag: **první část je hlavní tag** a vede první řadu filtru. To už neplatí, hlavní tag říká podtržítko podle kroku 14. Vystřídalo to `menu.md`, které tu roli drželo od kroku 9. Rozdíl je v tom, kdo to říká - dřív konfigurace webu, teď vault na místě, kde se článek taguje. Povýšit tag znamená napsat lomítko, ne editovat soubor navíc.
 
 Obě řady jdou **abecedně**. Kurátorované pořadí se sem nemá odkud vzít a mezi dvaceti štítky je abeceda jediný pořádek, který čtenář uhodne. `menu.md` dál řídí lištu v hlavičce, do filtru nemluví.
 
@@ -176,6 +176,22 @@ Rozpad se děje **v `tags_from_meta`**, tedy hned při čtení frontmatteru, tak
 Vedlejší důsledek, který ukázal test: tag, který jmenuje lišta a nemá článek, **ve filtru na titulce už není vůbec**. Štítky se berou z tagů článků, a štítek s nulou se stejně nekreslí. V liště se dál ztlumí a build to dál hlásí, takže Z10 platí, jen se ověřuje na stránce článku.
 
 **PKVault zatím hierarchii nemá**, takže mu vyjde první řada prázdná a všech šest tagů spadne do druhé. Není to chyba, prázdná řada se nekreslí - ale dvě řady tam budou vidět, až se ve vaultu objeví první `Neco/Neco`.
+
+### 14. Hlavní tag říká podtržítko, ne hierarchie - HOTOVO
+
+Krok 12 nechal hlavní tag určovat hierarchii: první část `Obsidian/Video` vedla první řadu. Fungovalo to, ale říkalo se to vedlejším efektem. Autor psal lomítko, aby vyjádřil vztah, a nástroj z toho četl něco o titulce - a ten vztah pak stejně zahodil. Bylo to i křehké v množství: stačil jeden článek s lomítkem a tag vedl globálně, zatímco dvacet dalších o tom nevědělo a nikdo to neřekl.
+
+Konvence **K97**. Hlavní tag je ten, který má na začátku **podtržítko**, `_Obsidian`. Značka není součástí jména, strhává se v `bare_tag` hned při čtení, takže tag se pořád jmenuje `Obsidian`, má stránku `tag-obsidian.html` a v patičce článku se vypíše bez ní. `lead_tags` vrací tagy se značkou, `site['lead_tags']` je nese do filtru, zbytek zůstal jak byl.
+
+Zvažovaly se **velká písmena** a **číslo na začátku**. Velká písmena padla na zkratkách, `#DWH` a `#SQL` jsou velké přirozeně a staly by se hlavními omylem, a hlavně na tom, že Obsidian tagy porovnává bez ohledu na velikost - značka, kterou nástroj pod tebou nevidí, není značka. Číslo (`#1-Obsidian`) by šlo a škáluje na víc úrovní, ale slibuje škálu, která nebude: řady jsou dvě a uvnitř abecedně, takže `2-` a `3-` by nikdy nic neudělaly. Podtržítko je přesně tak velké jako ta myšlenka, ano/ne, a nekoliduje s tagy jako `#2024` nebo `#3D`.
+
+Značka se posuzuje **na každé části hierarchie zvlášť**, `Obsidian/_Video` povýší `Video`. Hierarchie tím přestala hlavní tag určovat a zbylo jí to, co dělá poctivě: rozpad na osy, podle kterých se filtruje napříč vaultem. Z jednoho spleteného pravidla jsou dvě nezávislá.
+
+Protože `_Obsidian` a `Obsidian` je jeden tag, **stačí značka u jednoho výskytu**. Mlčet o zbytku by ale znamenalo totéž, co vadilo na hierarchii, takže build vypíše, ve kterých článcích značka chybí - stejný vzor jako u ztlumeného odkazu v liště.
+
+`menu.md` značku nepotřebuje a `bare_tag` ji strhne i tam, aby zkopírovaný `#_Obsidian` mířil na tutéž stránku.
+
+**PKVault značku zatím nemá**, takže mu první řada vyjde prázdná a všech šest tagů spadne do druhé. Prázdná řada se nekreslí, takže se do vaultu podtržítko doplní, až se rozhodne které tagy vedou.
 
 ### 13. Štítek ve filtru bez mřížky - HOTOVO
 

@@ -94,9 +94,16 @@ Tím přepínačem je **`--all`**, který filtr vypne úplně. Není to druhá c
 
 **K95. Hierarchický tag `Obsidian/Video` se rozpadne na dva samostatné tagy.**  
 Vzniknou z něj `Obsidian` a `Video`, každý se svou stránkou, takže `Video` sbírá videa z celého vaultu, ne jen ta u Obsidianu - a přesně podle toho chce člověk filtrovat.  
-Hierarchie tím ale nepřijde o smysl: **první část je hlavní tag** a ve filtru na titulce vede první řadu, všechno ostatní jde do druhé.  
-Který tag je důležitý, tedy říká vault na místě, kde se článek taguje, ne konfigurace webu - povýšit tag znamená napsat jeden lomítkový zápis, ne přepsat soubor navíc.  
-Obě řady jsou abecedně; kurátorovaný `menu.md` řídí lištu v hlavičce, do filtru nemluví.
+O tom, který tag je hlavní, hierarchie nerozhoduje, to říká značka podle K97.
+
+**K97. Tag s podtržítkem na začátku je hlavní**, tedy `_Obsidian` proti běžnému `Obsidian`.  
+Ve filtru na titulce vede první řadu, všechno ostatní jde do druhé; obě řady jsou abecedně.  
+Podtržítko je jen značka, ne část jména: tag se pořád jmenuje `Obsidian`, má stránku `tag-obsidian.html` a v článku se vypíše bez něj.  
+Který tag je důležitý, tedy říká vault na místě, kde se článek taguje, ne konfigurace webu - povýšit tag znamená napsat jeden znak, ne editovat soubor navíc.  
+Podtržítko se navíc řadí před písmena, takže hlavní tagy drží pohromadě i v seznamu tagů uvnitř Obsidianu.  
+U hierarchie se posuzuje **každá část zvlášť**: `_Obsidian/Video` povýší `Obsidian`, `Obsidian/_Video` povýší `Video`.  
+Protože `_Obsidian` a `Obsidian` je jeden tag, stačí značka u jednoho výskytu a tag vede - build ale vypíše články, které ji nemají, protože ze zápisu se nedůslednost nepozná.  
+Kurátorovaný `menu.md` řídí lištu v hlavičce, do filtru nemluví; značku v něm psát netřeba, a když se tam zkopíruje, přeskočí se.
 
 **K100. Jazyk webu určuje přepínač `--lang`, výchozí je `cs`.** Lokalizuje se jen to, co vidí **návštěvník** - hlášky při buildu čte ten, kdo build spouští, a ty jsou anglicky vždycky.  
 Součástí jazyka jsou i **názvy stránek**: český web má `tag-bez-tagu.html`, anglický `tag-no-tag.html`.  
