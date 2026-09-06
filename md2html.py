@@ -888,9 +888,12 @@ for (const id of ['fasety', 'fasety-dalsi']) {
   bar.addEventListener('click', onPick);
 }
 
+// The cursor is taken only when the address carries a query, which means one
+// searched from another page and landed here to refine it. Coming to the front
+// page plainly - by the logo, by a link - leaves the focus where the browser
+// put it, so the keyboard still belongs to the page.
 const fromUrl = params.get('q');
-if (fromUrl) { field.value = fromUrl; }
-field.focus();
+if (fromUrl) { field.value = fromUrl; field.focus(); }
 render();
 paintGhost();
 </script>"""
