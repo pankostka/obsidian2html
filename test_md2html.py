@@ -749,6 +749,56 @@ class Lokalizace(Zaklad):
         self.assertIn("params.get('pick')", html)
         self.assertIn("'parstitek'", html)
 
+    def test_filtr_je_i_v_hlavicce_clanku(self):
+        """Stejny filtr jako na titulce, jen v liste clanku.
+
+        Drive tam byly staticke odkazy na stranky tagu, tedy jina vec na
+        jinem miste. Ctenar prijde z odfiltrovaneho vypisu a lista ma dal
+        rikat, kde je.
+        """
+        self.clanek('Prvni', 'Text.', tagy='Obsidian')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('prvni.html')
+        self.assertIn('<nav class="zivy">', html)
+        self.assertIn('id="fasety"', html)
+        self.assertIn("'parstitek'", html)      # stitek se ctvereckem
+        self.assertIn('data-hold=', html)
+        # Bez skriptu zbyde lista, jakou stranka mela vzdycky.
+        self.assertIn('<noscript><a href="tag-obsidian.html">', html)
+
+    def test_filtr_v_clanku_pocita_z_tagu_ne_z_textu(self):
+        """Do clanku se zapeci tagy clanku, ne cely index hledani.
+
+        Cisla na stitcich jsou jedine, co ta stranka pocita; index by se
+        platil kilobajty na kazdem nactenim clanku.
+        """
+        self.clanek('Prvni', 'Slovo ktere je jen tady.', tagy='Obsidian')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('prvni.html')
+        skript = html.split('</header>')[1].split('<main>')[0]
+        self.assertIn('[["Obsidian"]]', skript)
+        self.assertNotIn('Slovo ktere je jen tady', skript)
+
+    def test_klik_do_clanku_si_nese_zafiltrovani(self):
+        """Otevrit clanek nesmi zahodit to, na co si ctenar zafiltroval.
+
+        Odkaz z vypisu nese stav filtru, protoze lista v hlavicce clanku ho
+        z adresy zase precte.
+        """
+        self.clanek('Prvni', 'Text.', tagy='Obsidian')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        # Staticka stranka tagu: tag te stranky se drzi dal.
+        self.assertIn('href="prvni.html?tag=Obsidian"',
+                      self.vystupni('tag-obsidian.html'))
+        # Zivy vypis na titulce sklada tutez adresu skriptem.
+        self.assertIn('c.url + stateQuery()', self.vystupni('index.html'))
+
     def test_hierarchicky_tag_se_rozpadne_na_dva_samostatne(self):
         """`Obsidian/Video` jsou dva tagy, kazdy se svou strankou.
 

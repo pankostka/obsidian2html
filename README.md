@@ -57,7 +57,7 @@ Builds a site from the vault into the given directory. Without `--site`, a singl
 
 Exit code: `0` done, `1` conversion error, `2` bad arguments.
 
-Tests run with `python test_md2html.py`; there are 72 of them and they finish in under a second.
+Tests run with `python test_md2html.py`; there are 78 of them and they finish in under a second.
 
 ## Conventions
 
@@ -126,6 +126,14 @@ An unknown language stops the build. Falling back to Czech quietly would mean pr
 **Z50. Output belongs outside the repository.** So that committing generated HTML is impossible rather than merely forbidden, and so that the generator does not scan the directory it writes into. Where it writes is **decided by a flag** - no default path wired into the code. The script may only wipe a directory carrying the `.vygenerovano` marker, so a typo in the path cannot destroy somebody else's folder.
 
 **Z60. On the site, attachments are stored in lower-case ASCII.** On Linux `Foo.png` and `foo.png` differ, so a mistyped link works on Windows and returns 404 on the server. The letter case of links is verified against the actual files as well, and an address clash is an error.
+
+**Z70. The filter survives the click into an article.**  
+The bar in the header of an article is the very same faceted filter the front page carries, not a row of links, and it reads its state from the address - the link out of the listing carries it along.  
+Whoever filtered to `#Obsidian` and opened an article still has `#Obsidian` in the header, and the next click takes them back to the listing with that filter rather than to the whole site.  
+Only the **tags** of the articles are baked into an article, not the search index: the counts on the chips are all that page works out, and the index would be paid for on every article load.  
+The text query does not travel, only the filter does - an article has no listing to search, and the counts would then answer a different question than the ones on the front page. A query typed in the header of an article does keep the filter, though: the form sends it to the front page along with it.  
+Without JavaScript the original static bar of links to the tag pages remains in a `<noscript>`, so Z10 still holds.  
+Tag pages stay static: their listing is not redrawn in the browser, so a live filter above it would lie.
 
 ## License
 

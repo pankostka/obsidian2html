@@ -193,6 +193,22 @@ Protože `_Obsidian` a `Obsidian` je jeden tag, **stačí značka u jednoho výs
 
 **PKVault značku zatím nemá**, takže mu první řada vyjde prázdná a všech šest tagů spadne do druhé. Prázdná řada se nekreslí, takže se do vaultu podtržítko doplní, až se rozhodne které tagy vedou.
 
+### 15. Filtr i v hlavičce článku - HOTOVO
+
+Záruka **Z70**. Lišta v hlavičce článku byla řádek statických odkazů na stránky tagů, zatímco titulka měla fasetový filtr - dvě různé věci na tomtéž místě, a při kliknutí do článku navíc filtr zmizel. Nově je v hlavičce článku **tentýž filtr**, kreslený tímtéž kódem, a **stav si čte z adresy**: odkaz z výpisu nese `?tag=` i `?pick=`, takže co si čtenář zafiltroval, to v hlavičce článku zůstává stát.
+
+Kliknutí na štítku článku nemá co překreslit, tak **odchází na titulku** s novým stavem. Tím je pilulka na obou stránkách stejná i významem: čtvereček drží, jméno prohlíží.
+
+**Zapékají se jen tagy článků, ne index hledání.** Čísla na štítcích jsou jediné, co ta stránka počítá, a index by se platil kilobajty při každém načtení článku. Z toho plyne i to, že **textový dotaz s sebou do článku nejede** - článek nemá výpis, ve kterém by se hledalo, a čísla by pak odpovídala na jinou otázku než ta na titulce. Dotaz *napsaný* v hlavičce článku ale filtr zachová: skript ho vloží do formuláře jako skrytá pole a titulka ho přebere.
+
+Společná část skriptu se vyřízla do `FACET_JS` a obě stránky ji vkládají. Nešlo o úsporu řádků, ale o to, že dvě kopie téhož filtru se dřív nebo později rozejdou - a rozdíl by byl vidět jako poskakující lišta mezi výpisem a článkem. Vedle toho ubyla druhá kopie skládání štítků: `filter_chips` je teď jedna a používá ji titulka i článek.
+
+Bez JavaScriptu zbyde v `<noscript>` **původní statická lišta** i se ztlumeným štítkem, takže Z10 platí beze změny.
+
+Stránky tagů zůstaly statické. Jejich výpis se v prohlížeči nepřekresluje, takže živý filtr nad ním by ukazoval jiné štítky, než jaké karty pod ním leží.
+
+Ověřeno v prohlížeči nad PKVaultem: držení a prohlížení na titulce, otevření článku z odfiltrovaného výpisu, stav v jeho hlavičce, návrat kliknutím na štítek, dotaz z článku i cesta ze statické stránky tagu. Testy 78.
+
 ### 13. Štítek ve filtru bez mřížky - HOTOVO
 
 Pilulka sama říká, že jde o tag, takže `#` před názvem nic nepřidávalo. Odešlo jen ve **filtru**; na kartách a v patičce článku mřížka zůstává, tam stojí název tagu vedle data a odlišit je od sebe je potřeba.

@@ -423,6 +423,16 @@ body { max-width: 64rem; padding-top: 1.25rem; }
                           white-space: nowrap; color: var(--tlum);
                           opacity: .45; cursor: default; }
 .hlavicka nav .pocet-tagu { opacity: .6; font-size: .8em; margin-left: .3em; }
+/* On an ARTICLE the bar is the live filter, the same one the front page
+   carries, so it stacks in rows the way it does there instead of running as
+   one line of links. Without a script the static chips take over, and those
+   are a single row again. The class is not `filtr` - that one wraps the
+   filter on the front page and carries the rule under it, which the header
+   draws for itself. */
+.hlavicka nav.zivy { display: block; }
+.hlavicka nav.zivy .fasety { margin-bottom: .4rem; }
+.hlavicka nav.zivy .fasety.posledni { margin-bottom: 0; }
+.hlavicka nav.zivy noscript { display: flex; flex-wrap: wrap; gap: .4rem; }
 
 /* The faceted filter on the search page. A tag is a pair: a checkbox that
    HOLDS it in the filter and a name that browses. The two are one pill to the
@@ -548,88 +558,17 @@ HTML_WEB = ('<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
             '{header}<main>{body}</main>{footer}'
             '</body></html>')
 
-# THE FRONT PAGE IS THE FILTER. There is no separate search page: one place
-# to look for an article beats two that behave differently, and the tags in
-# the header led to static pages while the ones on the search page filtered
-# live - the same pill doing two things.
+# The faceted filter itself, shared by the front page and by every article.
+# Both draw the same bar out of the same state, so a filter set on the front
+# page is still standing in the header of the article one opens from it.
 #
-# The index is BAKED INSIDE, because under file:// it is not JavaScript that
-# fails but fetch() - the browser refuses to read local JSON because of CORS.
-# Baking it in removes that obstacle and the very same file works from a host
-# and from a disk alike.
-FRONT_PAGE = r"""<h1 class="jen-ctecka">@HEADING@</h1>
-<div class="filtr"><div class="vrstvy">
-<div class="vrstva">
-<div id="fasety" class="fasety hlavni" hidden></div>
-<div id="fasety-dalsi" class="fasety dalsi" hidden></div>
-</div>
-<div class="vrstva duch" aria-hidden="true">
-<div id="duch-fasety" class="fasety hlavni" hidden></div>
-<div id="duch-fasety-dalsi" class="fasety dalsi" hidden></div>
-</div>
-</div></div>
-@INTRO@
-<div id="vysledky"></div>
-<noscript>
-  <p>@NEEDS_JS@</p>
-  @LIST@
-</noscript>
-<script>
-// The index is BAKED INTO this page, not fetched. Under file:// it is not
-// JavaScript that fails but fetch() - the browser refuses to read local JSON
-// because of CORS. Baking it in removes that obstacle, and the very same file
-// then works from a host and from a disk alike.
-//
-// The query field lives in the HEADER, so on every page. The index is only
-// here, though, so other pages send the query over via ?q=. When a page is
-// filtered to a tag it adds ?tag= as well, and only that tag's articles are
-// searched.
-const ARTICLES = @DATA@;
-const NO_TAG = '@NO_TAG@';
-// Tag order is taken from the bar, so the eye looks for a tag in the same
-// place as everywhere else.
-const ALL_TAGS = @TAGS@;
-// Every string the visitor reads, in the language of the site. Baked in the
-// same way the index is, so the page needs nothing else to work.
-const TXT = @TEXTS@;
-
-const fold = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+# What the page around it has to supply: ARTICLES (each with `tags`),
+# ALL_TAGS, NO_TAG, TXT, the state in `held` and `current`, `filters` with
+# `syncFilters`, `countFor(combo, words)` and `render()`. What a click does is
+# each side's own business - the front page redraws its listing, an article
+# leaves for the front page carrying the new state.
+FACET_JS = r"""
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-// Plurals are picked by Intl.PluralRules, so no counting rules live here.
-// Czech needs three forms and English two; the browser knows which category a
-// number falls into, and the table supplies the wording.
-const plural = new Intl.PluralRules(TXT.lang);
-const shape = (forms, n) => {
-  const form = forms[plural.select(n)] || forms.other;
-  return form.replace('%d', n);
-};
-const countLabel = n => shape(TXT.n_articles, n);
-
-ARTICLES.forEach(c => {
-  c.nTitle = fold(c.title);
-  c.nText = fold(c.text);
-  c.nTags = fold(c.tags.map(t => t.name).join(' '));
-});
-
-const params = new URLSearchParams(location.search);
-// The filter has TWO INDEPENDENT PARTS. `held` are the tags pinned with the
-// checkbox: they survive every further click. `current` is the one tag whose
-// name was clicked, and the next click on a name exchanges it. The filter is
-// the intersection of both, so holding #Obsidian and clicking through
-// #Howto, #Video, #Backups walks its subsets without renewing #Obsidian.
-//
-// The point of the split is that NEITHER CONTROL TOUCHES THE OTHER'S STATE.
-// A checkbox that unticked itself because a neighbour was clicked would
-// promise an independence it does not keep.
-//
-// A tag in the address is HELD - a link from a tag page carries the tags it
-// combined, and those are meant to stay.
-let held = params.getAll('tag').filter(Boolean);
-let current = params.get('pick') || null;
-if (held.includes(current)) { current = null; }
-let filters = [];
-let scope = [];
 
 function syncFilters() {
   // The guard is for an address typed by hand. Clicking cannot get a tag into
@@ -643,71 +582,16 @@ function matchesTags(c, combo) {
                                        : c.tags.some(t => t.name === f));
 }
 
-function scopeLabel() {
-  if (!filters.length) return '';
-  return TXT.in_scope + filters.map(f => f === NO_TAG ? TXT.no_tag_scope
-                                                      : '#' + f).join(TXT.and);
-}
-
-function score(c, words) {
-  let s = 0;
-  for (const w of words) {
-    if (c.nTitle.includes(w)) s += 5;
-    else if (c.nTags.includes(w)) s += 3;
-    else if (c.nText.includes(w)) s += 1;
-    else return 0;            // every word has to be found
-  }
-  return s;
-}
-
-function snippet(c, word) {
-  const i = c.nText.indexOf(word);
-  if (i < 0) return esc(c.text.slice(0, 180)) + (c.text.length > 180 ? '…' : '');
-  const start = Math.max(0, i - 70);
-  const chunk = c.text.slice(start, i + word.length + 110);
-  const rel = i - start;
-  return (start > 0 ? '…' : '')
-    + esc(chunk.slice(0, rel))
-    + '<mark>' + esc(chunk.slice(rel, rel + word.length)) + '</mark>'
-    + esc(chunk.slice(rel + word.length))
-    + (start + chunk.length < c.text.length ? '…' : '');
-}
-
-function card(c, label) {
-  const tags = c.tags.map(t => '<a href="' + TXT.tag_prefix + t.slug + '.html">#'
-                               + esc(t.name) + '</a>').join(' ');
-  const meta = [c.date, tags].filter(Boolean).join(' ');
-  const thumb = c.image
-    ? '<a class="nahled" href="' + c.url + '"><img src="' + c.image
-      + '" alt=""></a>'
-    : '';
-  return '<article class="karta">' + thumb
-       + '<h2><a href="' + c.url + '">' + esc(c.title)
-       + '</a></h2>' + (meta ? '<div class="meta">' + meta + '</div>' : '')
-       + '<p class="perex">' + label + '</p></article>';
-}
-
-function search(query) {
-  const words = fold(query).split(/\s+/).filter(Boolean);
-  const counter = document.getElementById('pocet');
-  const target = document.getElementById('vysledky');
-  const grid = items => '<div class="vypis">' + items.join('') + '</div>';
-
-  if (!words.length) {
-    counter.textContent = countLabel(scope.length) + scopeLabel();
-    target.innerHTML = grid(scope.map(c => card(c, esc(c.excerpt))));
-    return;
-  }
-  const found = scope.map(c => ({ c: c, s: score(c, words) }))
-                     .filter(x => x.s > 0)
-                     .sort((a, b) => b.s - a.s);
-  if (!found.length) {
-    counter.textContent = TXT.nothing_found + scopeLabel();
-    target.innerHTML = '';
-    return;
-  }
-  counter.textContent = shape(TXT.n_found, found.length) + scopeLabel();
-  target.innerHTML = grid(found.map(x => card(x.c, snippet(x.c, words[0]))));
+// The state as a query string. It travels three ways: into the address of the
+// front page, into every link to an article, and into the search form that
+// article carries - so what one filtered to survives the click into the text.
+function stateQuery(query) {
+  const p = new URLSearchParams();
+  held.forEach(f => p.append('tag', f));
+  if (current) { p.set('pick', current); }
+  if (query) { p.set('q', query); }
+  const queryString = p.toString();
+  return queryString ? '?' + queryString : '';
 }
 
 // ---------------------------------------------------------------------------
@@ -729,11 +613,6 @@ function search(query) {
 // this one. On a tag already in the filter there is no number at all: it
 // would answer a different question than the number on its neighbour.
 // ---------------------------------------------------------------------------
-
-function countFor(combo, words) {
-  return ARTICLES.filter(c => matchesTags(c, combo)
-                              && (!words.length || score(c, words) > 0)).length;
-}
 
 const withTag = (text, tag) => text.replace('%s', tag);
 
@@ -807,54 +686,6 @@ function paintFacets(words) {
   paintRow('fasety-dalsi', rows.rest, true);
 }
 
-// The ghost is drawn ONCE, in the state where the bar is at its tallest: no
-// tag held, no query, so every tag is there and every count is at its widest.
-// Whatever the real bar shows later is a subset of it.
-function paintGhost() {
-  const wasHeld = held, wasCurrent = current;
-  held = [];
-  current = null;
-  syncFilters();
-  // The clear button carries an id, and two of those in one document is
-  // broken HTML. The ghost is never clicked, so it gives it up.
-  const strip = parts => parts.map(x => x.replace(' id="zrusit"', ''));
-  const rows = facetRows([]);
-  paintRow('duch-fasety', strip(rows.lead), !rows.rest.length);
-  paintRow('duch-fasety-dalsi', strip(rows.rest), true);
-  held = wasHeld;
-  current = wasCurrent;
-  syncFilters();
-}
-
-
-function writeUrl(query) {
-  // State belongs in the address, so it can be sent and restored with the
-  // back button.
-  const p = new URLSearchParams();
-  held.forEach(f => p.append('tag', f));
-  if (current) { p.set('pick', current); }
-  if (query) { p.set('q', query); }
-  const queryString = p.toString();
-  history.replaceState(null, '',
-                       location.pathname + (queryString ? '?' + queryString : ''));
-}
-
-function render() {
-  const query = field.value;
-  const words = fold(query).split(/\s+/).filter(Boolean);
-  syncFilters();
-  scope = ARTICLES.filter(c => matchesTags(c, filters));
-  search(query);
-  paintFacets(words);
-  writeUrl(query);
-}
-
-const field = document.getElementById('dotaz');
-// On this page nothing is submitted anywhere, searching happens in place.
-// The filter has to stay in the form, though, so the next query keeps it.
-field.form.addEventListener('submit', e => e.preventDefault());
-field.addEventListener('input', render);
-
 // The checkbox works on `held` ALONE, the name on `current` alone. The single
 // exception is holding the tag one is browsing: it would otherwise sit in the
 // filter twice, so it stops being the browsed one and becomes held.
@@ -886,7 +717,263 @@ for (const id of ['fasety', 'fasety-dalsi']) {
   const bar = document.getElementById(id);
   bar.addEventListener('change', onHold);
   bar.addEventListener('click', onPick);
+}"""
+
+
+# The same filter in the header of an ARTICLE. It is drawn out of the address,
+# so the filter one arrived with is still standing; a click leaves for the
+# front page with the new state, because an article has no listing to redraw.
+#
+# Only the TAGS of the articles are baked in here, not their text. The counts
+# are all this page has to work out, and the search index would be paid for on
+# every article.
+ARTICLE_FILTER = r"""<script>
+const ALL_TAGS = @TAGS@;
+const NO_TAG = '@NO_TAG@';
+const TXT = @TEXTS@;
+const ARTICLES = @TAG_SETS@.map(t => ({ tags: t.map(n => ({ name: n })) }));
+
+const params = new URLSearchParams(location.search);
+let held = params.getAll('tag').filter(Boolean);
+let current = params.get('pick') || null;
+if (held.includes(current)) { current = null; }
+let filters = [];
+
+// No text query here, so no words either - the field in the header sends its
+// query to the front page, where the index lives.
+function countFor(combo) {
+  return ARTICLES.filter(c => matchesTags(c, combo)).length;
 }
+
+// A click cannot redraw a listing that is not on this page, so it goes where
+// the listing is - the front page, carrying the state the click just made.
+function render() {
+  location.href = 'index.html' + stateQuery();
+}
+
+@FACETS@
+
+syncFilters();
+paintFacets([]);
+
+// A query typed on an article is answered by the front page, so the filter
+// travels with it in the form. Without that the search would quietly widen
+// from what one is reading to the whole site.
+const form = document.getElementById('dotaz').form;
+new URLSearchParams(stateQuery().slice(1)).forEach((value, key) => {
+  const box = document.createElement('input');
+  box.type = 'hidden';
+  box.name = key;
+  box.value = value;
+  form.appendChild(box);
+});
+</script>"""
+
+
+# THE FRONT PAGE IS THE FILTER. There is no separate search page: one place
+# to look for an article beats two that behave differently, and the tags in
+# the header led to static pages while the ones on the search page filtered
+# live - the same pill doing two things.
+#
+# The index is BAKED INSIDE, because under file:// it is not JavaScript that
+# fails but fetch() - the browser refuses to read local JSON because of CORS.
+# Baking it in removes that obstacle and the very same file works from a host
+# and from a disk alike.
+FRONT_PAGE = r"""<h1 class="jen-ctecka">@HEADING@</h1>
+<div class="filtr"><div class="vrstvy">
+<div class="vrstva">
+<div id="fasety" class="fasety hlavni" hidden></div>
+<div id="fasety-dalsi" class="fasety dalsi" hidden></div>
+</div>
+<div class="vrstva duch" aria-hidden="true">
+<div id="duch-fasety" class="fasety hlavni" hidden></div>
+<div id="duch-fasety-dalsi" class="fasety dalsi" hidden></div>
+</div>
+</div></div>
+@INTRO@
+<div id="vysledky"></div>
+<noscript>
+  <p>@NEEDS_JS@</p>
+  @LIST@
+</noscript>
+<script>
+// The index is BAKED INTO this page, not fetched. Under file:// it is not
+// JavaScript that fails but fetch() - the browser refuses to read local JSON
+// because of CORS. Baking it in removes that obstacle, and the very same file
+// then works from a host and from a disk alike.
+//
+// The query field lives in the HEADER, so on every page. The index is only
+// here, though, so other pages send the query over via ?q=. When a page is
+// filtered to a tag it adds ?tag= as well, and only that tag's articles are
+// searched.
+const ARTICLES = @DATA@;
+const NO_TAG = '@NO_TAG@';
+// Tag order is taken from the bar, so the eye looks for a tag in the same
+// place as everywhere else.
+const ALL_TAGS = @TAGS@;
+// Every string the visitor reads, in the language of the site. Baked in the
+// same way the index is, so the page needs nothing else to work.
+const TXT = @TEXTS@;
+
+const fold = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+// Plurals are picked by Intl.PluralRules, so no counting rules live here.
+// Czech needs three forms and English two; the browser knows which category a
+// number falls into, and the table supplies the wording.
+const plural = new Intl.PluralRules(TXT.lang);
+const shape = (forms, n) => {
+  const form = forms[plural.select(n)] || forms.other;
+  return form.replace('%d', n);
+};
+const countLabel = n => shape(TXT.n_articles, n);
+
+ARTICLES.forEach(c => {
+  c.nTitle = fold(c.title);
+  c.nText = fold(c.text);
+  c.nTags = fold(c.tags.map(t => t.name).join(' '));
+});
+
+const params = new URLSearchParams(location.search);
+// The filter has TWO INDEPENDENT PARTS. `held` are the tags pinned with the
+// checkbox: they survive every further click. `current` is the one tag whose
+// name was clicked, and the next click on a name exchanges it. The filter is
+// the intersection of both, so holding #Obsidian and clicking through
+// #Howto, #Video, #Backups walks its subsets without renewing #Obsidian.
+//
+// The point of the split is that NEITHER CONTROL TOUCHES THE OTHER'S STATE.
+// A checkbox that unticked itself because a neighbour was clicked would
+// promise an independence it does not keep.
+//
+// A tag in the address is HELD - a link from a tag page carries the tags it
+// combined, and those are meant to stay.
+let held = params.getAll('tag').filter(Boolean);
+let current = params.get('pick') || null;
+if (held.includes(current)) { current = null; }
+let filters = [];
+let scope = [];
+
+function scopeLabel() {
+  if (!filters.length) return '';
+  return TXT.in_scope + filters.map(f => f === NO_TAG ? TXT.no_tag_scope
+                                                      : '#' + f).join(TXT.and);
+}
+
+function score(c, words) {
+  let s = 0;
+  for (const w of words) {
+    if (c.nTitle.includes(w)) s += 5;
+    else if (c.nTags.includes(w)) s += 3;
+    else if (c.nText.includes(w)) s += 1;
+    else return 0;            // every word has to be found
+  }
+  return s;
+}
+
+function snippet(c, word) {
+  const i = c.nText.indexOf(word);
+  if (i < 0) return esc(c.text.slice(0, 180)) + (c.text.length > 180 ? '…' : '');
+  const start = Math.max(0, i - 70);
+  const chunk = c.text.slice(start, i + word.length + 110);
+  const rel = i - start;
+  return (start > 0 ? '…' : '')
+    + esc(chunk.slice(0, rel))
+    + '<mark>' + esc(chunk.slice(rel, rel + word.length)) + '</mark>'
+    + esc(chunk.slice(rel + word.length))
+    + (start + chunk.length < c.text.length ? '…' : '');
+}
+
+function card(c, label) {
+  const tags = c.tags.map(t => '<a href="' + TXT.tag_prefix + t.slug + '.html">#'
+                               + esc(t.name) + '</a>').join(' ');
+  const meta = [c.date, tags].filter(Boolean).join(' ');
+  // The link into the article CARRIES THE FILTER. Opening an article must not
+  // throw away what one filtered to - the bar in its header draws the very
+  // same state. The text query stays behind: the article has no listing to
+  // search, and the counts on its bar would then answer another question.
+  const url = c.url + stateQuery();
+  const thumb = c.image
+    ? '<a class="nahled" href="' + url + '"><img src="' + c.image
+      + '" alt=""></a>'
+    : '';
+  return '<article class="karta">' + thumb
+       + '<h2><a href="' + url + '">' + esc(c.title)
+       + '</a></h2>' + (meta ? '<div class="meta">' + meta + '</div>' : '')
+       + '<p class="perex">' + label + '</p></article>';
+}
+
+function search(query) {
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  const counter = document.getElementById('pocet');
+  const target = document.getElementById('vysledky');
+  const grid = items => '<div class="vypis">' + items.join('') + '</div>';
+
+  if (!words.length) {
+    counter.textContent = countLabel(scope.length) + scopeLabel();
+    target.innerHTML = grid(scope.map(c => card(c, esc(c.excerpt))));
+    return;
+  }
+  const found = scope.map(c => ({ c: c, s: score(c, words) }))
+                     .filter(x => x.s > 0)
+                     .sort((a, b) => b.s - a.s);
+  if (!found.length) {
+    counter.textContent = TXT.nothing_found + scopeLabel();
+    target.innerHTML = '';
+    return;
+  }
+  counter.textContent = shape(TXT.n_found, found.length) + scopeLabel();
+  target.innerHTML = grid(found.map(x => card(x.c, snippet(x.c, words[0]))));
+}
+
+@FACETS@
+
+// On the front page the count takes the TEXT QUERY in as well, because the
+// listing under the bar is narrowed by both. The index that answers it is
+// baked into this page and nowhere else.
+function countFor(combo, words) {
+  return ARTICLES.filter(c => matchesTags(c, combo)
+                              && (!words.length || score(c, words) > 0)).length;
+}
+// The ghost is drawn ONCE, in the state where the bar is at its tallest: no
+// tag held, no query, so every tag is there and every count is at its widest.
+// Whatever the real bar shows later is a subset of it.
+function paintGhost() {
+  const wasHeld = held, wasCurrent = current;
+  held = [];
+  current = null;
+  syncFilters();
+  // The clear button carries an id, and two of those in one document is
+  // broken HTML. The ghost is never clicked, so it gives it up.
+  const strip = parts => parts.map(x => x.replace(' id="zrusit"', ''));
+  const rows = facetRows([]);
+  paintRow('duch-fasety', strip(rows.lead), !rows.rest.length);
+  paintRow('duch-fasety-dalsi', strip(rows.rest), true);
+  held = wasHeld;
+  current = wasCurrent;
+  syncFilters();
+}
+
+
+function writeUrl(query) {
+  // State belongs in the address, so it can be sent and restored with the
+  // back button. It is the same string the links into the articles carry.
+  history.replaceState(null, '', location.pathname + stateQuery(query));
+}
+
+function render() {
+  const query = field.value;
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  syncFilters();
+  scope = ARTICLES.filter(c => matchesTags(c, filters));
+  search(query);
+  paintFacets(words);
+  writeUrl(query);
+}
+
+const field = document.getElementById('dotaz');
+// On this page nothing is submitted anywhere, searching happens in place.
+// The filter has to stay in the form, though, so the next query keeps it.
+field.form.addEventListener('submit', e => e.preventDefault());
+field.addEventListener('input', render);
 
 // The cursor is taken only when the address carries a query, which means one
 // searched from another page and landed here to refine it. Coming to the front
@@ -1335,7 +1422,12 @@ def to_html(path, conv, meta=None, title=None,
             lang=T['lang'],
             title='%s - %s' % (heading, site['name']),
             head_extra=site.get('head_extra', ''),
-            header=header_html(site),
+            # The bar in the header of an article is the FACETED FILTER, drawn
+            # out of the address: one arrives from a filtered listing and the
+            # filter is still standing. Without a bar there is nothing for the
+            # script to draw into, so it is not written out either.
+            header=(header_html(site, live_filter=bool(site['menu']))
+                    + (filter_script(site) if site['menu'] else '')),
             body=''.join(masthead) + body,
             footer=footer_html(site, own_meta.get('date'), tags, heading))
     return heading, HTML.format(lang=T['lang'], title=heading, css=CSS,
@@ -1552,8 +1644,53 @@ def combination_url(tags):
     return 'index.html?' + '&'.join('tag=%s' % quote(t) for t in tags)
 
 
+def filter_chips(site, untagged):
+    """The tags of the filter, in the order and the split both bars use.
+
+    THE BAR IS CURATED, THE FILTER IS COMPLETE. `.obsidian2html/menu.md`
+    selects what goes in the header, because twenty chips stop working there.
+    The filter, though, has room of its own, so it carries them all, and a tag
+    that has a page must be filterable. Otherwise curating the bar would
+    quietly drop a tag out of the filter and nobody would know why.
+
+    `lead` SPLITS THE FILTER INTO TWO ROWS, and THE MARK ON THE TAG decides
+    which is which: `_Obsidian` leads, a plain `Obsidian` follows underneath.
+    Nothing is configured anywhere - the vault already says it, in the place
+    where the article is tagged. Both rows run ALPHABETICALLY: there is no
+    curated order to follow here, and among twenty chips the alphabet is the
+    only order a reader can predict.
+    """
+    leading = set(site.get('lead_tags') or ())
+    chips = [{'name': tag, 'label': tag, 'lead': tag in leading}
+             for tag in site['tags']]
+    if untagged or any(url == tag_page(T['no_tag_slug'])
+                       for _, url, _ in site['menu']):
+        # The pseudo-tag closes the second row. It names no topic, it collects
+        # what fell through, and the leading row is for the axes one files by.
+        chips.append({'name': T['no_tag_slug'], 'label': NO_TAG_LABEL,
+                      'lead': False})
+    return chips
+
+
+def filter_script(site):
+    """The faceted filter for the header of an article.
+
+    Only the tags of the articles go in, not their text - the counts are all
+    it works out, and the whole search index on every article would be paid
+    for in kilobytes on every page load.
+    """
+    sets = site.get('tag_sets') or []
+    return (ARTICLE_FILTER
+            .replace('@FACETS@', FACET_JS)
+            .replace('@TAG_SETS@', json.dumps(sets, ensure_ascii=False))
+            .replace('@TAGS@', json.dumps(filter_chips(site, any(not s for s in sets)),
+                                          ensure_ascii=False))
+            .replace('@TEXTS@', json.dumps(T, ensure_ascii=False))
+            .replace('@NO_TAG@', T['no_tag_slug']))
+
+
 def header_html(site, active=None, active_tag=None, reachable=None,
-                  fixed_only=False):
+                  fixed_only=False, live_filter=False):
     """Logo on the left, the tag bar on the right. On every page.
 
     The logo is NOT an h1. That belongs to the article title, and two top-level
@@ -1564,6 +1701,12 @@ def header_html(site, active=None, active_tag=None, reachable=None,
     items. It is for the search page, where tags are handled by the faceted
     filter - a row of links above a live filter of the same tags only
     confuses.
+
+    `live_filter` puts the FACETED FILTER in the bar instead, which is what an
+    article does: the reader came from a filtered listing and the bar carries
+    on saying where they are. The static chips stay behind it in a <noscript>,
+    so a browser without a script still gets the bar it always had - dimming
+    and all, see guarantee Z10.
 
     THE BAR ADDS TAGS, IT DOES NOT REPLACE THEM. On an unfiltered page a chip
     leads to its own tag page, as it always did. On a tag page it leads to
@@ -1606,7 +1749,8 @@ def header_html(site, active=None, active_tag=None, reachable=None,
             ('<input type="hidden" name="tag" value="%s">' % active_tag)
             if active_tag else '',
             '<span class="pocet" id="pocet"></span>',
-            '</form>', '</div>', '<nav>']
+            '</form>', '</div>']
+    chips = []
     for label, url, tag in site['menu']:
         if fixed_only and (tag or url == tag_page(T['no_tag_slug'])):
             continue
@@ -1619,27 +1763,33 @@ def header_html(site, active=None, active_tag=None, reachable=None,
             # check_links would turn the link into plain text and an unstyled
             # word would sit among styled pills. A dimmed pill says the same
             # thing without breaking the row. The build reports it as well.
-            parts.append('<span class="zhasnuty" aria-disabled="true"'
+            chips.append('<span class="zhasnuty" aria-disabled="true"'
                         ' title="%s">%s</span>'
                         % (T['no_article_yet'], label))
         elif is_current:
             # An active chip removes the filter, so it goes back to the front page.
-            parts.append('<a href="index.html" aria-current="page">%s</a>' % label)
+            chips.append('<a href="index.html" aria-current="page">%s</a>' % label)
         elif tag and active_tag:
             if reachable is not None and tag not in reachable:
-                parts.append('<span class="zhasnuty" aria-disabled="true"'
+                chips.append('<span class="zhasnuty" aria-disabled="true"'
                             ' title="%s">%s</span>'
                             % (T['no_overlap'] % active_tag, label))
             else:
-                parts.append('<a href="%s">%s</a>'
+                chips.append('<a href="%s">%s</a>'
                             % (combination_url([active_tag, tag]), label))
         else:
-            parts.append('<a href="%s">%s</a>' % (url, label))
-    parts.append('</nav></header>')
-    if not site['menu']:
-        # Zadny tag - prazdny <nav> by nechal ve strance zbytecny radek.
-        parts = [k for k in parts if k not in ('<nav>', '</nav></header>')]
-        parts.append('</header>')
+            chips.append('<a href="%s">%s</a>' % (url, label))
+    # No tag at all - an empty <nav> would leave a pointless line in the
+    # page, so there is none.
+    if site['menu']:
+        if live_filter:
+            parts.append('<nav class="zivy"><noscript>%s</noscript>'
+                        '<div id="fasety" class="fasety hlavni" hidden></div>'
+                        '<div id="fasety-dalsi" class="fasety dalsi" hidden></div>'
+                        '</nav>' % ''.join(chips))
+        else:
+            parts.append('<nav>%s</nav>' % ''.join(chips))
+    parts.append('</header>')
     return ''.join(parts)
 
 
@@ -1778,13 +1928,19 @@ def excerpt(body_text, meta, conv):
     return m.group(1) if m else html
 
 
-def card(c):
-    """One article in a listing: title, date with tags, excerpt."""
+def card(c, state=''):
+    """One article in a listing: title, date with tags, excerpt.
+
+    `state` is the filter the listing stands on, and it goes into the link, so
+    the bar in the header of the article opens on the same tags. The script
+    does the same on the front page - see stateQuery.
+    """
+    url = c['file'] + state
     parts = ['<article class="karta">']
     if c.get('image'):
         parts.append('<a class="nahled" href="%s"><img src="%s" alt=""></a>'
-                    % (c['file'], c['image']))
-    parts.append('<h2><a href="%s">%s</a></h2>' % (c['file'], c['heading']))
+                    % (url, c['image']))
+    parts.append('<h2><a href="%s">%s</a></h2>' % (url, c['heading']))
     labels = []
     if c['date']:
         labels.append(c['date'])
@@ -1828,6 +1984,9 @@ def card_grid(articles, base, heading, site, active=None,
 
     An empty list yields one empty page, so the bar does not link nowhere.
     """
+    # The tag of this page is HELD, not browsed: the reader came for it and
+    # the first click in the article is not meant to throw it away.
+    state = '?tag=%s' % quote(active_tag) if active_tag else ''
     pages = [articles[i:i + PER_PAGE]
              for i in range(0, len(articles), PER_PAGE)] or [[]]
     result = []
@@ -1838,7 +1997,7 @@ def card_grid(articles, base, heading, site, active=None,
         css_class = ' class="jen-ctecka"' if hidden_heading else ''
         content = ['<h1%s>%s</h1>' % (css_class, heading)]
         content.append('<div class="vypis">')
-        content.extend(card(c) for c in chunk)
+        content.extend(card(c, state) for c in chunk)
         content.append('</div>')
         content.append(pagination(base, number, len(pages)))
         page_title = (heading if number == 1
@@ -1896,32 +2055,12 @@ def front_page(articles, site, intro='', heading=None):
     # cost it the excerpts and the thumbnails.
     plain = ['<div class="vypis">'] + [card(c) for c in articles] + ['</div>']
 
-    # `lead` SPLITS THE FILTER INTO TWO ROWS, and THE MARK ON THE TAG decides
-    # which is which: `_Obsidian` leads, a plain `Obsidian` follows
-    # underneath. Nothing is configured anywhere - the vault already says it,
-    # in the place where the article is tagged.
-    #
-    # Both rows run ALPHABETICALLY. There is no curated order to follow here,
-    # and among twenty chips the alphabet is the only order a reader can
-    # predict.
-    #
-    # THE BAR IS CURATED, THE FILTER IS COMPLETE. `.obsidian2html/menu.md`
-    # selects what goes in the header, because twenty chips stop working
-    # there. The filter, though, has room of its own, so it carries them all,
-    # and a tag that has a page must be filterable. Otherwise curating the bar
-    # would quietly drop a tag out of the filter and nobody would know why.
-    leading = set(site.get('lead_tags') or ())
-    chips = [{'name': tag, 'label': tag, 'lead': tag in leading}
-             for tag in site['tags']]
-    if any(not c['tags'] for c in articles) or any(
-            url == tag_page(T['no_tag_slug']) for _, url, _ in site['menu']):
-        # The pseudo-tag closes the second row. It names no topic, it collects
-        # what fell through, and the leading row is for the axes one files by.
-        chips.append({'name': T['no_tag_slug'], 'label': NO_TAG_LABEL,
-                      'lead': False})
+    # The very same chips the bar of an article draws, see filter_chips.
+    chips = filter_chips(site, any(not c['tags'] for c in articles))
 
     heading = heading or T['articles']
-    content = (FRONT_PAGE.replace('@DATA@', cards)
+    content = (FRONT_PAGE.replace('@FACETS@', FACET_JS)
+                    .replace('@DATA@', cards)
                     .replace('@TAGS@', json.dumps(chips, ensure_ascii=False))
                     .replace('@TEXTS@', json.dumps(T, ensure_ascii=False))
                     .replace('@LIST@', ''.join(plain))
@@ -2487,9 +2626,14 @@ def main():
             all_tags = set()
             leading = set()
             plain_at = {}
+            # The tag sets of all the articles. The filter in the header of an
+            # article counts out of them, and the bar is drawn before the
+            # listing exists - so they are collected here, with the tags.
+            tag_sets = []
             for path, meta, _ in items:
                 tags = tags_from_meta(meta)
                 lead = lead_tags(meta)
+                tag_sets.append(tags)
                 all_tags.update(tags)
                 leading.update(lead)
                 for tag in tags:
@@ -2510,6 +2654,7 @@ def main():
             site = {'name': args.site_name or os.path.basename(vault),
                    'tags': sorted(all_tags),
                    'lead_tags': sorted(leading),
+                   'tag_sets': tag_sets,
                    'menu': menu_items(menu_source, sorted(all_tags), no_tag),
                    'logo': None,
                    'rss': bool(args.base_url),

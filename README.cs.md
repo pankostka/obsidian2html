@@ -57,7 +57,7 @@ Postaví web z vaultu do zadaného adresáře. Bez `--site` se z jednoho `.md` u
 
 Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
 
-Testy se pouštějí `python test_md2html.py`, je jich 72 a běží pod sekundu.
+Testy se pouštějí `python test_md2html.py`, je jich 78 a běží pod sekundu.
 
 
 ## Konvence
@@ -128,6 +128,14 @@ Neznámý jazyk build zastaví. Tiše spadnout na češtinu by znamenalo vyrobit
 **Z50. Výstup patří mimo repo.** Aby commit vygenerovaného HTML nebyl možný, ne jen zakázaný, a aby generátor neskenoval adresář, do kterého zapisuje. Kam se zapisuje, **určuje parametr skriptu** - žádná výchozí cesta zadrátovaná v kódu. Smazat smí skript jen adresář se značkou `.vygenerovano`, takže překlep v cestě cizí složku nesmaže.
 
 **Z60. Přílohy se na webu ukládají malými písmeny v ASCII.** Na Linuxu je `Foo.png` a `foo.png` rozdíl, takže špatně napsaný odkaz funguje na Windows a na serveru vrátí 404. Velikost písmen v odkazech se navíc ověřuje proti skutečným souborům a kolize adres je chyba.
+
+**Z70. Filtr přežije kliknutí do článku.**  
+Lišta v hlavičce článku je tentýž fasetový filtr jako na titulce, ne řádek odkazů, a stav si čte z adresy - odkaz z výpisu ho s sebou nese.  
+Kdo si zafiltroval na `#Obsidian` a otevřel článek, má `#Obsidian` v hlavičce dál a další kliknutí ho vrátí do výpisu s tím filtrem, ne do celého webu.  
+Do článku se přitom zapékají jen **tagy** článků, ne index hledání: čísla na štítcích jsou jediné, co ta stránka počítá, a index by se platil na každém načtení článku.  
+Textový dotaz s sebou nejede, jede jen filtr - článek nemá výpis, ve kterém by se hledalo, a čísla na štítcích by pak odpovídala na jinou otázku než ta na titulce. Dotaz napsaný v hlavičce článku ale filtr zachová, protože ho formulář pošle na titulku s sebou.  
+Bez JavaScriptu zůstává v `<noscript>` původní statická lišta s odkazy na stránky tagů, takže Z10 platí dál.  
+Stránky tagů zůstávají statické: jejich výpis se v prohlížeči nepřekresluje, takže živý filtr nad ním by lhal.
 
 ## Licence
 
