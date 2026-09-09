@@ -203,6 +203,8 @@ Kliknutí na štítku článku nemá co překreslit, tak **odchází na titulku*
 
 Společná část skriptu se vyřízla do `FACET_JS` a obě stránky ji vkládají. Nešlo o úsporu řádků, ale o to, že dvě kopie téhož filtru se dřív nebo později rozejdou - a rozdíl by byl vidět jako poskakující lišta mezi výpisem a článkem. Vedle toho ubyla druhá kopie skládání štítků: `filter_chips` je teď jedna a používá ji titulka i článek.
 
+Lišta v článku stojí **na tomtéž místě, kde má filtr titulka** - stejná mezera nad ní i pod ní. Titulka totiž mezeru nad filtrem platí dvakrát (`.8rem` prázdná lišta v hlavičce, `.9rem` spodní mezera hlavičky), kdežto článek nemá ani jedno, takže si je sečte třídou `s-filtrem`. Bez toho lišta mezi titulkou a článkem viditelně poskočí, a to je přesně ta věc, kterou oko pozná dřív, než ji pojmenuje. Třída na `<nav>` se jmenuje `zivy`, ne `filtr`: `filtr` už patří obalu na titulce a nesl by s sebou druhou čáru pod lištou.
+
 Bez JavaScriptu zbyde v `<noscript>` **původní statická lišta** i se ztlumeným štítkem, takže Z10 platí beze změny.
 
 Stránky tagů zůstaly statické. Jejich výpis se v prohlížeči nepřekresluje, takže živý filtr nad ním by ukazoval jiné štítky, než jaké karty pod ním leží.

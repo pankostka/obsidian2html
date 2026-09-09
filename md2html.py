@@ -429,6 +429,13 @@ body { max-width: 64rem; padding-top: 1.25rem; }
    are a single row again. The class is not `filtr` - that one wraps the
    filter on the front page and carries the rule under it, which the header
    draws for itself. */
+/* The bar of an article sits WHERE THE FRONT PAGE PUTS ITS FILTER, above and
+   below alike. On the front page the gap over the filter is paid twice: .8rem
+   by the empty bar in the header and .9rem by the header's own bottom gap.
+   The article has neither, so it adds them up; and the rule under the bar
+   moves as close as it is there. */
+.hlavicka.s-filtrem { padding-bottom: .5rem; }
+.hlavicka.s-filtrem nav.zivy { margin-top: 1.7rem; }
 .hlavicka nav.zivy { display: block; }
 .hlavicka nav.zivy .fasety { margin-bottom: .4rem; }
 .hlavicka nav.zivy .fasety.posledni { margin-bottom: 0; }
@@ -1731,7 +1738,8 @@ def header_html(site, active=None, active_tag=None, reachable=None,
     # On the page that carries the filter the rule moves DOWN, under the tags
     # of the filter - the same place it sits on every other page, just with
     # the live tags above it instead of the static ones.
-    parts = ['<header class="hlavicka%s">' % (' bez-linky' if fixed_only else ''),
+    shape = (' bez-linky' if fixed_only else '') + (' s-filtrem' if live_filter else '')
+    parts = ['<header class="hlavicka%s">' % shape,
             '<div class="pas">',
             '<a class="logo" href="index.html">%s</a>' % mark,
             '<form class="hledani" action="index.html" method="get">',
