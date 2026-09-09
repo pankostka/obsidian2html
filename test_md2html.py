@@ -799,6 +799,32 @@ class Lokalizace(Zaklad):
         # Zivy vypis na titulce sklada tutez adresu skriptem.
         self.assertIn('c.url + stateQuery()', self.vystupni('index.html'))
 
+    def test_Z80_jedina_karta_se_otevre_rovnou(self):
+        """Klik na jmeno stitku, po kterem zbyde jedna karta, ji otevre.
+
+        Skok patri KLIKU, ne stavu: adresa s jednim vysledkem zustava
+        vypisem, aby odkaz poslany ven pristal tam co vzdycky. Skace jen
+        jmeno, ne ctverecek, a jen kdyz se jmeno zapina.
+
+        Skript spousti az prohlizec, takze se testuje kod, ktery stranka
+        nese, a jeho protejsek: v clanku se neskace, tam neni z ceho.
+        """
+        self.clanek('Prvni', 'Text.', tagy='Obsidian')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        titulka = self.vystupni('index.html')
+        # Otevre se tataz adresa, jakou nese karta, tedy i s filtrem.
+        self.assertIn('shown.length === 1', titulka)
+        self.assertIn("location.href = shown[0].url + stateQuery()", titulka)
+        # Skace jmeno, kdyz se zapina; ctverecek ma render bez pick.
+        self.assertIn('render({ pick: current === tag })', titulka)
+        self.assertIn('held.filter(f => f !== tag);', titulka)
+        # Clanek nema vypis, ze ktereho by se skakalo - vraci na titulku.
+        clanek = self.vystupni('prvni.html')
+        self.assertNotIn('shown', clanek)
+        self.assertIn("location.href = 'index.html' + stateQuery()", clanek)
+
     def test_hierarchicky_tag_se_rozpadne_na_dva_samostatne(self):
         """`Obsidian/Video` jsou dva tagy, kazdy se svou strankou.
 

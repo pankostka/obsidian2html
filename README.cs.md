@@ -57,7 +57,7 @@ Postaví web z vaultu do zadaného adresáře. Bez `--site` se z jednoho `.md` u
 
 Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
 
-Testy se pouštějí `python test_md2html.py`, je jich 78 a běží pod sekundu.
+Testy se pouštějí `python test_md2html.py`, je jich 79 a běží pod sekundu.
 
 
 ## Konvence
@@ -136,6 +136,15 @@ Do článku se přitom zapékají jen **tagy** článků, ne index hledání: č
 Textový dotaz s sebou nejede, jede jen filtr - článek nemá výpis, ve kterém by se hledalo, a čísla na štítcích by pak odpovídala na jinou otázku než ta na titulce. Dotaz napsaný v hlavičce článku ale filtr zachová, protože ho formulář pošle na titulku s sebou.  
 Bez JavaScriptu zůstává v `<noscript>` původní statická lišta s odkazy na stránky tagů, takže Z10 platí dál.  
 Stránky tagů zůstávají statické: jejich výpis se v prohlížeči nepřekresluje, takže živý filtr nad ním by lhal.
+
+**Z80. Když klik na štítek nechá jedinou stránku, otevře ji.**  
+Je to kliknutí na kartu udělané za čtenáře, takže vede na tutéž adresu, jakou nese karta, i s filtrem.  
+Stav je v adrese dřív, než se odejde, takže tlačítko zpět vrací do výpisu, ze kterého se odešlo.  
+Skok patří **kliku, ne stavu**: adresa `index.html?tag=a&tag=b` zůstává výpisem, i když vrací jediný článek, aby odkaz poslaný ven přistál tam, co vždycky.  
+Skáče jen **jméno** štítku, a jen když se zapíná. Čtvereček zužuje osu, nevybírá článek, a zhasnutí jména výsledek naopak rozšiřuje.  
+Textový dotaz do toho mluví jen tím, že zužuje množinu, ve které se počítá.  
+Skok umí jen stránka, která má výpis pod prstem, tedy titulka. V hlavičce článku klik vrací do výpisu - tam už je ta jediná karta vidět.  
+Číslo `1` na štítku to říká dopředu, takže se k němu nic dalšího nekreslí.
 
 ## Licence
 

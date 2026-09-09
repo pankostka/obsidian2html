@@ -573,7 +573,9 @@ HTML_WEB = ('<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
 # ALL_TAGS, NO_TAG, TXT, the state in `held` and `current`, `filters` with
 # `syncFilters`, `countFor(combo, words)` and `render()`. What a click does is
 # each side's own business - the front page redraws its listing, an article
-# leaves for the front page carrying the new state.
+# leaves for the front page carrying the new state. A click on a NAME says so
+# in `render({ pick: true })`, because the front page opens the article when
+# only one is left; the article has no listing to count down to one.
 FACET_JS = r"""
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -714,7 +716,9 @@ function onPick(e) {
   // is what keeps `current` from ever being a held tag, and with it the
   // address canonical.
   current = (current === tag || held.includes(tag)) ? null : tag;
-  render();
+  // Only TURNING a name ON is a pick. Clicking it off widens the result, and
+  // widening is nobody's way of asking for an article.
+  render({ pick: current === tag });
 }
 
 // Both rows listen. The clear button lives in whichever of them is the last
@@ -917,7 +921,7 @@ function search(query) {
   if (!words.length) {
     counter.textContent = countLabel(scope.length) + scopeLabel();
     target.innerHTML = grid(scope.map(c => card(c, esc(c.excerpt))));
-    return;
+    return scope;
   }
   const found = scope.map(c => ({ c: c, s: score(c, words) }))
                      .filter(x => x.s > 0)
@@ -925,10 +929,11 @@ function search(query) {
   if (!found.length) {
     counter.textContent = TXT.nothing_found + scopeLabel();
     target.innerHTML = '';
-    return;
+    return [];
   }
   counter.textContent = shape(TXT.n_found, found.length) + scopeLabel();
   target.innerHTML = grid(found.map(x => card(x.c, snippet(x.c, words[0]))));
+  return found.map(x => x.c);
 }
 
 @FACETS@
@@ -966,21 +971,34 @@ function writeUrl(query) {
   history.replaceState(null, '', location.pathname + stateQuery(query));
 }
 
-function render() {
+// A click on the NAME of a tag that leaves a single article opens it. It is
+// the click on the card done for the reader, so it goes to the very address
+// the card would have carried, the filter included - and the state is in the
+// address before we leave, so the back button returns to this listing.
+//
+// It is bound to the CLICK, not to the state: an address that yields one
+// article stays a listing, so a link sent to somebody lands where it always
+// did. The checkbox does not jump either - it narrows an axis, it does not
+// choose an article - and the text query only narrows the set the click
+// counts within.
+function render(opts) {
   const query = field.value;
   const words = fold(query).split(/\s+/).filter(Boolean);
   syncFilters();
   scope = ARTICLES.filter(c => matchesTags(c, filters));
-  search(query);
+  const shown = search(query);
   paintFacets(words);
   writeUrl(query);
+  if (opts && opts.pick && shown.length === 1) {
+    location.href = shown[0].url + stateQuery();
+  }
 }
 
 const field = document.getElementById('dotaz');
 // On this page nothing is submitted anywhere, searching happens in place.
 // The filter has to stay in the form, though, so the next query keeps it.
 field.form.addEventListener('submit', e => e.preventDefault());
-field.addEventListener('input', render);
+field.addEventListener('input', () => render());
 
 // The cursor is taken only when the address carries a query, which means one
 // searched from another page and landed here to refine it. Coming to the front

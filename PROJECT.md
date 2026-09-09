@@ -211,6 +211,24 @@ Stránky tagů zůstaly statické. Jejich výpis se v prohlížeči nepřekreslu
 
 Ověřeno v prohlížeči nad PKVaultem: držení a prohlížení na titulce, otevření článku z odfiltrovaného výpisu, stav v jeho hlavičce, návrat kliknutím na štítek, dotaz z článku i cesta ze statické stránky tagu. Testy 78.
 
+### 16. Jediný výsledek se otevře rovnou - HOTOVO
+
+Záruka **Z80**. Když klik na jméno štítku nechá ve výpisu jedinou kartu, titulka ten článek rovnou otevře. Je to **kliknutí na kartu udělané za čtenáře**, tedy tatáž adresa, jakou nese odkaz z karty, i s filtrem - `stateQuery()` je společný, takže se ty dvě cesty nemůžou rozejít.
+
+Podstatné je, na co se to váže. Skok patří **kliku, ne stavu**: `render()` dostal nepovinné `opts` a skáče jen na `{ pick: true }`, které mu pošle `onPick`. Adresa tím zůstává tím, čím byla - `index.html?tag=a&tag=b` vrátí výpis, i když je v něm jeden článek, takže se nerozbil žádný odkaz zvenčí ani ze statické stránky tagu. Stav se navíc zapisuje `writeUrl` ještě před odchodem, takže tlačítko zpět vrátí do toho výpisu a druhý skok se nekoná.
+
+Neskáče **čtvereček**, ten zužuje osu a nevybírá článek; kdyby odskočil, odškrtnout by se dal jen tlačítkem zpět. A neskáče ani **zhasnutí jména** - `render({ pick: current === tag })`, tedy jen zapnutí. Zhasnutí výsledek rozšiřuje a rozšiřování není způsob, jak si někdo říká o článek. Textový dotaz do toho mluví jen tím, že zužuje množinu, ve které se počítá; funkce je stejná, jen na menší množině.
+
+**V hlavičce článku se neskáče.** Článek si zapéká jen množiny tagů, takže ví, že výsledek je jeden, ale ne který - `ARTICLES` je tam `{tags:[...]}` a nic víc. Klik tedy jako dosud odchází na titulku a tam přistane stav adresou, která neskáče. Vypadá to jako výjimka z toho, že pilulka dělá všude totéž, ale je to důsledek jednoho pravidla: **skočit umí jen stránka, která má výpis pod prstem**. V článku klik vrací do výpisu, a tam už je ta jediná karta vidět.
+
+Zvažovalo se a zahodilo: skok **z adresy** (rozbil by odkazy a po tlačítku zpět by se cyklil), skok i na **čtverečku**, a **příznak v adrese** (`index.html?tag=video&jump=1`), kterým by článek řekl, že jde o klik, a titulka by doskočila za něj. Poslední varianta by srovnala chování pilulky na obou stránkách, ale platí se za ni parametrem navíc v mezikroku, takže se vybralo prostší chování.
+
+Nic se nepřidalo na štítek: **číslo `1` říká dopředu dost**.
+
+`search()` nově vrací to, co vykreslila, aby se nemusela počítat druhá pravda o tom, kolik je vidět. Posluchač na psaní v poli volá `render()` bez argumentu, jinak by mu prohlížeč jako `opts` podstrčil událost.
+
+Ověřeno v prohlížeči nad PKVaultem: klik na štítek s jedničkou, tlačítko zpět, tentýž štítek z hlavičky článku, kombinace s dotazem, čtvereček na jedničce a odkaz `?tag=` s jediným výsledkem. Testy 79.
+
 ### 13. Štítek ve filtru bez mřížky - HOTOVO
 
 Pilulka sama říká, že jde o tag, takže `#` před názvem nic nepřidávalo. Odešlo jen ve **filtru**; na kartách a v patičce článku mřížka zůstává, tam stojí název tagu vedle data a odlišit je od sebe je potřeba.
