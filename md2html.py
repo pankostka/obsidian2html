@@ -310,9 +310,13 @@ CSS_CONTENT = """
   --odkaz: #2b579a; --ram: #c8c8c8;
 }
 * { box-sizing: border-box; }
+/* Text width. A narrow ribbon down the middle of the screen is exactly why
+   Obsidian users are told to turn Readable line length off - it is unusable
+   for tables and code. That argument holds for the self-contained file just
+   as it does for the site, so both are 64rem. */
 body { font-family: "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
        font-size: 16px; line-height: 1.6; color: var(--text);
-       background: var(--pozadi); max-width: 46rem; margin: 0 auto;
+       background: var(--pozadi); max-width: 64rem; margin: 0 auto;
        padding: 2.5rem 1.25rem 4rem; }
 h1 { font-size: 1.9rem; line-height: 1.25; margin: 0 0 1.2rem;
      padding-bottom: .4rem; color: var(--nadpis);
@@ -355,11 +359,9 @@ hr { border: 0; border-top: 1px solid var(--linka); margin: 2rem 0; }
 # place in a self-contained file going out by email - there is nowhere to
 # navigate to there.
 CSS_CHROME = """
-/* Text width. A narrow ribbon down the middle of the screen is exactly why
-   Obsidian users are told to turn Readable line length off - it is unusable
-   for tables and code. Hence 64rem on the site, while the self-contained
-   file keeps 46rem.
-   Override it in .obsidian2html/styl.css. */
+/* Text width is 64rem for the self-contained file too, set in CSS_CONTENT.
+   Repeated here only because the site adds the header and needs the padding
+   above it. Override it in .obsidian2html/styl.css. */
 body { max-width: 64rem; padding-top: 1.25rem; }
 /* Article masthead: heading, tags below it, the rule below both. In the
    self-contained file the rule stays on the h1, there being no tags. */
