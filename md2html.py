@@ -576,8 +576,9 @@ HTML_WEB = ('<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
 # `syncFilters`, `countFor(combo, words)` and `render()`. What a click does is
 # each side's own business - the front page redraws its listing, an article
 # leaves for the front page carrying the new state. A click on a NAME says so
-# in `render({ pick: true })`, because the front page opens the article when
-# only one is left; the article has no listing to count down to one.
+# in `render({ pick: true })`, because both open the article when only one is
+# left - the front page out of its listing, an article out of the addresses
+# baked in next to the tag sets.
 FACET_JS = r"""
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -737,14 +738,15 @@ for (const id of ['fasety', 'fasety-dalsi']) {
 # so the filter one arrived with is still standing; a click leaves for the
 # front page with the new state, because an article has no listing to redraw.
 #
-# Only the TAGS of the articles are baked in here, not their text. The counts
-# are all this page has to work out, and the search index would be paid for on
-# every article.
+# Only the TAGS and ADDRESSES of the articles are baked in here, not their
+# text. The counts and the jump to a single result are all this page has to
+# work out, and the search index would be paid for on every article.
 ARTICLE_FILTER = r"""<script>
 const ALL_TAGS = @TAGS@;
 const NO_TAG = '@NO_TAG@';
 const TXT = @TEXTS@;
-const ARTICLES = @TAG_SETS@.map(t => ({ tags: t.map(n => ({ name: n })) }));
+const ARTICLES = @TAG_SETS@.map(a => ({ url: a.url,
+                                        tags: a.tags.map(n => ({ name: n })) }));
 
 const params = new URLSearchParams(location.search);
 let held = params.getAll('tag').filter(Boolean);
@@ -760,7 +762,15 @@ function countFor(combo) {
 
 // A click cannot redraw a listing that is not on this page, so it goes where
 // the listing is - the front page, carrying the state the click just made.
-function render() {
+// A click on a NAME that leaves one article opens it instead, as it does on
+// the front page: the listing would hold that single card and nothing else.
+function render(opts) {
+  syncFilters();
+  const shown = ARTICLES.filter(c => matchesTags(c, filters));
+  if (opts && opts.pick && shown.length === 1) {
+    location.href = shown[0].url + stateQuery();
+    return;
+  }
   location.href = 'index.html' + stateQuery();
 }
 
@@ -1702,15 +1712,16 @@ def filter_chips(site, untagged):
 def filter_script(site):
     """The faceted filter for the header of an article.
 
-    Only the tags of the articles go in, not their text - the counts are all
-    it works out, and the whole search index on every article would be paid
-    for in kilobytes on every page load.
+    Only the tags and addresses of the articles go in, not their text - the
+    counts and the jump to a single result are all it works out, and the
+    whole search index on every article would be paid for in kilobytes on
+    every page load.
     """
     sets = site.get('tag_sets') or []
     return (ARTICLE_FILTER
             .replace('@FACETS@', FACET_JS)
             .replace('@TAG_SETS@', json.dumps(sets, ensure_ascii=False))
-            .replace('@TAGS@', json.dumps(filter_chips(site, any(not s for s in sets)),
+            .replace('@TAGS@', json.dumps(filter_chips(site, any(not s['tags'] for s in sets)),
                                           ensure_ascii=False))
             .replace('@TEXTS@', json.dumps(T, ensure_ascii=False))
             .replace('@NO_TAG@', T['no_tag_slug']))
@@ -2654,14 +2665,15 @@ def main():
             all_tags = set()
             leading = set()
             plain_at = {}
-            # The tag sets of all the articles. The filter in the header of an
-            # article counts out of them, and the bar is drawn before the
+            # The tag sets of all the articles, each with its address. The
+            # filter in the header of an article counts out of them and opens
+            # the one article a click leaves, and the bar is drawn before the
             # listing exists - so they are collected here, with the tags.
             tag_sets = []
-            for path, meta, _ in items:
+            for path, meta, _, name in plan:
                 tags = tags_from_meta(meta)
                 lead = lead_tags(meta)
-                tag_sets.append(tags)
+                tag_sets.append({'url': name + '.html', 'tags': tags})
                 all_tags.update(tags)
                 leading.update(lead)
                 for tag in tags:

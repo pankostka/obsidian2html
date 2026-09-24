@@ -219,9 +219,11 @@ Podstatné je, na co se to váže. Skok patří **kliku, ne stavu**: `render()` 
 
 Neskáče **čtvereček**, ten zužuje osu a nevybírá článek; kdyby odskočil, odškrtnout by se dal jen tlačítkem zpět. A neskáče ani **zhasnutí jména** - `render({ pick: current === tag })`, tedy jen zapnutí. Zhasnutí výsledek rozšiřuje a rozšiřování není způsob, jak si někdo říká o článek. Textový dotaz do toho mluví jen tím, že zužuje množinu, ve které se počítá; funkce je stejná, jen na menší množině.
 
-**V hlavičce článku se neskáče.** Článek si zapéká jen množiny tagů, takže ví, že výsledek je jeden, ale ne který - `ARTICLES` je tam `{tags:[...]}` a nic víc. Klik tedy jako dosud odchází na titulku a tam přistane stav adresou, která neskáče. Vypadá to jako výjimka z toho, že pilulka dělá všude totéž, ale je to důsledek jednoho pravidla: **skočit umí jen stránka, která má výpis pod prstem**. V článku klik vrací do výpisu, a tam už je ta jediná karta vidět.
+**V hlavičce článku se zprvu neskákalo.** Článek si zapékal jen množiny tagů, takže věděl, že výsledek je jeden, ale ne který, a klik odcházel na titulku. V praxi to vypadalo jako chyba: na webu KostkaAXMain skočil štítek DimUtvar z titulky rovnou na článek, ale DimUcet z hlavičky toho článku jen na `index.html?pick=DimUcet`. Pilulka tak na dvou stránkách dělala dvě různé věci.
 
-Zvažovalo se a zahodilo: skok **z adresy** (rozbil by odkazy a po tlačítku zpět by se cyklil), skok i na **čtverečku**, a **příznak v adrese** (`index.html?tag=video&jump=1`), kterým by článek řekl, že jde o klik, a titulka by doskočila za něj. Poslední varianta by srovnala chování pilulky na obou stránkách, ale platí se za ni parametrem navíc v mezikroku, takže se vybralo prostší chování.
+**Teď skáče i článek.** K sadě štítků se zapéká adresa článku, `{url, tags}`, takže `render(opts)` v `ARTICLE_FILTER` spočítá výsledek stejně jako titulka a při jediném článku jde rovnou na něj, i s filtrem. Jinak dál odchází na titulku. Stojí to jméno souboru na článek, index hledání v článku dál není. Sady se skládají z `plan`, ne z `items`, protože jméno souboru vzniká až tam.
+
+Zvažovalo se a zahodilo: skok **z adresy** (rozbil by odkazy a po tlačítku zpět by se cyklil), skok i na **čtverečku**, a **příznak v adrese** (`index.html?tag=video&jump=1`), kterým by článek řekl, že jde o klik, a titulka by doskočila za něj. Příznak by chování srovnal za cenu parametru navíc v mezikroku; adresy zapečené v článku to srovnaly bez mezikroku.
 
 Nic se nepřidalo na štítek: **číslo `1` říká dopředu dost**.
 

@@ -142,11 +142,12 @@ Stránky tagů zůstávají statické: jejich výpis se v prohlížeči nepřekr
 
 **Z80. Když klik na štítek nechá jedinou stránku, otevře ji.**  
 Je to kliknutí na kartu udělané za čtenáře, takže vede na tutéž adresu, jakou nese karta, i s filtrem.  
-Stav je v adrese dřív, než se odejde, takže tlačítko zpět vrací do výpisu, ze kterého se odešlo.  
+Stav je v adrese dřív, než se odejde, takže tlačítko zpět vrací tam, odkud se kliklo.  
 Skok patří **kliku, ne stavu**: adresa `index.html?tag=a&tag=b` zůstává výpisem, i když vrací jediný článek, aby odkaz poslaný ven přistál tam, co vždycky.  
 Skáče jen **jméno** štítku, a jen když se zapíná. Čtvereček zužuje osu, nevybírá článek, a zhasnutí jména výsledek naopak rozšiřuje.  
 Textový dotaz do toho mluví jen tím, že zužuje množinu, ve které se počítá.  
-Skok umí jen stránka, která má výpis pod prstem, tedy titulka. V hlavičce článku klik vrací do výpisu - tam už je ta jediná karta vidět.  
+Skáče titulka i lišta v hlavičce článku.  
+Článek k tomu nese vedle sad štítků i adresy článků, jinak by věděl, že výsledek je jeden, ale ne který.  
 Číslo `1` na štítku to říká dopředu, takže se k němu nic dalšího nekreslí.
 
 ## Licence

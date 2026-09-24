@@ -769,10 +769,11 @@ class Lokalizace(Zaklad):
         self.assertIn('<noscript><a href="tag-obsidian.html">', html)
 
     def test_filtr_v_clanku_pocita_z_tagu_ne_z_textu(self):
-        """Do clanku se zapeci tagy clanku, ne cely index hledani.
+        """Do clanku se zapeci tagy a adresy clanku, ne cely index hledani.
 
-        Cisla na stitcich jsou jedine, co ta stranka pocita; index by se
-        platil kilobajty na kazdem nactenim clanku.
+        Cisla na stitcich a skok na jediny vysledek jsou jedine, co ta
+        stranka pocita; index by se platil kilobajty na kazdem nacteni
+        clanku.
         """
         self.clanek('Prvni', 'Slovo ktere je jen tady.', tagy='Obsidian')
         kod, vypis = self.web()
@@ -780,7 +781,7 @@ class Lokalizace(Zaklad):
 
         html = self.vystupni('prvni.html')
         skript = html.split('</header>')[1].split('<main>')[0]
-        self.assertIn('[["Obsidian"]]', skript)
+        self.assertIn('[{"url": "prvni.html", "tags": ["Obsidian"]}]', skript)
         self.assertNotIn('Slovo ktere je jen tady', skript)
 
     def test_klik_do_clanku_si_nese_zafiltrovani(self):
@@ -807,7 +808,8 @@ class Lokalizace(Zaklad):
         jmeno, ne ctverecek, a jen kdyz se jmeno zapina.
 
         Skript spousti az prohlizec, takze se testuje kod, ktery stranka
-        nese, a jeho protejsek: v clanku se neskace, tam neni z ceho.
+        nese. Skace titulka i clanek; clanek k tomu nese vedle sad stitku
+        i adresy clanku, jinak by vedel, ze vysledek je jeden, ale ne ktery.
         """
         self.clanek('Prvni', 'Text.', tagy='Obsidian')
         kod, vypis = self.web()
@@ -820,9 +822,12 @@ class Lokalizace(Zaklad):
         # Skace jmeno, kdyz se zapina; ctverecek ma render bez pick.
         self.assertIn('render({ pick: current === tag })', titulka)
         self.assertIn('held.filter(f => f !== tag);', titulka)
-        # Clanek nema vypis, ze ktereho by se skakalo - vraci na titulku.
+        # Clanek skace stejne, z adres zapecenych u sad stitku. Kdyz klik
+        # necha vic nez jeden clanek, vraci na titulku.
         clanek = self.vystupni('prvni.html')
-        self.assertNotIn('shown', clanek)
+        self.assertIn('{"url": "prvni.html", "tags": ["Obsidian"]}', clanek)
+        self.assertIn('opts && opts.pick && shown.length === 1', clanek)
+        self.assertIn("location.href = shown[0].url + stateQuery()", clanek)
         self.assertIn("location.href = 'index.html' + stateQuery()", clanek)
 
     def test_hierarchicky_tag_se_rozpadne_na_dva_samostatne(self):
