@@ -85,11 +85,11 @@ Tím přepínačem je **`--all`**, který filtr vypne úplně. Není to druhá c
 
 **K60. Náhledový obrázek se jmenuje jako článek** a leží v `Attachments/` vedle něj. Porovnává se přes slug, takže sedne `Obsidian Co je.png` i `obsidian-co-je.png`. Pojmenovat ho pevně nejde: jedna složka `Attachments/` obsluhuje všechny články své složky, takže by mezi nimi kolidoval. Doporučený rozměr je 630x290. Jiný rozměr se nepředělává - ořez a vycentrování obstará CSS v prohlížeči (`object-fit: cover`, horní část zůstane), takže generátor nepotřebuje knihovnu na obrázky.
 
-**K70. Konfigurace webu leží ve složce `.obsidian2html/`** v kořeni vaultu. Obsahuje:
-- `menu.md` (kurátorovaná lišta)
-- `index.md` (ruční úvod na titulce)
+**K70. Konfigurace webu leží ve složce `.obsidian2html/`** v kořeni vaultu. Obsahuje (abecedně):
+- `index.md` (ruční úvod na titulce) - vykreslí se na všech stránkách.
+- `logo.svg` - logo vlevo nahoře. Klikatelné (home).
+- `menu.md` (kurátorovaná lišta) - určuje pořadí tagů. Pokud není tak je abecední.
 - `styl.css` (vlastní styly)
-- `logo.svg`
 
 Tečka na začátku složku v Obsidianu skryje, což je záměr: jsou to vstupy pro generátor, ne články, a editují se mimo Obsidian.  
 Název říká, ke kterému nástroji ta složka patří, takže vedle `.obsidian/` nevzniká nejasnost.  
