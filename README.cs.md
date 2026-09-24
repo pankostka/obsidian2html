@@ -2,7 +2,6 @@
 
 > **Toto je zdroj, `README.md` je z něj odvozený překlad.** Změna se dělá tady a teprve pak se propíše do README. README se vymaže a pak vytvoří překladem z tohoto.
 
-
 ## Co to je
 
 V Obsidianu mám svoje know-how. Obecné články, postupy, návody apod.  
@@ -40,20 +39,20 @@ python md2html.py <vault> --site -o <kam>
 
 Postaví web z vaultu do zadaného adresáře. Bez `--site` se z jednoho `.md` udělá samostatný HTML soubor s obrázky uvnitř, který jde poslat mailem.
 
-| Přepínač | K čemu |
-| --- | --- |
-| `--site` | režim webu: sdílený `styl.css`, obrázky do `img/`. Vyžaduje `-o` |
-| `-o <kam>` | kam se má web postavit. Povinné s `--site` |
-| `--lang cs\|en` | jazyk webu, výchozí `cs` |
-| `--marker` | znak publikace na konci názvu, výchozí globus |
-| `--all` | převede všechny články, i neoznačené |
-| `--site-name` | název webu do hlavičky, výchozí je jméno složky vaultu |
-| `--base-url` | absolutní adresa webu. Bez ní se negeneruje `rss.xml` |
-| `--published-only` | jen články s markerem. `--site` to zapíná samo |
-| `--check` | jen ověří, že se web postaví. Pro git hook |
-| `--clean` | před buildem zabalí předchozí výstup do archivu |
-| `--title` | titulek jednoho souboru, když se nemá sahat do zdroje |
-| `--vault` | kde hledat obrázky, výchozí je adresář vstupu |
+| Přepínač           | K čemu                                                           |
+| ------------------ | ---------------------------------------------------------------- |
+| `--site`           | režim webu: sdílený `styl.css`, obrázky do `img/`. Vyžaduje `-o` |
+| `-o <kam>`         | kam se má web postavit. Povinné s `--site`                       |
+| `--lang cs\|en`    | jazyk webu, výchozí `cs`                                         |
+| `--marker`         | znak publikace na konci názvu, výchozí globus                    |
+| `--all`            | převede všechny články, i neoznačené                             |
+| `--site-name`      | název webu do hlavičky, výchozí je jméno složky vaultu           |
+| `--base-url`       | absolutní adresa webu. Bez ní se negeneruje `rss.xml`            |
+| `--published-only` | jen články s markerem. `--site` to zapíná samo                   |
+| `--check`          | jen ověří, že se web postaví. Pro git hook                       |
+| `--clean`          | před buildem zabalí předchozí výstup do archivu                  |
+| `--title`          | titulek jednoho souboru, když se nemá sahat do zdroje            |
+| `--vault`          | kde hledat obrázky, výchozí je adresář vstupu                    |
 
 Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
 
@@ -86,7 +85,13 @@ Tím přepínačem je **`--all`**, který filtr vypne úplně. Není to druhá c
 
 **K60. Náhledový obrázek se jmenuje jako článek** a leží v `Attachments/` vedle něj. Porovnává se přes slug, takže sedne `Obsidian Co je.png` i `obsidian-co-je.png`. Pojmenovat ho pevně nejde: jedna složka `Attachments/` obsluhuje všechny články své složky, takže by mezi nimi kolidoval. Doporučený rozměr je 630x290. Jiný rozměr se nepředělává - ořez a vycentrování obstará CSS v prohlížeči (`object-fit: cover`, horní část zůstane), takže generátor nepotřebuje knihovnu na obrázky.
 
-**K70. Konfigurace webu leží ve složce `.obsidian2html/`** v kořeni vaultu. Drží `menu.md` (kurátorovaná lišta), `index.md` (ruční úvod na titulce), `styl.css` (vlastní styly) a `logo.svg`. Tečka na začátku složku v Obsidianu skryje, což je záměr: jsou to vstupy pro generátor, ne články, a editují se mimo Obsidian. Název říká, ke kterému nástroji ta složka patří, takže vedle `.obsidian/` nevzniká nejasnost. Když složka ve vaultu není, generátor si poradí bez ní.
+**K70. Konfigurace webu leží ve složce `.obsidian2html/`** v kořeni vaultu. Obsahuje:
+- `menu.md` (kurátorovaná lišta)
+- `index.md` (ruční úvod na titulce)
+- `styl.css` (vlastní styly) 
+- `logo.svg`. 
+Tečka na začátku složku v Obsidianu skryje, což je záměr: jsou to vstupy pro generátor, ne články, a editují se mimo Obsidian. Název říká, ke kterému nástroji ta složka patří, takže vedle `.obsidian/` nevzniká nejasnost. 
+Když složka ve vaultu není, generátor si poradí bez ní.
 
 **K80. Publikovaný článek by měl mít ve frontmatteru `date`.** Když ho nemá, použije se datum souboru. Je to vratké, protože datum souboru se mění při kopírování i při synchronizaci, ale je to jednoduché a nepotřebuje to git - ten ve vstupním adresáři fungovat nemusí. Při shodě dat rozhoduje název článku, aby bylo pořadí jednoznačné.  Tvar `RRRR-MM-DD` se kontroluje a build na cokoli jiného upozorní (třeba datum šablony `{{date:YYYY-MM-DD}}`)
 
@@ -110,8 +115,6 @@ Součástí jazyka jsou i **názvy stránek**: český web má `tag-bez-tagu.htm
 Adresa, která je jednou venku, je závazek, a odvození od jazyka ho drží na obou stranách.  
 Skloňování řeší v prohlížeči `Intl.PluralRules`, takže v kódu nejsou žádná pravidla na počítání - tabulka nese jen tvary. Čeština jich potřebuje tři, angličtina dvě.  
 Neznámý jazyk build zastaví. Tiše spadnout na češtinu by znamenalo vyrobit jiný web, než si člověk vyžádal.
-
-
 
 ### Záruky
 
