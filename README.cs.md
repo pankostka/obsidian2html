@@ -56,7 +56,7 @@ Postaví web z vaultu do zadaného adresáře. Bez `--site` se z jednoho `.md` u
 
 Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
 
-Testy se pouštějí `python test_md2html.py`, je jich 79 a běží pod sekundu.
+Testy se pouštějí `python test_md2html.py`, je jich 81 a běží pod sekundu.
 
 
 ## Konvence
@@ -85,14 +85,19 @@ Tím přepínačem je **`--all`**, který filtr vypne úplně. Není to druhá c
 
 **K60. Náhledový obrázek se jmenuje jako článek** a leží v `Attachments/` vedle něj. Porovnává se přes slug, takže sedne `Obsidian Co je.png` i `obsidian-co-je.png`. Pojmenovat ho pevně nejde: jedna složka `Attachments/` obsluhuje všechny články své složky, takže by mezi nimi kolidoval. Doporučený rozměr je 630x290. Jiný rozměr se nepředělává - ořez a vycentrování obstará CSS v prohlížeči (`object-fit: cover`, horní část zůstane), takže generátor nepotřebuje knihovnu na obrázky.
 
-**K70. Konfigurace webu leží ve složce `.obsidian2html/`** v kořeni vaultu. Obsahuje (abecedně):
+**K70. Konfigurace webu leží ve složce `.obsidian2html/` nebo `_obsidian2html/`** v kořeni vaultu. Obsahuje (abecedně):
 - `index.md` (ruční úvod na titulce) - vykreslí se na všech stránkách.
 - `logo.svg` - logo vlevo nahoře. Klikatelné (home).
 - `menu.md` (kurátorovaná lišta) - určuje pořadí tagů. Pokud není tak je abecední.
 - `styl.css` (vlastní styly)
 
-Tečka na začátku složku v Obsidianu skryje, což je záměr: jsou to vstupy pro generátor, ne články, a editují se mimo Obsidian.  
+Obě jména jsou rovnocenná a liší se jen tím, co s nimi dělá Obsidian.  
+Tečka složku v Obsidianu skryje, takže vstupy pro generátor nepletou strom článků a editují se mimo Obsidian.  
+Podtržítko ji nechá vidět, takže úvod titulky a lištu jde psát tam, kde se píše všechno ostatní.  
+Na web se nedostane ani jedna, obě přeskočí K20.  
 Název říká, ke kterému nástroji ta složka patří, takže vedle `.obsidian/` nevzniká nejasnost.  
+**Obě složky naráz jsou chyba a build se zastaví**, ještě před `--clean`.  
+Přednost by znamenala, že jedna z nich se tiše ignoruje a úprava v ní nikam nevede.  
 Když složka ve vaultu není, generátor si poradí bez ní.
 
 **K80. Publikovaný článek by měl mít ve frontmatteru `date`.** Když ho nemá, použije se datum souboru. Je to vratké, protože datum souboru se mění při kopírování i při synchronizaci, ale je to jednoduché a nepotřebuje to git - ten ve vstupním adresáři fungovat nemusí. Při shodě dat rozhoduje název článku, aby bylo pořadí jednoznačné.  Tvar `RRRR-MM-DD` se kontroluje a build na cokoli jiného upozorní (třeba datum šablony `{{date:YYYY-MM-DD}}`)

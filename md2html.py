@@ -150,11 +150,16 @@ MAX_TRANSCLUSION = 3
 ATTACHMENT_DIRS = ('Attachments', 'img', 'assets')
 
 # The directory holding the site inputs: menu.md, index.md, styl.css, logo.
-# The leading dot hides it in Obsidian, which is the point - these are not
-# articles and they are edited outside Obsidian. The name says which tool owns
-# it, so nothing is ambiguous next to .obsidian. collect() skips it thanks to
-# that dot anyway.
+# The name says which tool owns it, so nothing is ambiguous next to .obsidian.
+# The vault picks one of TWO spellings: the leading dot hides it in Obsidian,
+# the underscore leaves it in the file tree, so the intro and the bar can be
+# edited where everything else is. collect() skips both, thanks to K20.
+#
+# Both at once is an error, not a precedence. Whichever one lost would be
+# ignored in silence, and an edit made in it would go nowhere - the same trap
+# the old _web directory is reported for.
 CONFIG_DIR = '.obsidian2html'
+CONFIG_DIRS = (CONFIG_DIR, '_obsidian2html')
 
 # The publish flag is a MARKER IN THE FILENAME, not a frontmatter key. The
 # reason is visibility: the file tree shows which article is public, whereas
@@ -1628,18 +1633,33 @@ def wikilinks_in_intro(text, batch):
         r'\[\[([^\]|]+?)(?:\\?\|([^\]]*))?\]\]', replace, t))
 
 
-def site_inputs(vault, batch=None):
-    """Read menu.md, index.md and styl.css from CONFIG_DIR. All optional.
+def config_name(vault):
+    """The name of the vault's configuration directory, see CONFIG_DIRS.
 
-    The directory slips past collect() thanks to its leading dot, so none of
-    those files ever becomes a page - they are inputs for the site, not
-    articles.
+    A vault with neither gets CONFIG_DIR, which does not exist there, so every
+    input is simply missing - and the messages that tell the author where to
+    put one name the documented spelling. Both at once stop the build.
+    """
+    found = [d for d in CONFIG_DIRS if os.path.isdir(os.path.join(vault, d))]
+    if len(found) > 1:
+        raise Error('The vault has both %s and %s. Only one of them can hold'
+                    ' the site configuration - merge them and delete the other.'
+                    % tuple(found))
+    return found[0] if found else CONFIG_DIR
+
+
+def site_inputs(vault, batch=None):
+    """Read menu.md, index.md and styl.css from the config dir. All optional.
+
+    The directory slips past collect() thanks to its leading dot or
+    underscore, so none of those files ever becomes a page - they are inputs
+    for the site, not articles.
 
     The bar may simply be called menu.md. The vault does have its own menu.md
     as a navigation bar, but that one lives elsewhere and nothing can clash
     with it here.
     """
-    out_dir = os.path.join(vault, CONFIG_DIR)
+    out_dir = os.path.join(vault, config_name(vault))
     menu = None
     path = os.path.join(out_dir, 'menu.md')
     if os.path.isfile(path):
@@ -2206,7 +2226,7 @@ def find_logo(vault, out_dir):
     not invent a placeholder - a logo is the author's business.
     """
     for ext in ('.svg', '.png'):
-        source = os.path.join(vault, CONFIG_DIR, 'logo' + ext)
+        source = os.path.join(vault, config_name(vault), 'logo' + ext)
         if os.path.isfile(source):
             directory = os.path.join(out_dir, 'img')
             if not os.path.isdir(directory):
@@ -2639,6 +2659,10 @@ def main():
             batch.setdefault(key, name + '.html')
             plan.append((path, meta, body_text, name))
 
+        # Two config directories stop the build BEFORE --clean, so the output
+        # that was there stays in place rather than going to the archive.
+        conf_name = config_name(vault) if args.site else CONFIG_DIR
+
         tmp_dir = None
         if args.check:
             tmp_dir = tempfile.mkdtemp(prefix='md2html-kontrola-')
@@ -2684,9 +2708,9 @@ def main():
             # styles, and it would look like a fault in the generator rather
             # than a directory nobody renamed.
             if (os.path.isdir(os.path.join(vault, '_web'))
-                    and not os.path.isdir(os.path.join(vault, CONFIG_DIR))):
+                    and not os.path.isdir(os.path.join(vault, conf_name))):
                 print('\nNOTE: the vault has a _web directory, which is no longer'
-                      ' read. Rename it to %s.' % CONFIG_DIR)
+                      ' read. Rename it to %s or %s.' % CONFIG_DIRS)
                 print('Inside it, rename menu_webu.md to menu.md.')
 
             menu_source, intro, home_title, custom_css = site_inputs(vault, batch)
@@ -2711,13 +2735,13 @@ def main():
             with open(cesta_css, 'w', encoding='utf-8', newline='\n') as f:
                 f.write(CSS_WEB)
                 if custom_css:
-                    f.write('\n/* --- ' + CONFIG_DIR + '/styl.css --- */\n')
+                    f.write('\n/* --- ' + conf_name + '/styl.css --- */\n')
                     f.write(custom_css)
             print('  %s' % cesta_css)
             site['logo'] = find_logo(vault, out_dir)
             if not site['logo']:
                 print('  (no logo: %s/logo.svg or .png is expected,'
-                      ' the header sets the name instead)' % CONFIG_DIR)
+                      ' the header sets the name instead)' % conf_name)
 
         conv = Conversion(vault, batch, site=args.site)
         produced = []
@@ -2830,7 +2854,7 @@ def main():
                 print('\nTags outside the bar (%d): the page is generated and an'
                       ' article footer links to it, but it is not in the bar.'
                       % len(missing))
-                print('Add a line to %s/menu.md when it belongs there:' % CONFIG_DIR)
+                print('Add a line to %s/menu.md when it belongs there:' % conf_name)
                 for x in missing:
                     print('  `#%s`  ->  %s' % (x, tag_page(x)))
 
@@ -2862,7 +2886,7 @@ def main():
                       ' generated, they are dimmed in the bar and cannot be'
                       ' clicked.' % len(empty_tags))
                 print('Publish an article with that tag, or drop the line from'
-                      ' %s/menu.md:' % CONFIG_DIR)
+                      ' %s/menu.md:' % conf_name)
                 for x in sorted(empty_tags):
                     print('  `#%s`' % x)
 

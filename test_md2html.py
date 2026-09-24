@@ -575,6 +575,44 @@ class Konvence(Zaklad):
         self.assertIn('Rucne psany uvod titulky.', index)
         self.assertIn('tag-obsidian.html', index)
 
+    def test_K70_konfigurace_se_cte_i_z_podtrzitka(self):
+        """_obsidian2html je v Obsidianu videt, jinak plati totez co s teckou.
+
+        Na web se nedostane nic z ni - K20 slozku s podtrzitkem preskakuje.
+        """
+        self.clanek('Prvni', 'Text.', tagy='obsidian')
+        self.soubor('_obsidian2html/menu.md', '- `#obsidian`\n')
+        self.soubor('_obsidian2html/index.md', 'Uvod z podtrzitka.\n')
+        self.soubor('_obsidian2html/styl.css', 'body { color: hotpink; }\n')
+        self.clanek('Skryty', 'Text.', slozka='_obsidian2html')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        index = self.vystupni('index.html')
+        self.assertIn('Uvod z podtrzitka.', index)
+        self.assertIn('tag-obsidian.html', index)
+        self.assertIn('hotpink', self.vystupni('styl.css'))
+        self.assertIn('_obsidian2html/styl.css', self.vystupni('styl.css'))
+        self.assertNotIn('skryty.html', self.stranky())
+
+    def test_K70_dve_slozky_konfigurace_zastavi_build(self):
+        """Obe slozky naraz jsou chyba, ne prednost.
+
+        Ta, ktera by prohrala, by se tise ignorovala a uprava v ni by nikam
+        nevedla. Build spadne jeste pred --clean, predchozi vystup zustane.
+        """
+        self.clanek('Prvni', 'Text.')
+        self.soubor('.obsidian2html/index.md', 'S teckou.\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        pred = sorted(os.listdir(self.vystup))
+
+        self.soubor('_obsidian2html/index.md', 'S podtrzitkem.\n')
+        kod, vypis = self.web('--clean')
+        self.assertEqual(kod, 1, vypis)
+        self.assertIn('both .obsidian2html and _obsidian2html', vypis)
+        self.assertEqual(sorted(os.listdir(self.vystup)), pred)
+
     def test_K70_index_md_urcuje_titulek_titulky(self):
         """Frontmatter title v index.md prebije nazev vaultu na titulce."""
         self.clanek('Prvni', 'Text.')

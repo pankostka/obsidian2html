@@ -231,6 +231,14 @@ Nic se nepřidalo na štítek: **číslo `1` říká dopředu dost**.
 
 Ověřeno v prohlížeči nad PKVaultem: klik na štítek s jedničkou, tlačítko zpět, tentýž štítek z hlavičky článku, kombinace s dotazem, čtvereček na jedničce a odkaz `?tag=` s jediným výsledkem. Testy 79.
 
+### 17. Konfigurace i v `_obsidian2html` - HOTOVO
+
+Složka s tečkou se v Obsidianu nezobrazí, takže `menu.md` a `index.md` se psaly jiným editorem. Vault si teď může vybrat i `_obsidian2html/`, kterou Obsidian ukáže. Obě jména jsou rovnocenná a na web se nedostane ani jedna, obě přeskočí K20. Jména drží `CONFIG_DIRS`, složku vybírá `config_name(vault)`. Vault bez konfigurace dostane `CONFIG_DIR`, takže hlášky typu *přidej řádek do .../menu.md* dál jmenují zdokumentovaný tvar.
+
+**Obě složky naráz zastaví build.** Zvažovala se přednost jedné z nich a zahodila se: ta, která by prohrála, by se tiše ignorovala a úprava v ní by nikam nevedla. Je to stejná past, kvůli které build hlásí starou složku `_web`. Kontrola běží ještě před `--clean`, takže předchozí výstup zůstane na místě a nejde do archivu.
+
+Testy 81.
+
 ### 13. Štítek ve filtru bez mřížky - HOTOVO
 
 Pilulka sama říká, že jde o tag, takže `#` před názvem nic nepřidávalo. Odešlo jen ve **filtru**; na kartách a v patičce článku mřížka zůstává, tam stojí název tagu vedle data a odlišit je od sebe je potřeba.
