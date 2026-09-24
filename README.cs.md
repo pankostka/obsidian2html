@@ -88,9 +88,11 @@ Tím přepínačem je **`--all`**, který filtr vypne úplně. Není to druhá c
 **K70. Konfigurace webu leží ve složce `.obsidian2html/`** v kořeni vaultu. Obsahuje:
 - `menu.md` (kurátorovaná lišta)
 - `index.md` (ruční úvod na titulce)
-- `styl.css` (vlastní styly) 
-- `logo.svg`. 
-Tečka na začátku složku v Obsidianu skryje, což je záměr: jsou to vstupy pro generátor, ne články, a editují se mimo Obsidian. Název říká, ke kterému nástroji ta složka patří, takže vedle `.obsidian/` nevzniká nejasnost. 
+- `styl.css` (vlastní styly)
+- `logo.svg`
+
+Tečka na začátku složku v Obsidianu skryje, což je záměr: jsou to vstupy pro generátor, ne články, a editují se mimo Obsidian.  
+Název říká, ke kterému nástroji ta složka patří, takže vedle `.obsidian/` nevzniká nejasnost.  
 Když složka ve vaultu není, generátor si poradí bez ní.
 
 **K80. Publikovaný článek by měl mít ve frontmatteru `date`.** Když ho nemá, použije se datum souboru. Je to vratké, protože datum souboru se mění při kopírování i při synchronizaci, ale je to jednoduché a nepotřebuje to git - ten ve vstupním adresáři fungovat nemusí. Při shodě dat rozhoduje název článku, aby bylo pořadí jednoznačné.  Tvar `RRRR-MM-DD` se kontroluje a build na cokoli jiného upozorní (třeba datum šablony `{{date:YYYY-MM-DD}}`)
