@@ -1197,14 +1197,15 @@ class Lokalizace(Zaklad):
 
         titulka = self.vystupni('index.html')
         self.assertNotIn('id="obdobi"', titulka)
-        self.assertIn('const MONTHS = [];', titulka)
+        self.assertIn('const BINS = [];', titulka)
         self.assertNotIn('.histogram', self.vystupni('styl.css'))
-        self.assertNotIn('"month"', self.vystupni('prvni.html'))
+        self.assertNotIn('"date": "2025-01-01"', self.vystupni('prvni.html'))
 
     def test_Z75_osa_jsou_souvisle_mesice(self):
         """Osa jde od prvniho clanku po posledni a nevynecha prazdny mesic.
 
         Dira v psani je informace a histogram ji ma ukazat, ne zavrit.
+        Clanky jsou od sebe pres dva mesice, takze osa je po mesicich.
         """
         self.clanek('Prvni', 'Text.', datum='2025-11-20')
         self.clanek('Druhy', 'Text.', datum='2026-02-03')
@@ -1214,14 +1215,14 @@ class Lokalizace(Zaklad):
 
         titulka = self.vystupni('index.html')
         self.assertIn('id="obdobi"', titulka)
-        self.assertIn('const MONTHS = ["2025-11", "2025-12", "2026-01", "2026-02"];',
+        self.assertIn('const BINS = ["2025-11", "2025-12", "2026-01", "2026-02"];',
                       titulka)
         self.assertIn('.histogram', self.vystupni('styl.css'))
 
     def test_Z75_obdobi_jde_do_adresy_a_do_clanku(self):
         """Obdobi je treti osa filtru a preziji kliknuti do clanku jako tagy.
 
-        Clanek posuvnik nekresli, ale nese mesic kazdeho clanku, aby cisla
+        Clanek posuvnik nekresli, ale nese datum kazdeho clanku, aby cisla
         na stitcich v jeho hlavicce pocitala se stejnym obdobim.
         """
         self.clanek('Prvni', 'Text.', datum='2025-11-20', tagy='Obsidian')
@@ -1235,12 +1236,31 @@ class Lokalizace(Zaklad):
         self.assertIn("p.set('to', until)", titulka)
         self.assertIn('matchesTags(c, combo) && inPeriod(c)', titulka)
         clanek = self.vystupni('prvni.html')
-        self.assertIn('"month": "2025-11"', clanek)
+        self.assertIn('"date": "2025-11-20"', clanek)
         self.assertIn('matchesTags(c, combo) && inPeriod(c)', clanek)
 
-    def test_Z75_jediny_mesic_posuvnik_nekresli(self):
+    def test_Z75_osa_po_dnech_zna_vikend_a_dnesek(self):
+        """Vikend ma vlastni barvu jako token, dnesek pocita prohlizec.
+
+        Build by dnesek znal jen v den buildu; web s --if-changed ale stoji
+        beze zmeny tak dlouho, dokud se nic nezmeni.
+        """
+        self.clanek('Prvni', 'Text.', datum='2026-09-01')
+        self.clanek('Druhy', 'Text.', datum='2026-09-20')
+        self.konfigurace('date_filter = true\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        styl = self.vystupni('styl.css')
+        self.assertIn('--vikend:', styl)
+        self.assertIn('.osa .vikend { color: var(--vikend); }', styl)
+        titulka = self.vystupni('index.html')
+        self.assertIn('const now = new Date();', titulka)
+        self.assertIn("' class=\"dnes\"'", titulka)
+
+    def test_Z75_jediny_den_posuvnik_nekresli(self):
         """Posuvnik, se kterym neni kam jet, se nekresli, a build to rekne."""
-        self.clanek('Prvni', 'Text.', datum='2026-01-01')
+        self.clanek('Prvni', 'Text.', datum='2026-01-20')
         self.clanek('Druhy', 'Text.', datum='2026-01-20')
         self.konfigurace('date_filter = true\n')
         kod, vypis = self.web()
@@ -1250,10 +1270,25 @@ class Lokalizace(Zaklad):
         self.assertIn('date_filter is on', vypis)
 
     def test_Z75_datum_ktere_datem_neni_na_osu_nepatri(self):
-        """Sablonovy zastupce by jinak osu natahl na nesmyslny mesic."""
-        self.assertEqual(md2html.period_months(
-            ['2026-01-05', '{{date:YYYY-MM-DD}}', '2025-12-31']),
-            ['2025-12', '2026-01'])
+        """Sablonovy zastupce by jinak osu natahl na nesmyslny den."""
+        self.assertEqual(md2html.period_axis(
+            ['2026-01-02', '{{date:YYYY-MM-DD}}', '2025-12-31']),
+            ['2025-12-31', '2026-01-01', '2026-01-02'])
+
+    def test_Z75_jednotka_je_nejjemnejsi_ktera_se_vejde(self):
+        """Dny, mesice, nebo roky - podle toho, co da nejvys PERIOD_BARS sloupcu.
+
+        Sloupcu je nejvys sedesat, aby na telefonu zbylo na kazdy par pixelu
+        a palec se na nej trefil.
+        """
+        dny = md2html.period_axis(['2026-09-01', '2026-10-30'])
+        self.assertEqual(len(dny), 60)
+        self.assertEqual(dny[0], '2026-09-01')
+        mesice = md2html.period_axis(['2026-09-01', '2026-10-31'])
+        self.assertEqual(mesice, ['2026-09', '2026-10'])
+        self.assertEqual(len(md2html.period_axis(['2021-01-01', '2025-12-31'])), 60)
+        self.assertEqual(md2html.period_axis(['2021-01-01', '2026-01-01']),
+                         ['2021', '2022', '2023', '2024', '2025', '2026'])
 
     def test_K70_date_filter_je_vypinac(self):
         """true nebo false bez uvozovek. "false" v uvozovkach by jinak zapnulo."""

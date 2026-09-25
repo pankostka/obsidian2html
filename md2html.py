@@ -141,6 +141,7 @@ r"""
 ================================================================================
 """
 import argparse
+import datetime
 import hashlib
 import json
 import os
@@ -612,14 +613,17 @@ CSS_PERIOD = """
 .datum-hlavicka .vratit:hover { color: var(--odkaz); }
 .datum-hlavicka .vratit.skryty { visibility: hidden; pointer-events: none; }
 
-/* One bar per month, its height a share of the busiest one. A month outside
-   the chosen period is dimmed, not hidden - an empty stretch is shown too. */
-.histogram { display: flex; align-items: flex-end; gap: 1px; height: 2.6rem;
-             margin-bottom: .15rem; }
-.histogram > i { flex: 1; background: var(--odkaz); opacity: .55;
-                 min-height: 1px; border-radius: 1px 1px 0 0; }
-.histogram > i.mimo { background: var(--linka); opacity: .5; }
-.histogram > i.prazdny { background: var(--linka); opacity: .25; }
+/* One bar per day, month or year, its height a share of the busiest one.
+   Every bar is a full-height cell with a pale ground, and the count grows in
+   it from the bottom - so a day without an article is still a visible cell,
+   not a gap one has to guess. The height comes from the script as --h. A bar
+   outside the chosen period is dimmed, not hidden. */
+.histogram { display: flex; gap: 1px; height: 2.6rem; margin-bottom: .15rem; }
+.histogram > i { flex: 1; border-radius: 1px 1px 0 0;
+                 --sloupec: color-mix(in srgb, var(--odkaz) 55%, transparent);
+                 background: linear-gradient(to top, var(--sloupec) var(--h),
+                                             var(--zebra) var(--h)); }
+.histogram > i.mimo { --sloupec: color-mix(in srgb, var(--linka) 70%, transparent); }
 
 /* Two native range inputs laid over one another. The track is drawn apart,
    both inputs are transparent and ignore the mouse except on their thumbs. */
@@ -644,9 +648,23 @@ CSS_PERIOD = """
 .rozsah input::-webkit-slider-runnable-track { height: 1.5rem; background: none; }
 .rozsah input::-moz-range-track { height: 1.5rem; background: none; }
 
-/* Years under the axis, each over its January. */
-.osa { display: flex; font-size: .72rem; color: var(--tlum); }
-.osa > span { flex: 1; text-align: center; white-space: nowrap; }
+/* Labels under the axis, each starting over the first bar of what it
+   names. A span is as wide as its bar, however long the label - without
+   min-width: 0 a label would widen its span and shift the whole axis away
+   from the bars above it. The script leaves out a label that would not fit,
+   the clip is only a safety net against a scroll bar. */
+.osa { display: flex; font-size: .72rem; color: var(--tlum); overflow: hidden; }
+.osa > span { flex: 1; min-width: 0; white-space: nowrap; }
+.osa.stred > span { text-align: center; }
+.osa b { font-weight: inherit; }
+/* On an axis of days: weekends in their own colour, today as a pill in the
+   colour of the links. Both are tokens, so styl.css changes them in one
+   line (Z40). */
+:root { --vikend: #c0392b; }
+@media (prefers-color-scheme: dark) { :root { --vikend: #ef8a7e; } }
+.osa .vikend { color: var(--vikend); }
+.osa .dnes { background: var(--odkaz); color: var(--pozadi); font-weight: 600;
+             border-radius: 999px; padding: 0 .35em; }
 
 /* The period makes the count beside the search field long, and on a phone
    it would push the page wider than the screen. There it gets a line of its
@@ -710,32 +728,43 @@ function matchesTags(c, combo) {
 }
 
 // The period is a third axis of the filter, joined with AND like the tags.
-// `since` and `until` are months as YYYY-MM and null is an open end, so the
-// whole period is two nulls and an address without it stays as it was.
-// MONTHS is the axis the build baked in, empty on a site without the date
-// filter - a hand-typed ?from= is then ignored rather than narrowing the
-// result by something nobody can see or undo.
+// BINS is the axis the build baked in: days as YYYY-MM-DD, months as YYYY-MM
+// or years as YYYY, whichever is the finest that still fits (see
+// period_axis). An article falls into the bin its date starts with.
+// `since` and `until` are bins and null is an open end, so the whole period
+// is two nulls and an address without it stays as it was. BINS is empty on a
+// site without the date filter - a hand-typed ?from= is then ignored rather
+// than narrowing the result by something nobody can see or undo.
 //
-// A month outside the axis is dropped too. The axis runs from the first
+// A bin outside the axis is dropped too. The axis runs from the first
 // article to the last, so its ends ARE the open ends, and anything past them
-// is a stale link that would otherwise yield an empty page.
+// is a stale link that would otherwise yield an empty page. So is a link
+// made while the axis had another unit.
 function readPeriod(params) {
-  const month = key => {
+  const bin = key => {
     const value = params.get(key);
-    return MONTHS.includes(value) ? value : null;
+    return BINS.includes(value) ? value : null;
   };
-  since = month('from');
-  until = month('to');
-  if (since === MONTHS[0]) { since = null; }
-  if (until === MONTHS[MONTHS.length - 1]) { until = null; }
+  since = bin('from');
+  until = bin('to');
+  if (since === BINS[0]) { since = null; }
+  if (until === BINS[BINS.length - 1]) { until = null; }
   if (since && until && since > until) { since = until = null; }
 }
 
-// Compared as STRINGS, which YYYY-MM allows. An article whose date is not a
-// date has no month and falls out as soon as the period is narrowed.
+// The bin of a date is its start, as many characters as a key of the axis has.
+// A date that is not a date has no bin and falls out as soon as the period
+// is narrowed. A declaration, not a const: both pages read their articles in
+// above the spot where this code is pasted.
+function binOf(date) {
+  return BINS.length && /^\d{4}-\d{2}-\d{2}$/.test(date || '')
+         ? date.slice(0, BINS[0].length) : null;
+}
+
+// Compared as STRINGS, which the ISO form allows.
 function inPeriod(c) {
   if (!since && !until) { return true; }
-  return !!c.month && (!since || c.month >= since) && (!until || c.month <= until);
+  return !!c.bin && (!since || c.bin >= since) && (!until || c.bin <= until);
 }
 
 // The state as a query string. It travels three ways: into the address of the
@@ -891,8 +920,8 @@ ARTICLE_FILTER = r"""<script>
 const ALL_TAGS = @TAGS@;
 const NO_TAG = '@NO_TAG@';
 const TXT = @TEXTS@;
-const MONTHS = @MONTHS@;
-const ARTICLES = @TAG_SETS@.map(a => ({ url: a.url, month: a.month || null,
+const BINS = @BINS@;
+const ARTICLES = @TAG_SETS@.map(a => ({ url: a.url, bin: binOf(a.date),
                                         tags: a.tags.map(n => ({ name: n })) }));
 
 const params = new URLSearchParams(location.search);
@@ -990,9 +1019,9 @@ const ALL_TAGS = @TAGS@;
 // Every string the visitor reads, in the language of the site. Baked in the
 // same way the index is, so the page needs nothing else to work.
 const TXT = @TEXTS@;
-// The months of the date filter, every one from the first article to the
+// The axis of the date filter, every bin from the first article to the
 // last. Empty when the site has no date filter.
-const MONTHS = @MONTHS@;
+const BINS = @BINS@;
 
 const fold = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
@@ -1010,7 +1039,7 @@ ARTICLES.forEach(c => {
   c.nTitle = fold(c.title);
   c.nText = fold(c.text);
   c.nTags = fold(c.tags.map(t => t.name).join(' '));
-  c.month = /^\d{4}-\d{2}-\d{2}$/.test(c.date) ? c.date.slice(0, 7) : null;
+  c.bin = binOf(c.date);
 });
 
 const params = new URLSearchParams(location.search);
@@ -1036,8 +1065,8 @@ let until = null;
 readPeriod(params);
 
 function periodLabel() {
-  const a = since || MONTHS[0];
-  const b = until || MONTHS[MONTHS.length - 1];
+  const a = since || BINS[0];
+  const b = until || BINS[BINS.length - 1];
   return a === b ? a : a + TXT.period_until + b;
 }
 
@@ -1160,14 +1189,15 @@ function paintGhost() {
 // stay native on purpose: the keyboard, touch and the screen reader come for
 // free, and only the look of the track is drawn here.
 //
-// The axis is EVERY month from the first article to the last, not only the
+// The axis is EVERY bin from the first article to the last, not only the
 // ones that have one. A gap in the writing is information, and the histogram
 // above the slider has to show it rather than close it up.
 // ---------------------------------------------------------------------------
 const dial = document.getElementById('obdobi');
 let paintPeriod = () => {};
 if (dial) {
-  const last = MONTHS.length - 1;
+  const last = BINS.length - 1;
+  const THUMB = 16;   // the width of a thumb, see .rozsah in CSS_PERIOD
   const lower = document.getElementById('obdobi-od');
   const upper = document.getElementById('obdobi-do');
   const bars = document.getElementById('histogram');
@@ -1178,48 +1208,110 @@ if (dial) {
   // The histogram counts the whole site and never changes. It says where
   // the articles are, so it must not shrink under the very slider one uses to
   // pick from it.
-  const counts = MONTHS.map(m => ARTICLES.filter(c => c.month === m).length);
+  const counts = BINS.map(k => ARTICLES.filter(c => c.bin === k).length);
   const top = Math.max(...counts);
   lower.max = upper.max = last;
-  bars.innerHTML = counts.map(n => '<i style="height:'
-    + (n ? 100 * n / top + '%' : '2px') + '"></i>').join('');
+  // A thumb has to stand over the MIDDLE of its bar. A range input puts the
+  // centre of its thumb half a thumb in from each end, so the track is pulled
+  // in to the middle of the first and the last bar, less that half a thumb.
+  dial.querySelector('.rozsah').style.margin
+    = '0 calc(' + 50 / BINS.length + '% - ' + THUMB / 2 + 'px)';
+  bars.innerHTML = counts.map(n => '<i style="--h:' + 100 * n / top + '%"></i>')
+                         .join('');
 
-  // A year is labelled over its January, and the first year over its first
-  // month when there is room before the next January. When the axis is too
-  // narrow for every year, only every second or fifth one is written.
+  // A label names the month on an axis of days and the year otherwise, and
+  // it starts over the first bar of what it names. One that would not fit
+  // before the next label or the end of the axis is left out, and when the
+  // axis is too narrow for all of them, only every second, fifth or tenth
+  // is written.
+  const group = k => k.length === 10 ? k.slice(0, 7) : k.slice(0, 4);
+  const starts = BINS.map((k, i) => i === 0 || group(k) !== group(BINS[i - 1])
+                                    ? i : -1).filter(i => i >= 0);
   const paintAxis = () => {
-    const years = new Set(MONTHS.map(m => m.slice(0, 4))).size;
-    const step = [1, 2, 5, 10].find(k => axis.clientWidth / years * k >= 40) || 10;
-    axis.innerHTML = MONTHS.map((m, i) => {
-      const year = Number(m.slice(0, 4));
-      const due = m.endsWith('-01') || (i === 0 && Number(m.slice(5)) <= 9);
-      return '<span>' + (due && year % step === 0 ? year : '') + '</span>';
-    }).join('');
+    const wide = BINS[0].length === 10 ? 56 : 40;
+    const perBin = axis.clientWidth / BINS.length;
+    const step = [1, 2, 5, 10].find(k => axis.clientWidth / starts.length * k
+                                         >= wide) || 10;
+    const kept = starts.filter((i, n) => n % step === 0);
+    const labels = new Map();
+    let marks = () => '';
+    kept.forEach((i, n) => {
+      const next = n + 1 < kept.length ? kept[n + 1] : BINS.length;
+      if ((next - i) * perBin >= wide) { labels.set(i, group(BINS[i])); }
+    });
+    // On an axis of days a month alone does not say which day a thumb is on,
+    // and on a short one it reads as an axis of months. So the days are
+    // numbered too: every one when there is room, every second, or the 8th,
+    // 15th, 22nd and 29th, wherever they fit between the months.
+    if (BINS[0].length === 10) {
+      const months = [...labels.keys()];
+      const every = [1, 2, 7].find(k => perBin * k >= 24) || 7;
+      BINS.forEach((k, i) => {
+        const day = Number(k.slice(8));
+        if (labels.has(i) || (day - 1) % every) { return; }
+        const before = months.filter(m => m < i).pop();
+        const after = months.find(m => m > i);
+        const room = ((after === undefined ? BINS.length : after) - i) * perBin;
+        const gap = before === undefined ? Infinity : (i - before) * perBin - wide;
+        if (room >= 24 && gap >= 4) { labels.set(i, String(day)); }
+      });
+      // TODAY is numbered whatever the spacing says, unless a month sits
+      // right on it, and a day number too close beside it gives way. It is
+      // the reader's today, taken in the browser: the page may stand
+      // unchanged for days after its build.
+      const now = new Date();
+      const today = BINS.indexOf(now.getFullYear() + '-'
+        + String(now.getMonth() + 1).padStart(2, '0') + '-'
+        + String(now.getDate()).padStart(2, '0'));
+      const before = months.filter(m => m <= today).pop();
+      if (today >= 0 && !labels.has(today)
+          && (before === undefined || (today - before) * perBin - wide >= 4)) {
+        for (const i of [...labels.keys()]) {
+          if (!months.includes(i) && Math.abs(i - today) * perBin < 24) {
+            labels.delete(i);
+          }
+        }
+        labels.set(today, String(Number(BINS[today].slice(8))));
+      }
+      // Saturday and Sunday by the calendar of the date itself, in UTC, so
+      // that no time zone moves a day across midnight.
+      const weekend = k => [0, 6].includes(new Date(k + 'T00:00:00Z').getUTCDay());
+      marks = i => (i === today ? ' class="dnes"' : '')
+                   || (weekend(BINS[i]) ? ' class="vikend"' : '');
+    }
+    axis.innerHTML = BINS.map((k, i) => '<span>' + (labels.has(i)
+      ? '<b' + marks(i) + '>' + labels.get(i) + '</b>' : '') + '</span>').join('');
+    // A bar wide enough for its label gets it centred, under the thumb that
+    // stands over its middle. A narrow one starts it at its left edge, where
+    // what it names begins.
+    axis.classList.toggle('stred', perBin >= wide);
   };
   // The axis is measured, so the block has to be shown first - hidden, it
-  // is zero wide and no year would fit.
+  // is zero wide and no label would fit.
   dial.hidden = false;
   paintAxis();
   window.addEventListener('resize', paintAxis);
 
-  lower.value = since ? MONTHS.indexOf(since) : 0;
-  upper.value = until ? MONTHS.indexOf(until) : last;
+  lower.value = since ? BINS.indexOf(since) : 0;
+  upper.value = until ? BINS.indexOf(until) : last;
 
   paintPeriod = () => {
     const a = Number(lower.value), b = Number(upper.value);
     [...bars.children].forEach((bar, i) => {
-      bar.className = !counts[i] ? 'prazdny' : (i < a || i > b ? 'mimo' : '');
+      bar.className = i < a || i > b ? 'mimo' : '';
     });
-    band.style.left = (last ? 100 * a / last : 0) + '%';
-    band.style.width = (last ? 100 * (b - a) / last : 100) + '%';
+    // The band runs from thumb to thumb, so over the same inner stretch.
+    band.style.left = 'calc(' + THUMB / 2 + 'px + (100% - ' + THUMB + 'px) * '
+                      + a / last + ')';
+    band.style.width = 'calc((100% - ' + THUMB + 'px) * ' + (b - a) / last + ')';
     caption.textContent = since || until ? periodLabel() : TXT.period_all;
     reset.classList.toggle('skryty', !since && !until);
-    lower.setAttribute('aria-valuetext', MONTHS[a]);
-    upper.setAttribute('aria-valuetext', MONTHS[b]);
+    lower.setAttribute('aria-valuetext', BINS[a]);
+    upper.setAttribute('aria-valuetext', BINS[b]);
   };
 
   // A drag fires on every pixel and a redraw is the whole filter, counts
-  // included. One redraw waits per frame and only a changed month asks for
+  // included. One redraw waits per frame and only a changed bin asks for
   // it. The counts are not deferred until the drag ends - a number that lies
   // while one drags is the very thing the filter forbids itself.
   let pending = false;
@@ -1230,8 +1322,8 @@ if (dial) {
         = (e.target === lower ? upper : lower).value;
     }
     const a = Number(lower.value), b = Number(upper.value);
-    const nextSince = a ? MONTHS[a] : null;
-    const nextUntil = b < last ? MONTHS[b] : null;
+    const nextSince = a ? BINS[a] : null;
+    const nextUntil = b < last ? BINS[b] : null;
     if (nextSince === since && nextUntil === until) { return; }
     since = nextSince;
     until = nextUntil;
@@ -2014,7 +2106,7 @@ def filter_script(site):
     sets = site.get('tag_sets') or []
     return (ARTICLE_FILTER
             .replace('@FACETS@', FACET_JS)
-            .replace('@MONTHS@', json.dumps(site.get('months') or []))
+            .replace('@BINS@', json.dumps(site.get('bins') or []))
             .replace('@TAG_SETS@', json.dumps(sets, ensure_ascii=False))
             .replace('@TAGS@', json.dumps(filter_chips(site, any(not s['tags'] for s in sets)),
                                           ensure_ascii=False))
@@ -2399,23 +2491,40 @@ def text_from_html(html):
                   unescape(re.sub(r'<[^>]+>', ' ', without_code))).strip()
 
 
-def period_months(dates):
-    """Every month from the earliest date to the latest, as YYYY-MM. See Z75.
+PERIOD_BARS = 60   # the most bars the histogram of the date filter draws
 
-    The months in between count even when no article falls into them, because
+
+def period_axis(dates):
+    """The bins of the date filter from the earliest date to the latest. Z75.
+
+    Days as YYYY-MM-DD, months as YYYY-MM or years as YYYY, whichever is the
+    finest unit that fits in PERIOD_BARS. Sixty bars leave about five pixels
+    each on a phone, so a thumb can still land on one; days therefore reach
+    about two months, months five years.
+
+    The bins in between count even when no article falls into them, because
     the histogram over the slider has to show a gap rather than close it up.
     A date that is not a date (K80) has no place on the axis. Fewer than two
-    months give an empty axis: a slider with nowhere to go is not drawn.
+    bins give an empty axis: a slider with nowhere to go is not drawn.
     """
-    months = sorted(d[:7] for d in dates if is_date(d))
-    if not months or months[0] == months[-1]:
+    valid = sorted(d for d in dates if is_date(d))
+    if not valid:
         return []
-    year, month = map(int, months[0].split('-'))
-    out = []
-    while '%04d-%02d' % (year, month) <= months[-1]:
-        out.append('%04d-%02d' % (year, month))
+    first = datetime.date.fromisoformat(valid[0])
+    last = datetime.date.fromisoformat(valid[-1])
+    if (last - first).days < PERIOD_BARS:
+        if first == last:
+            return []
+        return [(first + datetime.timedelta(days=n)).isoformat()
+                for n in range((last - first).days + 1)]
+    months = []
+    year, month = first.year, first.month
+    while (year, month) <= (last.year, last.month):
+        months.append('%04d-%02d' % (year, month))
         year, month = (year + 1, 1) if month == 12 else (year, month + 1)
-    return out
+    if len(months) <= PERIOD_BARS:
+        return months
+    return ['%04d' % y for y in range(first.year, last.year + 1)]
 
 
 def front_page(articles, site, intro='', heading=None):
@@ -2450,17 +2559,17 @@ def front_page(articles, site, intro='', heading=None):
     # The very same chips the bar of an article draws, see filter_chips.
     chips = filter_chips(site, any(not c['tags'] for c in articles))
 
-    months = site.get('months') or []
+    bins = site.get('bins') or []
     period = (PERIOD_HTML.replace('@PERIOD@', escape(T['period']))
                          .replace('@RESET@', escape(T['period_reset']))
                          .replace('@SINCE@', escape(T['period_since']))
                          .replace('@TO@', escape(T['period_to']))
-              if months else '')
+              if bins else '')
 
     heading = heading or T['articles']
     content = (FRONT_PAGE.replace('@FACETS@', FACET_JS)
                     .replace('@PERIOD@', period)
-                    .replace('@MONTHS@', json.dumps(months))
+                    .replace('@BINS@', json.dumps(bins))
                     .replace('@DATA@', cards)
                     .replace('@TAGS@', json.dumps(chips, ensure_ascii=False))
                     .replace('@TEXTS@', json.dumps(T, ensure_ascii=False))
@@ -3105,10 +3214,10 @@ def main():
             tags = tags_from_meta(meta)
             lead = lead_tags(meta)
             entry = {'url': name + '.html', 'tags': tags}
-            # The month only on a site with the date filter. Without it the
+            # The date only on a site with the date filter. Without it the
             # article would carry it for nothing, on every page load.
             if config['date_filter'] and is_date(meta['date']):
-                entry['month'] = meta['date'][:7]
+                entry['date'] = meta['date']
             tag_sets.append(entry)
             all_tags.update(tags)
             leading.update(lead)
@@ -3131,7 +3240,7 @@ def main():
                'tags': sorted(all_tags),
                'lead_tags': sorted(leading),
                'tag_sets': tag_sets,
-               'months': (period_months([m['date'] for _, m, _, _ in plan])
+               'bins': (period_axis([m['date'] for _, m, _, _ in plan])
                           if config['date_filter'] else []),
                'menu': menu_items(menu_source, sorted(all_tags), no_tag),
                'logo': None,
@@ -3141,9 +3250,9 @@ def main():
                          ' title="%s" href="rss.xml">'
                          % config['name'])
                         if config['base_url'] else ''}
-        if config['date_filter'] and not site['months']:
+        if config['date_filter'] and not site['bins']:
             print('\nNOTE: date_filter is on, but all the articles fall into'
-                  ' one month, so there is no period to pick from. The front'
+                  ' one day, so there is no period to pick from. The front'
                   ' page is built without it.')
         # Znacka rika, ze adresar patri generatoru. Uklid pred buildem smi
         # wipe only a directory that carries it - never somebody else's,
@@ -3152,7 +3261,7 @@ def main():
         cesta_css = os.path.join(out_dir, 'styl.css')
         with open(cesta_css, 'w', encoding='utf-8', newline='\n') as f:
             f.write(CSS_WEB)
-            if site['months']:
+            if site['bins']:
                 f.write(CSS_PERIOD)
             if custom_css:
                 f.write('\n/* --- ' + conf_name + '/styl.css --- */\n')

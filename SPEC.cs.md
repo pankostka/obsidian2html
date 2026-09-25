@@ -158,17 +158,30 @@ Stránky tagů zůstávají statické: jejich výpis se v prohlížeči nepřekr
 
 **Z75. S `date_filter = true` má titulka pod štítky posuvník na období s histogramem.**  
 Je to třetí osa filtru vedle tagů a textu a spojuje se s nimi přes AND.  
-Osa jsou **všechny měsíce** od prvního článku po poslední, i ty, ve kterých žádný článek není.  
+Osa jde od prvního článku po poslední a má **všechny dny, měsíce nebo roky** mezi nimi, i ty, ve kterých žádný článek není.  
 Díra v psaní je informace a histogram nad posuvníkem ji má ukázat, ne zavřít.  
+Každý sloupec je proto podbarvené políčko na celou výšku a počet v něm roste odspodu, takže i prázdný den je vidět.  
+**Jednotku vybere build sám**: nejjemnější, se kterou vyjde nejvýš 60 sloupců.  
+Po dnech je tedy osa zhruba do dvou měsíců, po měsících do pěti let, nad pět let po rocích.  
+Šedesát sloupců nechá na telefonu na každý asi pět pixelů, takže se na něj úchyt ještě trefí.  
+Úchyty se posouvají po stejných krocích, jaké mají sloupce, a stojí nad jejich středem.  
+Pod osou jsou u osy po dnech měsíce a čísla dní - každý den, každý druhý, nebo 1., 8., 15., 22. a 29., podle toho, co se vejde.  
+Bez čísel dní by krátká osa vypadala jako osa po měsících.  
+Sobota a neděle mají číslo jinou barvou a dnešek je v pilulce barvy odkazů; barvy jsou tokeny `--vikend` a `--odkaz` (Z40).  
+Dnešek je očíslovaný vždycky, když do osy patří, a sousední číslo, které by se s ním srazilo, ustoupí.  
+Je to dnešek čtenáře, spočítaný v prohlížeči: web může stát beze změny dny po buildu.  
+U ostatních os jsou pod ní roky; co se nevejde, vynechá se.  
+Jak web roste, jednotka se sama zhrubne - web z jednoho měsíce dostane dny, za půl roku měsíce.  
 Histogram počítá celý web a nemění se, takže neuhýbá pod posuvníkem, kterým se v něm vybírá.  
 Čísla na štítcích období započítávají - štítek, který slíbí pět, zatímco výpis pod ním drží dva, by lhal.  
-Období jde do adresy jako `?from=2023-01&to=2024-06` a přežije kliknutí do článku stejně jako tagy (Z70).  
+Období jde do adresy v jednotce osy, třeba `?from=2023-01&to=2024-06` nebo `?from=2026-09-08`, a přežije kliknutí do článku stejně jako tagy (Z70).  
 Článek posuvník nekreslí, ale čísla v jeho liště počítají se stejným obdobím a klik ho vrátí na titulku.  
 Celé období se do adresy nepíše, takže adresa bez něj zůstává, jaká byla.  
 Na webu bez `date_filter` se `?from=` a `?to=` ignorují - filtr, který nejde vidět ani zrušit, by jen tiše ubíral články.  
-Měsíc mimo osu se ignoruje taky, protože konce osy už jsou otevřené konce.  
+Hodnota mimo osu se ignoruje taky, protože konce osy už jsou otevřené konce.  
+Stejně dopadne odkaz z doby, kdy osa měla jinou jednotku: přestane zužovat, ale výpis se neztratí.  
 Článek s datem, které datem není (K80), na osu nepatří a při zúženém období vypadne.  
-Když všechny články spadnou do jednoho měsíce, není kam jet: posuvník se nekreslí a build to ohlásí.  
+Když mají všechny články stejné datum, není kam jet: posuvník se nekreslí a build to ohlásí.  
 Bez JavaScriptu se posuvník nekreslí, zbyde statický výpis jako dosud.  
 Web bez `date_filter` nedostane ani ovladač, ani jeho styly.
 

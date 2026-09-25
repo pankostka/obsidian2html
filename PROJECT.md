@@ -295,9 +295,17 @@ Oproti maketě: popisky roků se měří až po odkrytí bloku a při úzké ose
 
 Styly jsou v `CSS_PERIOD` a do `styl.css` jdou jen s filtrem. Web bez něj se proti předchozí verzi liší jen vloženými skripty a tabulkou textů, `styl.css` a stránky tagů jsou shodné bajt za bajtem. Ověřeno na PKVaultu, zapnutá varianta v prohlížeči na vymyšleném vaultu s daty z makety, na šířce počítače i telefonu.
 
-PKVault má zatím články jen ze dvou měsíců, takže by mu posuvník moc nedal.
+Zapnuto v PKVaultu i v ProjektKrizik.
 
-Testy 113.
+**Jednotka osy podle rozpětí.** Pevné měsíce nedávaly ProjektKrizik nic, všech 88 článků je ze září 2026. Osa teď vezme nejjemnější jednotku, se kterou vyjde nejvýš 60 sloupců (`PERIOD_BARS`, `period_axis`): dny zhruba do dvou měsíců, měsíce do pěti let, nad tím roky. Zvažovala se hranice čtyř měsíců pro dny a zahodila se - na telefonu by vyšly tři pixely na den. Přihrádky jsou začátky data (`RRRR-MM-DD`, `RRRR-MM`, `RRRR`), takže filtr jen porovnává, kolik znaků klíč má. Článek proto místo měsíce nese celé datum.
+
+Zvažovalo se i `date_filter = "day"`, tedy jednotku zamknout, aby uložené odkazy nepřestaly zužovat, když se jednotka s růstem webu zhrubne. Nepotřebné, neudělalo se.
+
+Osa po dnech popisuje měsíce a k nim dny: každý, každý druhý, nebo 1., 8., 15., 22. a 29., co se vejde. Původně jen 8., 15. a 22., a PKVault s pěti dny od 28. 8. do 1. 9. pak pod osou ukázal jen dva měsíce a vypadal jako osa po měsících. Popisek, který se do sloupce vejde, je vycentrovaný pod úchytem. Víkendy mají číslo barvou `--vikend`, dnešek je pilulka v `--odkaz` a je očíslovaný vždycky. Prázdný sloupec byl dvoupixelová skoro průhledná čárka a dny bez článku skoro nebyly vidět; teď je každý sloupec podbarvené políčko (`--zebra`) a počet v něm roste odspodu. Dnešek se bere z prohlížeče, ne z buildu - `--if-changed` staví jen při změně, takže build by den za dnem ukazoval den poslední úpravy. Popisky jsou přes `min-width: 0` široké jako svůj sloupec, jinak dlouhý text roztáhl svůj span a osa ujela od sloupců. Dráha posuvníku je zúžená na středy krajních sloupců, jinak při šesti ročních sloupcích stál úchyt na hraně sloupce místo nad ním.
+
+Při zkoušení v prohlížeči se ukázala chyba, kterou testy nevidí: `binOf` jako `const` ve `FACET_JS` titulka i článek volají dřív, než se ten kód vloží, a stránka zůstala prázdná - i na webu bez filtru. Je z něj deklarace funkce.
+
+Testy 115.
 
 ## Otevřené otázky
 

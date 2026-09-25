@@ -100,7 +100,7 @@ date_filter = true                  # posuvník s histogramem na titulce
 - `name` - název webu vlevo nahoře, v titulku každé stránky a v RSS. Výchozí je jméno složky vaultu.
 - `lang` - jazyk tlačítek a popisků webu, ne článků (K100). Výchozí je `cs`.
 - `base_url` - adresa, na které web poběží. Bez ní nevznikne `rss.xml`.
-- `date_filter` - `true` přidá na titulku pod štítky posuvník na období s histogramem článků po měsících (Z75). Výchozí je `false`, píše se bez uvozovek.
+- `date_filter` - `true` přidá na titulku pod štítky posuvník na období s histogramem článků (Z75). Po dnech, měsících nebo rocích podle toho, jak dlouhé období web pokrývá. Výchozí je `false`, píše se bez uvozovek.
 
 Chybějící klíč má výchozí hodnotu, neznámý klíč nebo neplatná hodnota build zastaví.
 
@@ -115,13 +115,13 @@ Chybějící klíč má výchozí hodnotu, neznámý klíč nebo neplatná hodno
 - S `--if-changed` se web, u kterého se nic nezměnilo, nestaví znovu (Z57).
 - Přílohy mají adresu malými písmeny v ASCII, takže odkaz funguje i na linuxovém serveru (Z60).
 - Filtr podle tagů přežije kliknutí do článku (Z70) a když zbude jediný článek, otevře se (Z80).
-- Volitelný filtr na období se spojuje s tagy a jeho histogram ukazuje i měsíce bez článku (Z75).
+- Volitelný filtr na období se spojuje s tagy a jeho histogram ukazuje i dny, měsíce nebo roky bez článku (Z75).
 - Pod patičkou každé stránky je datum a čas poslední změny obsahu webu, ne čas buildu (Z85).
 
 ## Pro vývoj
 
 Pravidla, jejich zdůvodnění a hraniční případy jsou v [SPEC.cs.md](SPEC.cs.md), ten je autoritou pro kód i testy.  
-Testy se pouštějí `python test_md2html.py`, je jich 113 a běží pod sekundu.
+Testy se pouštějí `python test_md2html.py`, je jich 115 a běží pod sekundu.
 
 ## Licence
 
