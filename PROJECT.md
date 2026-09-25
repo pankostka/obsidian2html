@@ -261,6 +261,18 @@ Ověřeno na kopii PKVaultu s `config.toml`. S markerem se proti staré verzi li
 
 Testy 96.
 
+### 19. Build jen při změně - HOTOVO
+
+Pro pravidelný build z plánovače, kde se web nemá každých pět minut přepisovat. `--if-changed` spočítá otisk zdroje (cesta, velikost a čas změny souborů, které na web mají vliv, vzor z `--publish` a samotný `md2html.py`) a uloží ho po úspěšném buildu do značky `.vygenerovano`. Shoda znamená konec bez zásahu do cíle. Popsané jako Z57.
+
+Nápad převzatý z Vikina `web_auto.py`, který totéž dělal zvenku. Uvnitř nástroje stačí, aby dávka pro každý web byla jeden řádek.
+
+Do otisku nejdou tečkové položky kromě konfigurační složky a nastavení šablon, protože `.obsidian/workspace.json` se mění pořád. Složky s podtržítkem jdou, `find_file()` z nich bere přílohy.
+
+Na kopii PKVaultu trvá běh bez změny zhruba 0,3 s.
+
+Testy 103.
+
 ## Otevřené otázky
 
 - **Globus v titulcích s `"*.md"`.** Bez markeru se nestrhává nic, takže náhled PKVaultALL má u článků s globusem v titulku `Obsidian Co je 🌐`. Staré `--all` globus strhávalo, protože marker měl výchozí hodnotu. Pro vault bez markeru je to jedno.

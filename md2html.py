@@ -141,6 +141,7 @@ r"""
 ================================================================================
 """
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -2464,6 +2465,12 @@ def check_links(out_dir):
 LEGACY_KEYS = {'datum': 'date', 'titul': 'title', 'perex': 'excerpt'}
 
 
+# Where Obsidian keeps the template folder: the core Templates plugin, Templater.
+TEMPLATE_SETTINGS = (('templates.json', 'folder'),
+                     (os.path.join('plugins', 'templater-obsidian', 'data.json'),
+                      'templates_folder'))
+
+
 def template_dirs(vault):
     """Folders that Obsidian itself calls templates, as relative paths.
 
@@ -2479,10 +2486,7 @@ def template_dirs(vault):
     a vault without it simply has no templates to skip.
     """
     found = set()
-    kde = (('templates.json', 'folder'),
-           (os.path.join('plugins', 'templater-obsidian', 'data.json'),
-            'templates_folder'))
-    for rel, key in kde:
+    for rel, key in TEMPLATE_SETTINGS:
         path = os.path.join(vault, '.obsidian', rel)
         if not os.path.isfile(path):
             continue
@@ -2494,6 +2498,49 @@ def template_dirs(vault):
         if folder:
             found.add(os.path.normpath(folder).replace(os.sep, '/').strip('/'))
     return found
+
+
+def source_fingerprint(vault, publish):
+    """A fingerprint of everything the site is built from, see Z57.
+
+    Path, size and modification time of every file that may affect the site,
+    the --publish pattern and this script itself - a new version of the
+    generator means a new build. Content is not read: comparing times is enough
+    and keeps a run with nothing to do at a fraction of a second.
+
+    Entries starting with a dot stay out, except the configuration directory
+    and the template settings in .obsidian/. The rest of .obsidian changes all
+    the time (workspace.json) and would trigger a build for nothing. Folders
+    starting with an underscore count, because find_file() takes attachments
+    from them.
+    """
+    h = hashlib.sha256()
+    with open(os.path.abspath(__file__), 'rb') as f:
+        h.update(f.read())
+    h.update(('publish=%s\n' % publish).encode('utf-8'))
+    paths = []
+    for root, dirs, files in os.walk(vault):
+        dirs[:] = [d for d in dirs if not d.startswith('.')
+                   or (root == vault and d in CONFIG_DIRS)]
+        paths.extend(os.path.join(root, x) for x in files if not x.startswith('.'))
+    paths.extend(os.path.join(vault, '.obsidian', rel) for rel, _ in TEMPLATE_SETTINGS)
+    for path in sorted(paths):
+        try:
+            st = os.stat(path)
+        except OSError:
+            continue
+        rel = os.path.relpath(path, vault).replace(os.sep, '/')
+        h.update(('%s|%d|%d\n' % (rel, st.st_size, st.st_mtime_ns)).encode('utf-8'))
+    return h.hexdigest()
+
+
+def stored_fingerprint(out_dir):
+    """The fingerprint of the last successful build, or '' when there is none."""
+    try:
+        with open(os.path.join(out_dir, OUTPUT_MARKER), encoding='utf-8') as f:
+            return f.read().strip()
+    except OSError:
+        return ''
 
 
 def collect(src, published_only, skip_dirs=()):
@@ -2577,6 +2624,9 @@ def main():
     p.add_argument('--check', action='store_true',
                    help='only verify that the site builds: writes to a temporary'
                         ' directory and touches nothing else. For a git hook')
+    p.add_argument('--if-changed', action='store_true',
+                   help='build only when the source or the generator changed'
+                        ' since the last build. For a scheduler')
     # A pattern that bash expanded arrives as several file names, and all but
     # the first land here. Collected rather than refused by argparse, so the
     # error can say what happened instead of 'unrecognized arguments'.
@@ -2608,9 +2658,10 @@ def main():
 
     # Check mode writes nowhere, so a destination next to it would only make
     # somebody believe the site went there.
-    if args.check and (args.dest or args.keep_archives is not None):
-        print('ERROR: --check writes nowhere, so --dest and --keep-archives'
-              ' make no sense with it.')
+    if args.check and (args.dest or args.keep_archives is not None
+                       or args.if_changed):
+        print('ERROR: --check writes nowhere, so --dest, --keep-archives and'
+              ' --if-changed make no sense with it.')
         return 2
     # Where output goes is decided by a flag - no default path in the code. The
     # output belongs outside the repository and outside the vault, and only the
@@ -2631,6 +2682,15 @@ def main():
 
     tmp_dir = None
     try:
+        # A scheduled build with nothing to do stops before it touches
+        # anything, see Z57. The fingerprint is stored only at the very end,
+        # so a build that failed is tried again next time.
+        fingerprint = source_fingerprint(vault, args.publish)
+        if args.if_changed and stored_fingerprint(args.dest) == fingerprint:
+            print('No change since the last build of %s, nothing done.'
+                  % args.dest)
+            return 0
+
         # Two config directories stop the build here, before the destination
         # is emptied, so the output that was there stays in place.
         conf_name = config_name(vault)
@@ -2943,6 +3003,11 @@ def main():
             if len(unique) > 10:
                 print('  ... and %d more' % (len(unique) - 10))
 
+        # The marker was written empty when the build started. Only now, with
+        # everything in place, does it get the fingerprint.
+        with open(os.path.join(out_dir, OUTPUT_MARKER), 'w', encoding='utf-8',
+                  newline='\n') as f:
+            f.write(fingerprint + '\n')
         return 0
 
     except Error as e:

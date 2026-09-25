@@ -48,12 +48,17 @@ The site's own details - name, language and address - are not switches; they liv
 | `--keep-archives N` | how many recent archives of the previous output to keep, default 10 (Z55) |
 | `--publish "pattern"` | what is published: `"*🌐.md"` only with the marker, `"*.md"` everything (K10) |
 | `--check`           | only verifies that the site builds, writes nowhere. For a git hook      |
+| `--if-changed`      | builds the site only when something changed since last time. For a scheduler (Z57) |
 
 `--check` builds the whole site into a temporary directory, throws the result away and deletes the temporary directory.  
 It returns `0` when the build passed and `1` when it did not, and prints the same notes as a normal build.  
 It is meant for a git hook in the vault that checks before a commit that the site can be built, and stops the commit if not.  
 It does not touch the destination directory, so it deletes and archives nothing (Z55).  
 **`--check` together with `--dest` or `--keep-archives` is an error** - otherwise one might think something was written to the destination.
+
+`--if-changed` is for a build run regularly, say every five minutes from a scheduler.  
+When nothing in the source changed since the last build, it stops at once and leaves the destination alone, so the site is not rewritten for nothing.  
+A new version of `md2html.py` counts as a change.
 
 Exit code: `0` done, `1` conversion error, `2` bad arguments.
 
@@ -107,13 +112,14 @@ A missing key has its default; an unknown key or an invalid value stops the buil
 - The vault is only ever read, never written to (Z45).
 - Where output goes is decided by `--dest` alone (Z50).
 - The destination is emptied before the build, entries starting with a dot stay, the previous content goes to an archive, and a foreign directory is never deleted (Z55).
+- With `--if-changed`, a site where nothing changed is not built again (Z57).
 - Attachments get lower-case ASCII addresses, so links work on a Linux server too (Z60).
 - The tag filter survives a click into an article (Z70), and when a single article is left, it opens (Z80).
 
 ## Development
 
 The rules, the reasons behind them and the edge cases are in [SPEC.cs.md](SPEC.cs.md) (Czech), which is the authority for the code and the tests.  
-Tests are run with `python test_md2html.py`; there are 96 of them and they run in under a second.
+Tests are run with `python test_md2html.py`; there are 103 of them and they run in under a second.
 
 ## License
 

@@ -130,6 +130,19 @@ Nechává se posledních 10 zipů, jiný počet určí `--keep-archives`, `0` zn
 Cíl, který neexistuje, je prázdný nebo obsahuje jen položky s tečkou (třeba čerstvý klon repozitáře), se postaví.  
 Cíl, ve kterém je cokoli dalšího a chybí značka `.vygenerovano`, build zastaví a nic se nesmaže - překlep v cestě tak cizí složku nesmaže.
 
+**Z57. S `--if-changed` se web nestaví znovu, když se od posledního buildu nic nezměnilo.**  
+Je to pro build pouštěný pravidelně, třeba každých pět minut z plánovače.  
+Naslepo by každý běh vyprázdnil cíl a zapsal celý web znovu: Dropbox by pořád synchronizoval, web by byl na okamžik prázdný a s archivací by pokaždé vznikl zip.  
+Generátor proto spočítá otisk zdroje: cestu, velikost a čas změny každého souboru, který na web může mít vliv, k tomu vzor z `--publish` a vlastní verzi.  
+Otisk uloží po úspěšném buildu do značky `.vygenerovano` v cíli, kterou vyprázdnění podle Z55 nechává být.  
+Když se otisk shoduje, build skončí hned, na cíl nesáhne a vrátí `0`.  
+Build, který spadl, otisk neuloží, takže se příště zkusí znovu.  
+Do otisku se počítá všechno kromě složek a souborů s tečkou na začátku, s výjimkou konfigurační složky `.obsidian2html/` a nastavení šablon v `.obsidian/`.  
+Složky s podtržítkem se počítají, protože přílohy v nich generátor najde (K50).  
+Nová verze `md2html.py` znamená nový build, i když se ve vaultu nic nezměnilo.  
+Bez `--if-changed` se staví vždycky - ruční build má udělat, co se po něm chce.  
+`--if-changed` spolu s `--check` je chyba, `--check` žádný cíl nemá.
+
 **Z60. Přílohy se na webu ukládají malými písmeny v ASCII.** Na Linuxu je `Foo.png` a `foo.png` rozdíl, takže špatně napsaný odkaz funguje na Windows a na serveru vrátí 404. Velikost písmen v odkazech se navíc ověřuje proti skutečným souborům a kolize adres je chyba.
 
 **Z70. Filtr přežije kliknutí do článku.**  

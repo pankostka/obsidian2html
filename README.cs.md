@@ -5,11 +5,9 @@
 
 ## Co to je
 
-Toto je **generátor html**.  
-Je to python script, který se zavolá na **vstupní adresář s md soubory** (typicky vault Obsidian, ale není to podmínkou) a on vytvoří do **výstupního adresáře html soubory** webu.  
-Výstupní web běží samostatně, nepotřebuje databázi.  
-Jsou to **statické stránky s Javascriptem**.  
-Mohou se nahrát na hosting, poslat zabalené mailem apod.
+Toto je **generátor md->html**.  
+Je to **python script**, který se zavolá na **vstupní adresář s md soubory** (typicky vault Obsidian, ale není to podmínkou) a on vytvoří do **výstupního adresáře html soubory**.  
+Výstupní web běží samostatně, nepotřebuje databázi.  Jsou to **statické stránky s Javascriptem**.
 
 Používám ho dvěma způsoby:
 * **VŠE S VÝJIMKOU** - publikuje se všechno kromě toho, co nechci.  
@@ -48,12 +46,17 @@ Ze zdrojového adresáře vznikne web: sdílený `styl.css`, obrázky ve složce
 | `--keep-archives N` | kolik posledních archivů předchozího výstupu nechat, výchozí 10 (Z55) |
 | `--publish "vzor"`  | co se publikuje: `"*🌐.md"` jen s markerem, `"*.md"` všechno (K10)    |
 | `--check`           | jen ověří, že se web postaví, nikam nezapisuje. Pro git hook          |
+| `--if-changed`      | postaví web, jen když se od minula něco změnilo. Pro plánovač (Z57)   |
 
 `--check` postaví celý web do dočasného adresáře, výsledek zahodí a dočasný adresář smaže.  
 Vrátí `0`, když build prošel, a `1`, když ne, a vypíše stejná upozornění jako normální build.  
 Je určený pro git hook ve vaultu, který před commitem ověří, že web jde postavit, a když ne, commit zastaví.  
 Cílového adresáře se nedotkne, takže nic nemaže ani nearchivuje (Z55).  
 **`--check` spolu s `--dest` nebo `--keep-archives` je chyba** - člověk by si jinak mohl myslet, že se do cíle něco zapsalo.
+
+`--if-changed` je pro build pouštěný pravidelně, třeba každých pět minut z plánovače.  
+Když se ve zdroji od posledního buildu nic nezměnilo, skončí hned a na cíl nesáhne, takže se web zbytečně nepřepisuje.  
+Nová verze `md2html.py` se počítá jako změna.
 
 Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
 
@@ -107,13 +110,14 @@ Chybějící klíč má výchozí hodnotu, neznámý klíč nebo neplatná hodno
 - Do vaultu se jen čte, nikdy nezapisuje (Z45).
 - Kam se zapisuje, určuje jen `--dest` (Z50).
 - Cíl se před buildem vyprázdní, položky s tečkou zůstanou, předchozí obsah jde do archivu a cizí adresář se nesmaže (Z55).
+- S `--if-changed` se web, u kterého se nic nezměnilo, nestaví znovu (Z57).
 - Přílohy mají adresu malými písmeny v ASCII, takže odkaz funguje i na linuxovém serveru (Z60).
 - Filtr podle tagů přežije kliknutí do článku (Z70) a když zbude jediný článek, otevře se (Z80).
 
 ## Pro vývoj
 
 Pravidla, jejich zdůvodnění a hraniční případy jsou v [SPEC.cs.md](SPEC.cs.md), ten je autoritou pro kód i testy.  
-Testy se pouštějí `python test_md2html.py`, je jich 96 a běží pod sekundu.
+Testy se pouštějí `python test_md2html.py`, je jich 103 a běží pod sekundu.
 
 ## Licence
 

@@ -378,6 +378,75 @@ class Zaruky(Zaklad):
             self.assertEqual(kod, 0, vypis)
         self.assertEqual(self.archivy(), [])
 
+    def test_Z57_bez_zmeny_se_web_nestavi(self):
+        """Planovac pousti build co pet minut, web se nema porad prepisovat."""
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web('--if-changed')
+        self.assertEqual(kod, 0, vypis)
+        pred = self.otisk(self.vystup)
+
+        kod, vypis = self.web('--if-changed')
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('No change', vypis)
+        self.assertEqual(pred, self.otisk(self.vystup), 'build sahl do cile')
+        self.assertEqual(self.archivy(), [])
+
+    def test_Z57_zmena_ve_zdroji_build_vyvola(self):
+        cesta = self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web('--if-changed')
+        self.assertEqual(kod, 0, vypis)
+
+        with open(cesta, 'a', encoding='utf-8') as f:
+            f.write('Dalsi veta.\n')
+        kod, vypis = self.web('--if-changed')
+        self.assertEqual(kod, 0, vypis)
+        self.assertNotIn('No change', vypis)
+        self.assertIn('Dalsi veta.', self.vystupni('prvni.html'))
+
+    def test_Z57_zmena_workspace_obsidianu_build_nevyvola(self):
+        """workspace.json se meni porad a na web vliv nema."""
+        self.clanek('Prvni', 'Text.')
+        self.soubor('.obsidian/workspace.json', '{}')
+        kod, vypis = self.web('--if-changed')
+        self.assertEqual(kod, 0, vypis)
+
+        self.soubor('.obsidian/workspace.json', '{"zmena": 1}')
+        kod, vypis = self.web('--if-changed')
+        self.assertIn('No change', vypis)
+
+    def test_Z57_zmena_konfigurace_build_vyvola(self):
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web('--if-changed')
+        self.assertEqual(kod, 0, vypis)
+
+        self.konfigurace('name = "Novy nazev"\n')
+        kod, vypis = self.web('--if-changed')
+        self.assertNotIn('No change', vypis)
+        self.assertIn('Novy nazev', self.vystupni('index.html'))
+
+    def test_Z57_spadly_build_se_zkusi_znovu(self):
+        """Otisk se uklada az po uspesnem buildu."""
+        self.clanek('Prvni', 'Obrazek: ![[chybi.png]]\n')
+        kod, vypis = self.web('--if-changed')
+        self.assertEqual(kod, 1, vypis)
+        kod, vypis = self.web('--if-changed')
+        self.assertEqual(kod, 1, vypis)
+        self.assertNotIn('No change', vypis)
+
+    def test_Z57_bez_prepinace_se_stavi_vzdy(self):
+        """Rucni build ma udelat, co se po nem chce."""
+        self.clanek('Prvni', 'Text.')
+        for _ in range(2):
+            kod, vypis = self.web()
+            self.assertEqual(kod, 0, vypis)
+            self.assertNotIn('No change', vypis)
+        self.assertEqual(len(self.archivy()), 1)
+
+    def test_Z57_s_kontrolou_je_chyba(self):
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.build('--check', '--if-changed', s_vystupem=False)
+        self.assertEqual(kod, 2, vypis)
+
     def test_Z55_cizi_soubor_v_archivu_zustane(self):
         """Uklid archivu maze jen zipy tohoto cile ve tvaru, jaky sam dela."""
         self.clanek('Prvni', 'Text.')
