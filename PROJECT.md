@@ -285,6 +285,20 @@ Ověřeno na kopii PKVaultu: ve všech 17 stránkách přibyl jen ten řádek a 
 
 Testy 107.
 
+### 21. Filtr na období - HOTOVO
+
+Varianta *posuvník s histogramem* z `maketa-datum-TMP.html`, zapíná ji `date_filter = true` v `config.toml`. Popsané jako Z75. Výchozí je vypnuto, takže PKVault zůstává, jak byl.
+
+Období je třetí osa filtru vedle tagů a textu, spojená přes AND. Stav drží `since` a `until` jako měsíce `RRRR-MM`, `null` je otevřený konec, takže celé období se do adresy nepíše. Do adresy jde jako `?from=` a `?to=` a jede do článku jako tagy. Článek posuvník nekreslí, ale nese u sad štítků měsíc každého článku, aby čísla v jeho liště počítala se stejným obdobím. Osu měsíců počítá build (`period_months`) a zapéká ji do titulky i do článků; prázdná osa znamená web bez filtru a `?from=` se na něm ignoruje.
+
+Oproti maketě: popisky roků se měří až po odkrytí bloku a při úzké ose se píše jen každý druhý nebo pátý rok. První rok dostane popisek i tehdy, když osa nezačíná lednem. Počítadlo u hledání je s obdobím dlouhé, na telefonu proto dostane vlastní řádek. Překreslení při tažení čeká na snímek a spustí se jen při změně měsíce, kvůli limitu `history.replaceState` v Safari.
+
+Styly jsou v `CSS_PERIOD` a do `styl.css` jdou jen s filtrem. Web bez něj se proti předchozí verzi liší jen vloženými skripty a tabulkou textů, `styl.css` a stránky tagů jsou shodné bajt za bajtem. Ověřeno na PKVaultu, zapnutá varianta v prohlížeči na vymyšleném vaultu s daty z makety, na šířce počítače i telefonu.
+
+PKVault má zatím články jen ze dvou měsíců, takže by mu posuvník moc nedal.
+
+Testy 113.
+
 ## Otevřené otázky
 
 - **Globus v titulcích s `"*.md"`.** Bez markeru se nestrhává nic, takže náhled PKVaultALL má u článků s globusem v titulku `Obsidian Co je 🌐`. Staré `--all` globus strhávalo, protože marker měl výchozí hodnotu. Pro vault bez markeru je to jedno.

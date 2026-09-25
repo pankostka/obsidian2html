@@ -279,6 +279,12 @@ TEXTS = {
         'nothing_found': 'nic nenalezeno',
         'in_scope': ' v ',
         'and': ' a ',
+        'period': 'Období',
+        'period_all': 'celé',
+        'period_reset': 'celé období',
+        'period_since': 'Od',
+        'period_to': 'Do',
+        'period_until': ' až ',
         # Plural forms keyed by the categories of Intl.PluralRules. Czech has
         # three that matter, English two; the browser picks, so no counting
         # rules are written here.
@@ -318,6 +324,12 @@ TEXTS = {
         'nothing_found': 'nothing found',
         'in_scope': ' in ',
         'and': ' and ',
+        'period': 'Period',
+        'period_all': 'all',
+        'period_reset': 'the whole period',
+        'period_since': 'From',
+        'period_to': 'To',
+        'period_until': ' to ',
         'n_articles': {'one': '%d article', 'other': '%d articles'},
         'n_found': {'one': '%d found', 'other': '%d found'},
     },
@@ -583,6 +595,82 @@ html { scroll-behavior: smooth; }
 
 CSS_WEB = CSS_CONTENT + CSS_CHROME
 
+# The date filter, see Z75. It goes into styl.css only on a site that has it,
+# so a site without it keeps its stylesheet as it was.
+CSS_PERIOD = """
+/* The date filter sits under the tags, above the rule of the filter. Its
+   height is fixed, so the ghost that holds the height of the bar is not
+   concerned with it. */
+.datum { margin-top: .7rem; }
+.datum-hlavicka { display: flex; align-items: baseline; gap: .6rem;
+                  font-size: .82rem; color: var(--tlum); margin-bottom: .15rem; }
+.datum-hlavicka .rozsah-hodnota { color: var(--text); font-weight: 600; }
+.datum-hlavicka .vratit { font: inherit; font-size: .78rem; padding: 0;
+                          border: 0; background: none; color: var(--tlum);
+                          text-decoration: underline; cursor: pointer;
+                          margin-left: auto; }
+.datum-hlavicka .vratit:hover { color: var(--odkaz); }
+.datum-hlavicka .vratit.skryty { visibility: hidden; pointer-events: none; }
+
+/* One bar per month, its height a share of the busiest one. A month outside
+   the chosen period is dimmed, not hidden - an empty stretch is shown too. */
+.histogram { display: flex; align-items: flex-end; gap: 1px; height: 2.6rem;
+             margin-bottom: .15rem; }
+.histogram > i { flex: 1; background: var(--odkaz); opacity: .55;
+                 min-height: 1px; border-radius: 1px 1px 0 0; }
+.histogram > i.mimo { background: var(--linka); opacity: .5; }
+.histogram > i.prazdny { background: var(--linka); opacity: .25; }
+
+/* Two native range inputs laid over one another. The track is drawn apart,
+   both inputs are transparent and ignore the mouse except on their thumbs. */
+.rozsah { position: relative; height: 1.5rem; }
+.rozsah .drazka { position: absolute; left: 0; right: 0; top: .6rem; height: 4px;
+                  background: var(--linka); border-radius: 999px; }
+.rozsah .vybrano { position: absolute; top: .6rem; height: 4px;
+                   background: var(--odkaz); border-radius: 999px; }
+.rozsah input { position: absolute; left: 0; top: 0; width: 100%; height: 1.5rem;
+                margin: 0; background: none; pointer-events: none;
+                -webkit-appearance: none; appearance: none; }
+.rozsah input:focus { outline: none; }
+.rozsah input::-webkit-slider-thumb {
+  -webkit-appearance: none; pointer-events: auto; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--pozadi); border: 2px solid var(--odkaz);
+  cursor: grab; margin-top: 0; }
+.rozsah input::-moz-range-thumb {
+  pointer-events: auto; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--pozadi); border: 2px solid var(--odkaz); cursor: grab; }
+.rozsah input:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--th); }
+.rozsah input:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--th); }
+.rozsah input::-webkit-slider-runnable-track { height: 1.5rem; background: none; }
+.rozsah input::-moz-range-track { height: 1.5rem; background: none; }
+
+/* Years under the axis, each over its January. */
+.osa { display: flex; font-size: .72rem; color: var(--tlum); }
+.osa > span { flex: 1; text-align: center; white-space: nowrap; }
+
+/* The period makes the count beside the search field long, and on a phone
+   it would push the page wider than the screen. There it gets a line of its
+   own under the field. */
+@media (max-width: 34rem) {
+  .hledani { flex-wrap: wrap; }
+  .hledani .pocet { flex-basis: 100%; }
+}
+"""
+
+# The markup of the date filter on the front page. Hidden until the script
+# takes it over - without a script it would be a control that does nothing.
+PERIOD_HTML = """
+<div class="datum" id="obdobi" hidden>
+<div class="datum-hlavicka"><span>@PERIOD@</span>
+<span class="rozsah-hodnota" id="rozsah-hodnota"></span>
+<button type="button" class="vratit skryty" id="vratit-rozsah">@RESET@</button></div>
+<div class="histogram" id="histogram" aria-hidden="true"></div>
+<div class="rozsah"><div class="drazka"></div><div class="vybrano" id="vybrano"></div>
+<input type="range" id="obdobi-od" min="0" step="1" value="0" aria-label="@SINCE@">
+<input type="range" id="obdobi-do" min="0" step="1" value="0" aria-label="@TO@"></div>
+<div class="osa" id="osa" aria-hidden="true"></div>
+</div>"""
+
 
 # The style sits in one file next to the pages, not inside each of them. The
 # reason is size - with the images as base64 and the CSS repeated, a single
@@ -621,6 +709,35 @@ function matchesTags(c, combo) {
                                        : c.tags.some(t => t.name === f));
 }
 
+// The period is a third axis of the filter, joined with AND like the tags.
+// `since` and `until` are months as YYYY-MM and null is an open end, so the
+// whole period is two nulls and an address without it stays as it was.
+// MONTHS is the axis the build baked in, empty on a site without the date
+// filter - a hand-typed ?from= is then ignored rather than narrowing the
+// result by something nobody can see or undo.
+//
+// A month outside the axis is dropped too. The axis runs from the first
+// article to the last, so its ends ARE the open ends, and anything past them
+// is a stale link that would otherwise yield an empty page.
+function readPeriod(params) {
+  const month = key => {
+    const value = params.get(key);
+    return MONTHS.includes(value) ? value : null;
+  };
+  since = month('from');
+  until = month('to');
+  if (since === MONTHS[0]) { since = null; }
+  if (until === MONTHS[MONTHS.length - 1]) { until = null; }
+  if (since && until && since > until) { since = until = null; }
+}
+
+// Compared as STRINGS, which YYYY-MM allows. An article whose date is not a
+// date has no month and falls out as soon as the period is narrowed.
+function inPeriod(c) {
+  if (!since && !until) { return true; }
+  return !!c.month && (!since || c.month >= since) && (!until || c.month <= until);
+}
+
 // The state as a query string. It travels three ways: into the address of the
 // front page, into every link to an article, and into the search form that
 // article carries - so what one filtered to survives the click into the text.
@@ -628,6 +745,8 @@ function stateQuery(query) {
   const p = new URLSearchParams();
   held.forEach(f => p.append('tag', f));
   if (current) { p.set('pick', current); }
+  if (since) { p.set('from', since); }
+  if (until) { p.set('to', until); }
   if (query) { p.set('q', query); }
   const queryString = p.toString();
   return queryString ? '?' + queryString : '';
@@ -772,7 +891,8 @@ ARTICLE_FILTER = r"""<script>
 const ALL_TAGS = @TAGS@;
 const NO_TAG = '@NO_TAG@';
 const TXT = @TEXTS@;
-const ARTICLES = @TAG_SETS@.map(a => ({ url: a.url,
+const MONTHS = @MONTHS@;
+const ARTICLES = @TAG_SETS@.map(a => ({ url: a.url, month: a.month || null,
                                         tags: a.tags.map(n => ({ name: n })) }));
 
 const params = new URLSearchParams(location.search);
@@ -780,11 +900,17 @@ let held = params.getAll('tag').filter(Boolean);
 let current = params.get('pick') || null;
 if (held.includes(current)) { current = null; }
 let filters = [];
+// The article draws no slider, but the period one set on the front page
+// still narrows what a click here yields, so the counts keep to it and the
+// click carries it back.
+let since = null;
+let until = null;
+readPeriod(params);
 
 // No text query here, so no words either - the field in the header sends its
 // query to the front page, where the index lives.
 function countFor(combo) {
-  return ARTICLES.filter(c => matchesTags(c, combo)).length;
+  return ARTICLES.filter(c => matchesTags(c, combo) && inPeriod(c)).length;
 }
 
 // A click cannot redraw a listing that is not on this page, so it goes where
@@ -793,7 +919,7 @@ function countFor(combo) {
 // the front page: the listing would hold that single card and nothing else.
 function render(opts) {
   syncFilters();
-  const shown = ARTICLES.filter(c => matchesTags(c, filters));
+  const shown = ARTICLES.filter(c => matchesTags(c, filters) && inPeriod(c));
   if (opts && opts.pick && shown.length === 1) {
     location.href = shown[0].url + stateQuery();
     return;
@@ -839,7 +965,7 @@ FRONT_PAGE = r"""<h1 class="jen-ctecka">@HEADING@</h1>
 <div id="duch-fasety" class="fasety hlavni" hidden></div>
 <div id="duch-fasety-dalsi" class="fasety dalsi" hidden></div>
 </div>
-</div></div>
+</div>@PERIOD@</div>
 @INTRO@
 <div id="vysledky"></div>
 <noscript>
@@ -864,6 +990,9 @@ const ALL_TAGS = @TAGS@;
 // Every string the visitor reads, in the language of the site. Baked in the
 // same way the index is, so the page needs nothing else to work.
 const TXT = @TEXTS@;
+// The months of the date filter, every one from the first article to the
+// last. Empty when the site has no date filter.
+const MONTHS = @MONTHS@;
 
 const fold = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
@@ -881,6 +1010,7 @@ ARTICLES.forEach(c => {
   c.nTitle = fold(c.title);
   c.nText = fold(c.text);
   c.nTags = fold(c.tags.map(t => t.name).join(' '));
+  c.month = /^\d{4}-\d{2}-\d{2}$/.test(c.date) ? c.date.slice(0, 7) : null;
 });
 
 const params = new URLSearchParams(location.search);
@@ -901,11 +1031,24 @@ let current = params.get('pick') || null;
 if (held.includes(current)) { current = null; }
 let filters = [];
 let scope = [];
+let since = null;
+let until = null;
+readPeriod(params);
+
+function periodLabel() {
+  const a = since || MONTHS[0];
+  const b = until || MONTHS[MONTHS.length - 1];
+  return a === b ? a : a + TXT.period_until + b;
+}
 
 function scopeLabel() {
-  if (!filters.length) return '';
-  return TXT.in_scope + filters.map(f => f === NO_TAG ? TXT.no_tag_scope
-                                                      : '#' + f).join(TXT.and);
+  const narrowed = since || until;
+  if (!filters.length && !narrowed) return '';
+  const tags = filters.length
+    ? TXT.in_scope + filters.map(f => f === NO_TAG ? TXT.no_tag_scope
+                                                   : '#' + f).join(TXT.and)
+    : '';
+  return tags + (narrowed ? (tags ? ', ' : ' ') + periodLabel() : '');
 }
 
 function score(c, words) {
@@ -980,17 +1123,22 @@ function search(query) {
 // On the front page the count takes the TEXT QUERY in as well, because the
 // listing under the bar is narrowed by both. The index that answers it is
 // baked into this page and nowhere else.
+// The period narrows it too: a pill that promised five while the listing
+// under the slider held two would be exactly the lie the counts exist to
+// avoid.
 function countFor(combo, words) {
-  return ARTICLES.filter(c => matchesTags(c, combo)
+  return ARTICLES.filter(c => matchesTags(c, combo) && inPeriod(c)
                               && (!words.length || score(c, words) > 0)).length;
 }
 // The ghost is drawn ONCE, in the state where the bar is at its tallest: no
-// tag held, no query, so every tag is there and every count is at its widest.
-// Whatever the real bar shows later is a subset of it.
+// tag held, no query, the whole period, so every tag is there and every count
+// is at its widest. Whatever the real bar shows later is a subset of it.
 function paintGhost() {
   const wasHeld = held, wasCurrent = current;
+  const wasSince = since, wasUntil = until;
   held = [];
   current = null;
+  since = until = null;
   syncFilters();
   // The clear button carries an id, and two of those in one document is
   // broken HTML. The ghost is never clicked, so it gives it up.
@@ -1000,7 +1148,105 @@ function paintGhost() {
   paintRow('duch-fasety-dalsi', strip(rows.rest), true);
   held = wasHeld;
   current = wasCurrent;
+  since = wasSince;
+  until = wasUntil;
   syncFilters();
+}
+
+// ---------------------------------------------------------------------------
+// Date filter, see Z75
+//
+// Two native range inputs laid over one another, each owning one end. They
+// stay native on purpose: the keyboard, touch and the screen reader come for
+// free, and only the look of the track is drawn here.
+//
+// The axis is EVERY month from the first article to the last, not only the
+// ones that have one. A gap in the writing is information, and the histogram
+// above the slider has to show it rather than close it up.
+// ---------------------------------------------------------------------------
+const dial = document.getElementById('obdobi');
+let paintPeriod = () => {};
+if (dial) {
+  const last = MONTHS.length - 1;
+  const lower = document.getElementById('obdobi-od');
+  const upper = document.getElementById('obdobi-do');
+  const bars = document.getElementById('histogram');
+  const axis = document.getElementById('osa');
+  const band = document.getElementById('vybrano');
+  const caption = document.getElementById('rozsah-hodnota');
+  const reset = document.getElementById('vratit-rozsah');
+  // The histogram counts the whole site and never changes. It says where
+  // the articles are, so it must not shrink under the very slider one uses to
+  // pick from it.
+  const counts = MONTHS.map(m => ARTICLES.filter(c => c.month === m).length);
+  const top = Math.max(...counts);
+  lower.max = upper.max = last;
+  bars.innerHTML = counts.map(n => '<i style="height:'
+    + (n ? 100 * n / top + '%' : '2px') + '"></i>').join('');
+
+  // A year is labelled over its January, and the first year over its first
+  // month when there is room before the next January. When the axis is too
+  // narrow for every year, only every second or fifth one is written.
+  const paintAxis = () => {
+    const years = new Set(MONTHS.map(m => m.slice(0, 4))).size;
+    const step = [1, 2, 5, 10].find(k => axis.clientWidth / years * k >= 40) || 10;
+    axis.innerHTML = MONTHS.map((m, i) => {
+      const year = Number(m.slice(0, 4));
+      const due = m.endsWith('-01') || (i === 0 && Number(m.slice(5)) <= 9);
+      return '<span>' + (due && year % step === 0 ? year : '') + '</span>';
+    }).join('');
+  };
+  // The axis is measured, so the block has to be shown first - hidden, it
+  // is zero wide and no year would fit.
+  dial.hidden = false;
+  paintAxis();
+  window.addEventListener('resize', paintAxis);
+
+  lower.value = since ? MONTHS.indexOf(since) : 0;
+  upper.value = until ? MONTHS.indexOf(until) : last;
+
+  paintPeriod = () => {
+    const a = Number(lower.value), b = Number(upper.value);
+    [...bars.children].forEach((bar, i) => {
+      bar.className = !counts[i] ? 'prazdny' : (i < a || i > b ? 'mimo' : '');
+    });
+    band.style.left = (last ? 100 * a / last : 0) + '%';
+    band.style.width = (last ? 100 * (b - a) / last : 100) + '%';
+    caption.textContent = since || until ? periodLabel() : TXT.period_all;
+    reset.classList.toggle('skryty', !since && !until);
+    lower.setAttribute('aria-valuetext', MONTHS[a]);
+    upper.setAttribute('aria-valuetext', MONTHS[b]);
+  };
+
+  // A drag fires on every pixel and a redraw is the whole filter, counts
+  // included. One redraw waits per frame and only a changed month asks for
+  // it. The counts are not deferred until the drag ends - a number that lies
+  // while one drags is the very thing the filter forbids itself.
+  let pending = false;
+  const slide = e => {
+    // The ends must not cross: the one being moved stops at the other.
+    if (Number(lower.value) > Number(upper.value)) {
+      (e.target === lower ? lower : upper).value
+        = (e.target === lower ? upper : lower).value;
+    }
+    const a = Number(lower.value), b = Number(upper.value);
+    const nextSince = a ? MONTHS[a] : null;
+    const nextUntil = b < last ? MONTHS[b] : null;
+    if (nextSince === since && nextUntil === until) { return; }
+    since = nextSince;
+    until = nextUntil;
+    if (pending) { return; }
+    pending = true;
+    requestAnimationFrame(() => { pending = false; render(); });
+  };
+  lower.addEventListener('input', slide);
+  upper.addEventListener('input', slide);
+  reset.addEventListener('click', () => {
+    lower.value = 0;
+    upper.value = last;
+    since = until = null;
+    render();
+  });
 }
 
 
@@ -1024,9 +1270,10 @@ function render(opts) {
   const query = field.value;
   const words = fold(query).split(/\s+/).filter(Boolean);
   syncFilters();
-  scope = ARTICLES.filter(c => matchesTags(c, filters));
+  scope = ARTICLES.filter(c => matchesTags(c, filters) && inPeriod(c));
   const shown = search(query);
   paintFacets(words);
+  paintPeriod();
   writeUrl(query);
   if (opts && opts.pick && shown.length === 1) {
     location.href = shown[0].url + stateQuery();
@@ -1628,13 +1875,15 @@ def config_name(vault):
 
 
 def read_config(vault):
-    """Return the site's name, lang and base_url from config.toml. See K70.
+    """Return the site's name, lang, base_url and date_filter from config.toml.
+    See K70.
 
     Every key may be missing and then its default applies, so may the whole
     file. An unknown key or a bad value stops the build: a typo like 'nmae'
     would otherwise quietly produce a site named after the folder.
     """
-    config = {'name': os.path.basename(vault), 'lang': 'cs', 'base_url': None}
+    config = {'name': os.path.basename(vault), 'lang': 'cs', 'base_url': None,
+              'date_filter': False}
     path = os.path.join(vault, config_name(vault), CONFIG_FILE)
     if not os.path.isfile(path):
         return config
@@ -1652,6 +1901,14 @@ def read_config(vault):
         raise Error('%s: unknown key %s. Known keys: %s.'
                     % (path, ', '.join(unknown), ', '.join(sorted(config))))
     for key, value in data.items():
+        if key == 'date_filter':
+            # A switch, so true or false without quotes. "yes" in quotes
+            # would read as on and "false" as well, being a non-empty text.
+            if not isinstance(value, bool):
+                raise Error('%s: date_filter must be true or false, without'
+                            ' quotes, not %r.' % (path, value))
+            config[key] = value
+            continue
         if not isinstance(value, str) or not value.strip():
             raise Error('%s: %s must be a text in quotes, not %r.'
                         % (path, key, value))
@@ -1757,6 +2014,7 @@ def filter_script(site):
     sets = site.get('tag_sets') or []
     return (ARTICLE_FILTER
             .replace('@FACETS@', FACET_JS)
+            .replace('@MONTHS@', json.dumps(site.get('months') or []))
             .replace('@TAG_SETS@', json.dumps(sets, ensure_ascii=False))
             .replace('@TAGS@', json.dumps(filter_chips(site, any(not s['tags'] for s in sets)),
                                           ensure_ascii=False))
@@ -2141,6 +2399,25 @@ def text_from_html(html):
                   unescape(re.sub(r'<[^>]+>', ' ', without_code))).strip()
 
 
+def period_months(dates):
+    """Every month from the earliest date to the latest, as YYYY-MM. See Z75.
+
+    The months in between count even when no article falls into them, because
+    the histogram over the slider has to show a gap rather than close it up.
+    A date that is not a date (K80) has no place on the axis. Fewer than two
+    months give an empty axis: a slider with nowhere to go is not drawn.
+    """
+    months = sorted(d[:7] for d in dates if is_date(d))
+    if not months or months[0] == months[-1]:
+        return []
+    year, month = map(int, months[0].split('-'))
+    out = []
+    while '%04d-%02d' % (year, month) <= months[-1]:
+        out.append('%04d-%02d' % (year, month))
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return out
+
+
 def front_page(articles, site, intro='', heading=None):
     """The front page: the live filter, with the index baked inside.
 
@@ -2173,8 +2450,17 @@ def front_page(articles, site, intro='', heading=None):
     # The very same chips the bar of an article draws, see filter_chips.
     chips = filter_chips(site, any(not c['tags'] for c in articles))
 
+    months = site.get('months') or []
+    period = (PERIOD_HTML.replace('@PERIOD@', escape(T['period']))
+                         .replace('@RESET@', escape(T['period_reset']))
+                         .replace('@SINCE@', escape(T['period_since']))
+                         .replace('@TO@', escape(T['period_to']))
+              if months else '')
+
     heading = heading or T['articles']
     content = (FRONT_PAGE.replace('@FACETS@', FACET_JS)
+                    .replace('@PERIOD@', period)
+                    .replace('@MONTHS@', json.dumps(months))
                     .replace('@DATA@', cards)
                     .replace('@TAGS@', json.dumps(chips, ensure_ascii=False))
                     .replace('@TEXTS@', json.dumps(T, ensure_ascii=False))
@@ -2818,7 +3104,12 @@ def main():
         for path, meta, _, name in plan:
             tags = tags_from_meta(meta)
             lead = lead_tags(meta)
-            tag_sets.append({'url': name + '.html', 'tags': tags})
+            entry = {'url': name + '.html', 'tags': tags}
+            # The month only on a site with the date filter. Without it the
+            # article would carry it for nothing, on every page load.
+            if config['date_filter'] and is_date(meta['date']):
+                entry['month'] = meta['date'][:7]
+            tag_sets.append(entry)
             all_tags.update(tags)
             leading.update(lead)
             for tag in tags:
@@ -2840,6 +3131,8 @@ def main():
                'tags': sorted(all_tags),
                'lead_tags': sorted(leading),
                'tag_sets': tag_sets,
+               'months': (period_months([m['date'] for _, m, _, _ in plan])
+                          if config['date_filter'] else []),
                'menu': menu_items(menu_source, sorted(all_tags), no_tag),
                'logo': None,
                'rss': bool(config['base_url']),
@@ -2848,6 +3141,10 @@ def main():
                          ' title="%s" href="rss.xml">'
                          % config['name'])
                         if config['base_url'] else ''}
+        if config['date_filter'] and not site['months']:
+            print('\nNOTE: date_filter is on, but all the articles fall into'
+                  ' one month, so there is no period to pick from. The front'
+                  ' page is built without it.')
         # Znacka rika, ze adresar patri generatoru. Uklid pred buildem smi
         # wipe only a directory that carries it - never somebody else's,
         # not even after a typo in the path.
@@ -2855,6 +3152,8 @@ def main():
         cesta_css = os.path.join(out_dir, 'styl.css')
         with open(cesta_css, 'w', encoding='utf-8', newline='\n') as f:
             f.write(CSS_WEB)
+            if site['months']:
+                f.write(CSS_PERIOD)
             if custom_css:
                 f.write('\n/* --- ' + conf_name + '/styl.css --- */\n')
                 f.write(custom_css)

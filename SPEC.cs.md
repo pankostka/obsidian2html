@@ -48,7 +48,7 @@ Platí to v obou režimech, takže ani `_Poznámka 🌐.md` na web nejde.
 **K60. Náhledový obrázek se jmenuje jako článek** a leží v `Attachments/` vedle něj. Porovnává se přes slug, takže sedne `Obsidian Co je.png` i `obsidian-co-je.png`. Pojmenovat ho pevně nejde: jedna složka `Attachments/` obsluhuje všechny články své složky, takže by mezi nimi kolidoval. Doporučený rozměr je 630x290. Jiný rozměr se nepředělává - ořez a vycentrování obstará CSS v prohlížeči (`object-fit: cover`, horní část zůstane), takže generátor nepotřebuje knihovnu na obrázky.
 
 **K70. Konfigurace webu leží ve složce `.obsidian2html/` nebo `_obsidian2html/`** v kořeni vaultu. Obsahuje (abecedně):
-- `config.toml` - název, jazyk a adresa webu, viz níže.
+- `config.toml` - název, jazyk a adresa webu a filtr na období, viz níže.
 - `index.md` (ruční úvod na titulce) - vykreslí se na všech stránkách.
 - `logo.svg` - logo vlevo nahoře. Klikatelné (home).
 - `menu.md` (kurátorovaná lišta) - určuje pořadí tagů. Pokud není tak je abecední.
@@ -70,11 +70,14 @@ Python ho čte sám, takže nepřibývá závislost.
 name = "Pan Kostka"                 # název webu
 lang = "cs"                         # jazyk webu, cs nebo en (K100)
 base_url = "https://pankostka.cz"   # adresa webu, bez ní nevznikne rss.xml
+date_filter = true                  # posuvník s histogramem na titulce (Z75)
 ```
 
 - `name` - název webu vlevo nahoře (u loga jako jeho alternativní text), v titulku každé stránky a v RSS. Výchozí je jméno složky vaultu.
 - `lang` - jazyk ovládání webu podle K100. Výchozí je `cs`.
 - `base_url` - absolutní adresa, na které web poběží. Potřebuje ji jen RSS, protože čtečka kanál čte jinde a relativní odkaz by tam nikam nevedl. Bez ní `rss.xml` nevznikne.
+- `date_filter` - filtr na období podle Z75, `true` nebo `false` bez uvozovek. Výchozí je `false`.  
+	Text `"false"` v uvozovkách je chyba, jinak by se jako neprázdný text četl jako zapnuto.
 
 Každý klíč smí chybět a pak platí výchozí hodnota, chybět smí i celý soubor.  
 **Neznámý klíč nebo neplatná hodnota je chyba** a build se zastaví - překlep v `nmae` by jinak tiše vyrobil web se jménem složky.  
@@ -82,7 +85,7 @@ Každý klíč smí chybět a pak platí výchozí hodnota, chybět smí i celý
 
 **K80. Publikovaný článek by měl mít ve frontmatteru `date`.** Když ho nemá, použije se datum souboru. Je to vratké, protože datum souboru se mění při kopírování i při synchronizaci, ale je to jednoduché a nepotřebuje to git - ten ve vstupním adresáři fungovat nemusí. Při shodě dat rozhoduje název článku, aby bylo pořadí jednoznačné.  Tvar `RRRR-MM-DD` se kontroluje a build na cokoli jiného upozorní (třeba datum šablony `{{date:YYYY-MM-DD}}`)
 
-**K90. Klíče frontmatteru, konfigurace a přepínače jsou anglicky.** Tedy `date`, `title`, `excerpt`, `slug`, `tags`, v `config.toml` `name`, `lang`, `base_url`, a přepínače `--source`, `--dest`, `--publish`, `--check`, `--keep-archives`. Obsah článků je česky, rozhraní nástroje ne - nástroj je veřejný a jeho příkazová řádka i klíče jsou to jediné, co cizí uživatel musí napsat sám. České klíče `datum`, `titul` a `perex` se už nečtou; když na ně build narazí, ohlásí to, protože jinak by článek tiše přišel o datum nebo titulek.
+**K90. Klíče frontmatteru, konfigurace a přepínače jsou anglicky.** Tedy `date`, `title`, `excerpt`, `slug`, `tags`, v `config.toml` `name`, `lang`, `base_url`, `date_filter`, a přepínače `--source`, `--dest`, `--publish`, `--check`, `--keep-archives`. Obsah článků je česky, rozhraní nástroje ne - nástroj je veřejný a jeho příkazová řádka i klíče jsou to jediné, co cizí uživatel musí napsat sám. České klíče `datum`, `titul` a `perex` se už nečtou; když na ně build narazí, ohlásí to, protože jinak by článek tiše přišel o datum nebo titulek.
 
 **K95. Hierarchický tag `Obsidian/Video` se rozpadne na dva samostatné tagy.**  
 Vzniknou z něj `Obsidian` a `Video`, každý se svou stránkou, takže `Video` sbírá videa z celého vaultu, ne jen ta u Obsidianu - a přesně podle toho chce člověk filtrovat.  
@@ -152,6 +155,22 @@ Do článku se přitom zapékají jen **tagy** článků, ne index hledání: č
 Textový dotaz s sebou nejede, jede jen filtr - článek nemá výpis, ve kterém by se hledalo, a čísla na štítcích by pak odpovídala na jinou otázku než ta na titulce. Dotaz napsaný v hlavičce článku ale filtr zachová, protože ho formulář pošle na titulku s sebou.  
 Bez JavaScriptu zůstává v `<noscript>` původní statická lišta s odkazy na stránky tagů, takže Z10 platí dál.  
 Stránky tagů zůstávají statické: jejich výpis se v prohlížeči nepřekresluje, takže živý filtr nad ním by lhal.
+
+**Z75. S `date_filter = true` má titulka pod štítky posuvník na období s histogramem.**  
+Je to třetí osa filtru vedle tagů a textu a spojuje se s nimi přes AND.  
+Osa jsou **všechny měsíce** od prvního článku po poslední, i ty, ve kterých žádný článek není.  
+Díra v psaní je informace a histogram nad posuvníkem ji má ukázat, ne zavřít.  
+Histogram počítá celý web a nemění se, takže neuhýbá pod posuvníkem, kterým se v něm vybírá.  
+Čísla na štítcích období započítávají - štítek, který slíbí pět, zatímco výpis pod ním drží dva, by lhal.  
+Období jde do adresy jako `?from=2023-01&to=2024-06` a přežije kliknutí do článku stejně jako tagy (Z70).  
+Článek posuvník nekreslí, ale čísla v jeho liště počítají se stejným obdobím a klik ho vrátí na titulku.  
+Celé období se do adresy nepíše, takže adresa bez něj zůstává, jaká byla.  
+Na webu bez `date_filter` se `?from=` a `?to=` ignorují - filtr, který nejde vidět ani zrušit, by jen tiše ubíral články.  
+Měsíc mimo osu se ignoruje taky, protože konce osy už jsou otevřené konce.  
+Článek s datem, které datem není (K80), na osu nepatří a při zúženém období vypadne.  
+Když všechny články spadnou do jednoho měsíce, není kam jet: posuvník se nekreslí a build to ohlásí.  
+Bez JavaScriptu se posuvník nekreslí, zbyde statický výpis jako dosud.  
+Web bez `date_filter` nedostane ani ovladač, ani jeho styly.
 
 **Z80. Když klik na štítek nechá jedinou stránku, otevře ji.**  
 Je to kliknutí na kartu udělané za čtenáře, takže vede na tutéž adresu, jakou nese karta, i s filtrem.  

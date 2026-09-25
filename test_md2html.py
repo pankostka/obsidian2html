@@ -1184,6 +1184,87 @@ class Lokalizace(Zaklad):
         self.assertIn("location.href = shown[0].url + stateQuery()", clanek)
         self.assertIn("location.href = 'index.html' + stateQuery()", clanek)
 
+    def test_Z75_bez_nastaveni_filtr_na_obdobi_neni(self):
+        """Filtr na obdobi je volitelny a vychozi je vypnuty.
+
+        Web, ktery si ho nevyzadal, nedostane ani ovladac, ani jeho styly,
+        ani mesice u clanku.
+        """
+        self.clanek('Prvni', 'Text.', datum='2025-01-01')
+        self.clanek('Druhy', 'Text.', datum='2026-01-01')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        titulka = self.vystupni('index.html')
+        self.assertNotIn('id="obdobi"', titulka)
+        self.assertIn('const MONTHS = [];', titulka)
+        self.assertNotIn('.histogram', self.vystupni('styl.css'))
+        self.assertNotIn('"month"', self.vystupni('prvni.html'))
+
+    def test_Z75_osa_jsou_souvisle_mesice(self):
+        """Osa jde od prvniho clanku po posledni a nevynecha prazdny mesic.
+
+        Dira v psani je informace a histogram ji ma ukazat, ne zavrit.
+        """
+        self.clanek('Prvni', 'Text.', datum='2025-11-20')
+        self.clanek('Druhy', 'Text.', datum='2026-02-03')
+        self.konfigurace('date_filter = true\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        titulka = self.vystupni('index.html')
+        self.assertIn('id="obdobi"', titulka)
+        self.assertIn('const MONTHS = ["2025-11", "2025-12", "2026-01", "2026-02"];',
+                      titulka)
+        self.assertIn('.histogram', self.vystupni('styl.css'))
+
+    def test_Z75_obdobi_jde_do_adresy_a_do_clanku(self):
+        """Obdobi je treti osa filtru a preziji kliknuti do clanku jako tagy.
+
+        Clanek posuvnik nekresli, ale nese mesic kazdeho clanku, aby cisla
+        na stitcich v jeho hlavicce pocitala se stejnym obdobim.
+        """
+        self.clanek('Prvni', 'Text.', datum='2025-11-20', tagy='Obsidian')
+        self.clanek('Druhy', 'Text.', datum='2026-02-03', tagy='Obsidian')
+        self.konfigurace('date_filter = true\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        titulka = self.vystupni('index.html')
+        self.assertIn("p.set('from', since)", titulka)
+        self.assertIn("p.set('to', until)", titulka)
+        self.assertIn('matchesTags(c, combo) && inPeriod(c)', titulka)
+        clanek = self.vystupni('prvni.html')
+        self.assertIn('"month": "2025-11"', clanek)
+        self.assertIn('matchesTags(c, combo) && inPeriod(c)', clanek)
+
+    def test_Z75_jediny_mesic_posuvnik_nekresli(self):
+        """Posuvnik, se kterym neni kam jet, se nekresli, a build to rekne."""
+        self.clanek('Prvni', 'Text.', datum='2026-01-01')
+        self.clanek('Druhy', 'Text.', datum='2026-01-20')
+        self.konfigurace('date_filter = true\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        self.assertNotIn('id="obdobi"', self.vystupni('index.html'))
+        self.assertIn('date_filter is on', vypis)
+
+    def test_Z75_datum_ktere_datem_neni_na_osu_nepatri(self):
+        """Sablonovy zastupce by jinak osu natahl na nesmyslny mesic."""
+        self.assertEqual(md2html.period_months(
+            ['2026-01-05', '{{date:YYYY-MM-DD}}', '2025-12-31']),
+            ['2025-12', '2026-01'])
+
+    def test_K70_date_filter_je_vypinac(self):
+        """true nebo false bez uvozovek. "false" v uvozovkach by jinak zapnulo."""
+        self.clanek('Prvni', 'Text.')
+        for text in ('date_filter = "true"\n', 'date_filter = "false"\n',
+                     'date_filter = 1\n'):
+            self.konfigurace(text)
+            kod, vypis = self.web()
+            self.assertEqual(kod, 1, '%s: %s' % (text, vypis))
+            self.assertIn('true or false', vypis)
+
     def test_hierarchicky_tag_se_rozpadne_na_dva_samostatne(self):
         """`Obsidian/Video` jsou dva tagy, kazdy se svou strankou.
 

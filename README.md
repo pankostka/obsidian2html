@@ -84,7 +84,7 @@ The site settings live in the vault in the `_obsidian2html/` folder, or `.obsidi
 Both at once is an error.  
 Everything in it is optional:
 
-- `config.toml` - the name, language and address of the site.
+- `config.toml` - the name, language and address of the site, and the date filter.
 - `index.md` - a hand-written introduction on the front page.
 - `logo.svg` - the logo at the top left, a link to the front page.
 - `menu.md` - the bar in the header, sets the order of the tags. Without it the order is alphabetical.
@@ -96,11 +96,13 @@ Everything in it is optional:
 name = "Pan Kostka"                 # the name of the site
 lang = "cs"                         # the language of the site, cs or en
 base_url = "https://pankostka.cz"   # the address of the site, no rss.xml without it
+date_filter = true                  # a slider with a histogram on the front page
 ```
 
 - `name` - the name of the site at the top left, in the title of every page and in RSS. The default is the name of the vault folder.
 - `lang` - the language of the site's buttons and labels, not of the articles (K100). The default is `cs`.
 - `base_url` - the address the site will run at. Without it no `rss.xml` is produced.
+- `date_filter` - `true` adds a period slider under the tags on the front page, with a histogram of articles by month (Z75). The default is `false`, written without quotes.
 
 A missing key has its default; an unknown key or an invalid value stops the build.
 
@@ -115,12 +117,13 @@ A missing key has its default; an unknown key or an invalid value stops the buil
 - With `--if-changed`, a site where nothing changed is not built again (Z57).
 - Attachments get lower-case ASCII addresses, so links work on a Linux server too (Z60).
 - The tag filter survives a click into an article (Z70), and when a single article is left, it opens (Z80).
+- The optional date filter combines with the tags, and its histogram shows the months without an article too (Z75).
 - Below the footer of every page is the date and time the site's content last changed, not the build time (Z85).
 
 ## Development
 
 The rules, the reasons behind them and the edge cases are in [SPEC.cs.md](SPEC.cs.md) (Czech), which is the authority for the code and the tests.  
-Tests are run with `python test_md2html.py`; there are 107 of them and they run in under a second.
+Tests are run with `python test_md2html.py`; there are 113 of them and they run in under a second.
 
 ## License
 
