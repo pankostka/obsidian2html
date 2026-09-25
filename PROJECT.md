@@ -245,7 +245,26 @@ Pilulka sama říká, že jde o tag, takže `#` před názvem nic nepřidávalo.
 
 Spravilo to mimochodem i pseudotag: jeho popiska sama je `#`, takže se ve filtru kreslil jako `##`. V liště v hlavičce byl vždycky správně, protože ta popisku vypisuje rovnou.
 
+### 18. Nové rozhraní a jen web - HOTOVO
+
+Zadání vzniklo úpravou README a jeho rozdělením na uživatelský `README.cs.md` a `SPEC.cs.md` (`cc24851`, `ee9f179`), kód šel za ním.
+
+- **Přepínače:** `--source`, `--dest`, povinný `--publish` a `--keep-archives`, `--check` zůstal. `--publish` bere jen `"*.md"` (všechno) nebo `"*X.md"` (marker X). Vzor rozbalený bashem se pozná podle souborů navíc a build poradí uvozovky. Staré přepínače nezůstaly ani jako skryté aliasy, dávky se předělávají.
+- **Jen web:** režim samostatného souboru s obrázky v data URI a holý `index.html` z dávky odešly i s `--title`, `--vault`, `inline_images`, `index_page` a šablonou `HTML`. Za kořen vaultu se bere `--source`.
+- **Cíl (Z55):** vyprazdňuje se při každém buildu, položky s tečkou zůstávají. Co se maže, jde nejdřív do zipu v `_archiv` o úroveň výš a zůstane posledních N zipů tohoto cíle. Pojistka se značkou `.vygenerovano` platí dál, adresář jen s tečkovými položkami se bere jako prázdný.
+- **`config.toml`** v konfigurační složce nese `name`, `lang` a `base_url` místo `--site-name`, `--lang` a `--base-url`. Čte ho `tomllib`, takže je potřeba Python 3.11. Neznámý klíč nebo neplatná hodnota build zastaví.
+- **K20:** soubor s tečkou nebo podtržítkem na začátku se přeskakuje stejně jako složka.
+
+Testy našly chybu, která by se jinak ukázala až u prvního cíle nasazovaného gitem: kontrola odkazů procházela i `.git` a zakopla o `HEAD` psaný velkými písmeny. Tečkové složky teď přeskakuje.
+
+Ověřeno na kopii PKVaultu s `config.toml`. S markerem se proti staré verzi liší jen `styl.css`, a to komentáři a mrtvým pravidlem `.rozcestnik`. S `"*.md"` se liší 21 stránek a všechny jen tím, že v titulcích zůstal globus - viz otevřené otázky.
+
+Testy 96.
+
 ## Otevřené otázky
+
+- **Globus v titulcích s `"*.md"`.** Bez markeru se nestrhává nic, takže náhled PKVaultALL má u článků s globusem v titulku `Obsidian Co je 🌐`. Staré `--all` globus strhávalo, protože marker měl výchozí hodnotu. Pro vault bez markeru je to jedno.
+- **Dva weby z jednoho vaultu.** `PKVault!.cmd` a `PKVaultALL.cmd` staví ze stejného vaultu s jiným názvem webu a náhled bez RSS. S `config.toml` ve vaultu sdílí obě dávky jeden název i `base_url`.
 
 
 - **Vynucovat tagy?** `dokumentace_JD.md` chce PascalCase a jednu variantu na tag, protože se porovnávají jako řetězce a dvě varianty tiše rozpůlí stránku tagu. Skript to nekontroluje ani nehlásí.
@@ -272,7 +291,7 @@ Cena migrace by byla několik dní a pak trvalá daň při každém upgradu, pro
 
 Původní README tvrdilo, že smyslem nástroje je jeden soubor s obrázky v data URI do mailu a Teams. **Neplatí to** - autor tenhle režim skoro nepoužívá, jede `--web`.
 
-Odlišení není ani jednosouborový režim, ani fasetový filtr sám o sobě, ale **vyslovené a zdůvodněné konvence**. Proto jsou jádrem `README.cs.md`.
+Odlišení není ani jednosouborový režim, ani fasetový filtr sám o sobě, ale **vyslovené a zdůvodněné konvence**. Proto jsou jádrem `SPEC.cs.md`.
 
 ### nl2br
 

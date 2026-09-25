@@ -28,7 +28,7 @@ Tak jim prostě na konec dám 🌐.
 
 ## Instalace a spuštění
 
-Vyžaduje nainstalovaný python a v něm doinstalovaný markdown (`pip install markdown`).  
+Vyžaduje nainstalovaný python 3.11 nebo novější a v něm doinstalovaný markdown (`pip install markdown`).  
 Volání (na pořadí přepínačů nezáleží):
 
 ```
@@ -113,7 +113,7 @@ Chybějící klíč má výchozí hodnotu, neznámý klíč nebo neplatná hodno
 ## Pro vývoj
 
 Pravidla, jejich zdůvodnění a hraniční případy jsou v [SPEC.cs.md](SPEC.cs.md), ten je autoritou pro kód i testy.  
-Testy se pouštějí `python test_md2html.py`, je jich 82 a běží pod sekundu.
+Testy se pouštějí `python test_md2html.py`, je jich 96 a běží pod sekundu.
 
 ## Licence
 

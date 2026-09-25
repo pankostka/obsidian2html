@@ -2,9 +2,10 @@
 r"""
 ================================================================================
  WHAT THIS IS
-   Turns Markdown into a SELF-CONTAINED HTML file - images inlined as data
-   URIs, styles inside, no relative links. Such a file survives email,
-   SharePoint, a network share, Teams, or a button in a Power BI report.
+   Turns a directory of Markdown - typically an Obsidian vault - into a
+   STATIC WEBSITE: a front page with cards and a faceted tag filter, tag
+   pages, search, a bar, a logo, RSS. Nothing runs on a server, so the output
+   can be uploaded anywhere or zipped and sent.
 
    It understands Obsidian syntax, because the source is a vault:
      frontmatter        stripped (it would otherwise render as text)
@@ -20,19 +21,24 @@ r"""
    worse than no link at all.
 
    NO PDF IS PRODUCED HERE. The script used to do it and was called
-   md2pdf.py, but printing is a separate job for a separate tool.
+   md2pdf.py, but printing is a separate job for a separate tool. Nor does it
+   turn a single note into a self-contained HTML file any more - it could,
+   and nobody used it.
 
  USAGE
-   python md2html.py <file.md>                one file -> <slug>.html
-   python md2html.py <directory>              a batch, plus index.html
-   python md2html.py <input> -o <where>       where to put the result
-   python md2html.py <input> --vault <path>   where to look for ![[images]]
-   python md2html.py <file.md> --title "Text" a title without touching the source
-   python md2html.py <input> --published-only only articles carrying the marker
-   python md2html.py <vault> --site -o <where>  site: shared styl.css, img/,
-                                              output into the given directory
+   python md2html.py --source <vault> --dest <where> --publish "*X.md"
+   python md2html.py --source <vault> --dest <where> --publish "*.md"
+   python md2html.py --source <vault> --publish "*X.md" --check
 
-   Dependency: pip install markdown.
+   --publish      what goes out, see THE PUBLISH FLAG. Required
+   --keep-archives N  how many zips of the previous output to keep (10)
+   --check        builds into a temporary directory and throws it away
+
+   The name, language and address of the site are not flags. They live in
+   config.toml inside the configuration directory, next to the logo and the
+   menu, because they belong to the site rather than to one build.
+
+   Dependency: pip install markdown. Python 3.11 or newer, for tomllib.
 
    Exit code 0 = done, 1 = conversion error, 2 = bad arguments.
 
@@ -85,8 +91,11 @@ r"""
    independent axes, say topic plus form (`Video`, `Howto`) plus level.
 
  THE PUBLISH FLAG
-   It is carried by a MARKER IN THE FILENAME - a globe at the end, so
-   'Article name X.md'. A missing marker means not public. The frontmatter
+   --publish takes a filename pattern of exactly two shapes. "*.md" publishes
+   everything. "*X.md" publishes only the articles carrying the MARKER X at
+   the end of the name, typically a globe. A missing marker then means not
+   public. A file or folder starting with a dot or an underscore stays out
+   either way. The frontmatter
    key publish no longer means anything; when the script meets it on an
    article without the marker it says so, because the author most likely
    believes the article is being published.
@@ -103,36 +112,36 @@ r"""
             the cleaned-up filename and no slug is maintained. It is an
             escape hatch for the one address that must survive a rename
 
-   The keys are ENGLISH, as are the flags. Article content is Czech, the
+   The keys are ENGLISH, as are the flags and the config.toml keys. Article content is Czech, the
    tool's interface is not - it is the only thing a foreign user has to type.
    The old Czech keys datum, titul and perex are not read; the build reports
    them.
 
  OUTPUTS
-   <name>.html    self-contained HTML, images as data URIs
-   index.html     in a batch only, an index of the pages
+   <name>.html    one page per article
+   index.html     the front page with the filter
+   tag-*.html     one page per tag
+   styl.css       the style, shared by every page
+   img/           the images, as files
+   rss.xml        only with base_url in config.toml
 
-   With --site it works differently: the style sits in a single styl.css next
-   to the pages and images go into img/ as files, because in self-contained
-   mode a single page with five screenshots weighs 598 kB and the browser
-   caches nothing. Plus two checks - an address clash is an error, and the
-   letter case of links is verified against the actual files (on Linux
-   Foo.png and foo.png are different).
+   Plus two checks - an address clash is an error, and the letter case of
+   links is verified against the actual files (on Linux Foo.png and foo.png
+   are different).
+
+   THE DESTINATION IS EMPTIED BEFORE EVERY BUILD, except the entries starting
+   with a dot. What goes is packed into a zip in _archiv one level up first,
+   and only a directory carrying the marker .vygenerovano is ever emptied.
 
    THE INPUT DIRECTORY IS ONLY EVER READ. The vault is a source, not a
    workspace: the generator creates, changes and deletes nothing in it. It
    used to write two things - a record of published addresses, and a date
    into the frontmatter of an article that lacked one. The record is gone and
    the date now comes from the file's own timestamp.
-
-   -o gives the base of the path and the extension is appended, so
-   -o out/help produces help.html.
 ================================================================================
 """
 import argparse
-import base64
 import json
-import mimetypes
 import os
 import re
 import shutil
@@ -140,6 +149,7 @@ import sys
 import tempfile
 import time
 import unicodedata
+import zipfile
 from html import escape, unescape
 from urllib.parse import quote, unquote
 
@@ -161,30 +171,52 @@ ATTACHMENT_DIRS = ('Attachments', 'img', 'assets')
 CONFIG_DIR = '.obsidian2html'
 CONFIG_DIRS = (CONFIG_DIR, '_obsidian2html')
 
-# The publish flag is a MARKER IN THE FILENAME, not a frontmatter key. The
-# reason is visibility: the file tree shows which article is public, whereas
-# frontmatter does not. A missing marker means not public.
+# What goes out is said by --publish, a filename pattern with exactly two
+# shapes: "*.md" publishes everything, "*X.md" only the articles whose name
+# ends with the marker X. The reason for a marker is visibility: the file tree
+# shows which article is public, whereas frontmatter does not. A missing marker
+# means not public.
 #
 # The marker never reaches the address - slug() drops everything that is
 # neither \w nor \s. resolve_wikilinks() strips it from link text as well,
-# which would otherwise put a globe in the middle of a sentence.
-PUBLISH_MARKER = '🌐'
+# which would otherwise put a globe in the middle of a sentence. With "*.md"
+# there is no marker, so nothing is stripped.
+PUBLISH_MARKER = ''
 
 
-def set_marker(mark):
-    """Change the publish marker. A vault may use whatever it likes.
+def set_publish(pattern):
+    """Read --publish and return the marker, '' when everything goes out.
 
-    The marker is stripped off the title, the slug and the alt text, so a
-    character that also occurs in ordinary names takes a piece of them with it:
-    with '!' the article 'Careful!.md' goes out titled 'Careful'. A symbol that
-    nobody writes by accident is therefore the safer choice, and the build warns
-    about the rest.
+    Only the two shapes are accepted. Any other mask, say 'Howto*.md', would
+    leave nothing to strip off the title and the address, so it is an error
+    rather than a feature. A character that also occurs in ordinary names is a
+    poor marker: with '*!.md' the article 'Careful!.md' goes out titled
+    'Careful'. The build warns about that, see main().
     """
     global PUBLISH_MARKER
-    if not mark:
-        raise Error('The publish marker cannot be empty.'
-                    ' Use --all when everything should be converted.')
-    PUBLISH_MARKER = mark
+    if not pattern:
+        raise Error('--publish cannot be empty. Use "*.md" for everything or'
+                    ' "*X.md" for the articles ending with the marker X.')
+    marker = pattern[1:-3] if len(pattern) >= 4 else None
+    if (not pattern.startswith('*') or not pattern.lower().endswith('.md')
+            or marker is None or any(c in marker for c in '*?[]/\\')):
+        hint = (' It names an existing file, so the shell probably expanded'
+                ' the pattern - put it in quotes.'
+                if os.path.exists(pattern) else '')
+        raise Error('--publish must be "*.md" or "*X.md", where X is the'
+                    ' marker at the end of the name. Got %r.%s' % (pattern, hint))
+    PUBLISH_MARKER = marker.strip()
+    if marker and not PUBLISH_MARKER:
+        raise Error('The marker in --publish cannot be just a space.')
+    return PUBLISH_MARKER
+
+
+# How many zips of the previous output stay in _archiv, see Z55.
+KEEP_ARCHIVES = 10
+
+# The site's own data - name, language, address - lives in the vault next to
+# the logo and the menu, not in flags. It belongs to the site, not to a build.
+CONFIG_FILE = 'config.toml'
 
 # A marker file inside the output directory. The script may only wipe a
 # directory that carries it, or one that is empty. A directory that belongs to
@@ -206,8 +238,8 @@ NO_TAG_LABEL = '#'
 # while building are for whoever runs the script, and those are English
 # unconditionally - the same audience that reads --help.
 #
-# The default is Czech, so a vault built without --lang comes out exactly as it
-# did before this table existed.
+# The language is the lang key in config.toml. The default is Czech, so a
+# vault without it comes out exactly as it did before this table existed.
 #
 # Page names are part of the table on purpose. A Czech site therefore keeps
 # hledani.html and its published addresses do not move, while an English one
@@ -317,8 +349,7 @@ CSS_CONTENT = """
 * { box-sizing: border-box; }
 /* Text width. A narrow ribbon down the middle of the screen is exactly why
    Obsidian users are told to turn Readable line length off - it is unusable
-   for tables and code. That argument holds for the self-contained file just
-   as it does for the site, so both are 64rem. */
+   for tables and code. Hence 64rem. */
 body { font-family: "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
        font-size: 16px; line-height: 1.6; color: var(--text);
        background: var(--pozadi); max-width: 64rem; margin: 0 auto;
@@ -353,23 +384,16 @@ blockquote { margin: 0 0 1rem; padding: .1rem 0 .1rem .9rem;
 a { color: var(--odkaz); }
 strong { color: var(--text); }
 hr { border: 0; border-top: 1px solid var(--linka); margin: 2rem 0; }
-.rozcestnik { list-style: none; padding: 0; }
-.rozcestnik li { margin-bottom: .6rem; }
-.rozcestnik a { font-weight: 600; text-decoration: none; }
 .paticka { margin-top: 3rem; padding-top: .8rem; border-top: 1px solid var(--linka);
            font-size: .82rem; color: var(--tlum); }
 """
 
-# Site chrome: header with the logo and the bar, footer, dark mode. It has no
-# place in a self-contained file going out by email - there is nowhere to
-# navigate to there.
+# Site chrome: header with the logo and the bar, footer, dark mode.
 CSS_CHROME = """
-/* Text width is 64rem for the self-contained file too, set in CSS_CONTENT.
-   Repeated here only because the site adds the header and needs the padding
-   above it. Override it in .obsidian2html/styl.css. */
-body { max-width: 64rem; padding-top: 1.25rem; }
-/* Article masthead: heading, tags below it, the rule below both. In the
-   self-contained file the rule stays on the h1, there being no tags. */
+/* Less padding on top, because the header sits above the text. The width is
+   set above; override either in _obsidian2html/styl.css. */
+body { padding-top: 1.25rem; }
+/* Article masthead: heading, tags below it, the rule below both. */
 .zahlavi { border-bottom: 2px solid var(--odkaz); padding-bottom: .5rem;
            margin-bottom: 1.4rem; }
 .zahlavi h1 { border-bottom: 0; padding-bottom: 0; margin-bottom: .35rem; }
@@ -553,18 +577,12 @@ html { scroll-behavior: smooth; }
 }
 """
 
-CSS = CSS_CONTENT
 CSS_WEB = CSS_CONTENT + CSS_CHROME
 
 
-HTML = ('<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        '<title>{title}</title><style>{css}</style></head><body>{body}{footer}'
-        '</body></html>')
-
-# Site mode: the style sits in one file next to the pages, not inside each of
-# them. The reason is size - in self-contained mode a single page with five
-# screenshots weighs 598 kB, because the images are base64 and the CSS repeats.
+# The style sits in one file next to the pages, not inside each of them. The
+# reason is size - with the images as base64 and the CSS repeated, a single
+# page with five screenshots used to weigh 598 kB.
 HTML_WEB = ('<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
             '<title>{title}</title>'
@@ -1247,10 +1265,9 @@ def find_file(name, base, vault):
 class Conversion(object):
     """Holds the context of one conversion - where to look and what is in the batch."""
 
-    def __init__(self, vault, batch=None, site=False):
+    def __init__(self, vault, batch=None):
         self.vault = vault
         self.batch = batch or {}      # {slug of a note name: output file}
-        self.site = site
         self.flattened = []           # links that degraded to plain text
 
     # -- transclusion -----------------------------------------------------
@@ -1283,7 +1300,7 @@ class Conversion(object):
         # its own header, and links from menu.md point at internal areas, so
         # they would flatten to text. Inside Obsidian ![[menu]] in an article
         # does make sense, so it is merely skipped.
-        if self.site and slug(os.path.splitext(target)[0]) == 'menu':
+        if slug(os.path.splitext(target)[0]) == 'menu':
             return ''
         if depth >= MAX_TRANSCLUSION:
             self.flattened.append('%s (transclusion nested too deep)' % target)
@@ -1324,33 +1341,6 @@ class Conversion(object):
 # Markdown -> HTML
 # ==============================================================================
 
-def inline_images(html, base, vault):
-    """Replace src="path" with a data URI, so the HTML stands on its own.
-
-    A missing image is an error, not a warning. Quietly, a document with a
-    blank space in it would be produced and sent to a person.
-    """
-    missing = []
-
-    def replace(m):
-        link = m.group(1)
-        if link.startswith(('http:', 'https:', 'data:', '//')):
-            return m.group(0)
-        path = find_file(unquote(link), base, vault)
-        if not path:
-            missing.append(link)
-            return m.group(0)
-        mime = mimetypes.guess_type(path)[0] or 'application/octet-stream'
-        with open(path, 'rb') as f:
-            data = base64.b64encode(f.read()).decode('ascii')
-        return 'src="data:%s;base64,%s"' % (mime, data)
-
-    html = re.sub(r'src="([^"]+)"', replace, html)
-    if missing:
-        raise Error('Missing images: %s' % ', '.join(sorted(set(missing))))
-    return html
-
-
 def copy_attachment(source, out_dir, renamed):
     """Copy one file into img/ and return its relative address.
 
@@ -1376,12 +1366,10 @@ def copy_attachment(source, out_dir, renamed):
 
 
 def copy_images(html, base, vault, out_dir, renamed):
-    """Site mode: src="path" -> src="img/name.ext", and the file is copied.
+    """src="path" -> src="img/name.ext", and the file is copied.
 
-    A data URI is right for a single self-contained file going out by email,
-    but not for a site - every page would carry its own copy of the images and
-    of the CSS, and the browser would cache nothing. A shared img/ directory is
-    downloaded once.
+    A data URI would make every page carry its own copy of the images, and the
+    browser would cache nothing. A shared img/ directory is downloaded once.
 
     The name goes through slug(), so it is always lower case and ASCII. On
     Linux Foo.png and foo.png differ, which means a mistyped link works on
@@ -1405,9 +1393,8 @@ def copy_images(html, base, vault, out_dir, renamed):
     return html
 
 
-def to_html(path, conv, meta=None, title=None,
-            out_dir=None, renamed=None, site=None, date=None):
-    """Return (title, complete HTML). With out_dir= it typesets site mode.
+def to_html(path, conv, out_dir, renamed, site, date=None):
+    """Return (title, complete HTML) of one article.
 
     `date` is the fallback for an article that has none in its frontmatter. It
     comes from outside because it is already worked out while assembling the
@@ -1425,55 +1412,41 @@ def to_html(path, conv, meta=None, title=None,
     own_meta, body_text = split_frontmatter(read_text(path))
     if date and not own_meta.get('date'):
         own_meta['date'] = date
-    if meta is not None:
-        meta.update(own_meta)
-    heading = title or title_of(own_meta, path)
+    heading = title_of(own_meta, path)
 
     body_text = conv.expand_embeds(body_text, base)
     body_text = conv.resolve_wikilinks(body_text)
-    if out_dir is not None:
-        body_text = demote_headings(body_text)
+    body_text = demote_headings(body_text)
 
     body = markdown.markdown(body_text, extensions=[
         'tables', 'fenced_code', 'attr_list', 'sane_lists',
     ])
     body = re.sub(r'(<table>.*?</table>)', r'<div class="tabulka">\1</div>',
                   body, flags=re.S)
-    if out_dir is None:
-        body = inline_images(body, base, conv.vault)
-    else:
-        body = copy_images(body, base, conv.vault, out_dir, renamed)
+    body = copy_images(body, base, conv.vault, out_dir, renamed)
 
-    footer = ''
-    if own_meta.get('date'):
-        footer = '<div class="paticka">%s</div>' % own_meta['date']
-
-    if out_dir is not None:
-        # The article title is the only h1 on the page. Sections coming from
-        # the markdown sit one level lower, see demote_headings.
-        # Heading and tags live in one block, so the rule falls below both. It
-        # is therefore on that block rather than on the h1 - in the
-        # self-contained file it stays on the h1, see CSS_CONTENT.
-        tags = tags_from_meta(own_meta)
-        masthead = ['<div class="zahlavi"><h1>%s</h1>' % heading]
-        if tags:
-            masthead.append('<div class="tagy">%s</div>' % ' '.join(
-                '<a href="%s">#%s</a>' % (tag_page(x), x) for x in tags))
-        masthead.append('</div>')
-        return heading, HTML_WEB.format(
-            lang=T['lang'],
-            title='%s - %s' % (heading, site['name']),
-            head_extra=site.get('head_extra', ''),
-            # The bar in the header of an article is the FACETED FILTER, drawn
-            # out of the address: one arrives from a filtered listing and the
-            # filter is still standing. Without a bar there is nothing for the
-            # script to draw into, so it is not written out either.
-            header=(header_html(site, live_filter=bool(site['menu']))
-                    + (filter_script(site) if site['menu'] else '')),
-            body=''.join(masthead) + body,
-            footer=footer_html(site, own_meta.get('date'), tags, heading))
-    return heading, HTML.format(lang=T['lang'], title=heading, css=CSS,
-                                body=body, footer=footer)
+    # The article title is the only h1 on the page. Sections coming from
+    # the markdown sit one level lower, see demote_headings.
+    # Heading and tags live in one block, so the rule falls below both. It
+    # is therefore on that block rather than on the h1.
+    tags = tags_from_meta(own_meta)
+    masthead = ['<div class="zahlavi"><h1>%s</h1>' % heading]
+    if tags:
+        masthead.append('<div class="tagy">%s</div>' % ' '.join(
+            '<a href="%s">#%s</a>' % (tag_page(x), x) for x in tags))
+    masthead.append('</div>')
+    return heading, HTML_WEB.format(
+        lang=T['lang'],
+        title='%s - %s' % (heading, site['name']),
+        head_extra=site.get('head_extra', ''),
+        # The bar in the header of an article is the FACETED FILTER, drawn
+        # out of the address: one arrives from a filtered listing and the
+        # filter is still standing. Without a bar there is nothing for the
+        # script to draw into, so it is not written out either.
+        header=(header_html(site, live_filter=bool(site['menu']))
+                + (filter_script(site) if site['menu'] else '')),
+        body=''.join(masthead) + body,
+        footer=footer_html(site, own_meta.get('date'), tags, heading))
 
 
 # ==============================================================================
@@ -1646,6 +1619,44 @@ def config_name(vault):
                     ' the site configuration - merge them and delete the other.'
                     % tuple(found))
     return found[0] if found else CONFIG_DIR
+
+
+def read_config(vault):
+    """Return the site's name, lang and base_url from config.toml. See K70.
+
+    Every key may be missing and then its default applies, so may the whole
+    file. An unknown key or a bad value stops the build: a typo like 'nmae'
+    would otherwise quietly produce a site named after the folder.
+    """
+    config = {'name': os.path.basename(vault), 'lang': 'cs', 'base_url': None}
+    path = os.path.join(vault, config_name(vault), CONFIG_FILE)
+    if not os.path.isfile(path):
+        return config
+    try:
+        import tomllib
+    except ImportError:
+        raise Error('Reading %s needs Python 3.11 or newer.' % CONFIG_FILE)
+    try:
+        with open(path, 'rb') as f:
+            data = tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        raise Error('%s is not valid TOML: %s' % (path, e))
+    unknown = sorted(set(data) - set(config))
+    if unknown:
+        raise Error('%s: unknown key %s. Known keys: %s.'
+                    % (path, ', '.join(unknown), ', '.join(sorted(config))))
+    for key, value in data.items():
+        if not isinstance(value, str) or not value.strip():
+            raise Error('%s: %s must be a text in quotes, not %r.'
+                        % (path, key, value))
+        config[key] = value.strip()
+    if config['lang'] not in TEXTS:
+        raise Error('%s: unknown language %s. Available: %s.'
+                    % (path, config['lang'], ', '.join(sorted(TEXTS))))
+    if config['base_url'] and not re.match(r'^https?://[^\s/]+', config['base_url']):
+        raise Error('%s: base_url must be an absolute address starting with'
+                    ' https:// or http://, not %r.' % (path, config['base_url']))
+    return config
 
 
 def site_inputs(vault, batch=None):
@@ -2255,60 +2266,117 @@ def file_date(path):
     return time.strftime('%Y-%m-%d', time.localtime(os.path.getmtime(path)))
 
 
-def clean_output(out_dir):
-    """Archive the previous output and empty the directory.
+def prepare_dest(out_dir, keep):
+    """Empty the destination before a build, archiving what goes. See Z55.
 
-    Everything is deleted and built again, because a surgical clean-up driven by
-    a list of produced files is needless machinery. The original worry about
-    wholesale deletion is answered by the archive - the previous state stays at
-    hand.
+    Everything is deleted and built again, because whatever stays from last
+    time stays on the site as well - an article that lost its marker or was
+    renamed would still be out there. The worry about wholesale deletion is
+    answered by the archive: the previous state stays at hand.
 
-    ONLY A DIRECTORY CARRYING THE MARKER IS WIPED, or an empty one, or one that
-    does not exist. A directory belonging to somebody else survives even a typo
-    in the path; 'unlikely' thereby becomes 'impossible'.
+    AN ENTRY STARTING WITH A DOT IS NEVER TOUCHED - .git, .htaccess,
+    .well-known and the marker itself survive. A destination deployed through
+    git can be built into directly, and files added for the server by hand
+    need not be put back after every build.
+
+    ONLY A DIRECTORY CARRYING THE MARKER IS WIPED, or one holding nothing but
+    dot entries, or one that does not exist. A directory belonging to somebody
+    else survives even a typo in the path; 'unlikely' thereby becomes
+    'impossible'.
 
     The CONTENTS are deleted, not the directory itself - when something holds it
     open (a browser, an FTP client), removing the directory fails with Device or
     resource busy.
+
+    Returns the path of the new archive, or None.
     """
     if not os.path.isdir(out_dir):
+        os.makedirs(out_dir)
         return None
-    content = os.listdir(out_dir)
+    content = sorted(x for x in os.listdir(out_dir) if not x.startswith('.'))
     if not content:
         return None
     if not os.path.isfile(os.path.join(out_dir, OUTPUT_MARKER)):
         raise Error('%s does not come from this script (%s is missing) and will'
                     ' not be wiped. Check the path.' % (out_dir, OUTPUT_MARKER))
 
-    archiv = os.path.join(os.path.dirname(os.path.abspath(out_dir)), '_archiv')
-    if not os.path.isdir(archiv):
-        os.makedirs(archiv)
-    # The archive sits ONE LEVEL UP, not inside the directory being packed -
-    # otherwise every backup would be packed into the next one and they would
-    # grow geometrically.
-    # Seconds in the name are necessary: two runs within the same minute would
-    # OVERWRITE each other's archive and the older version would quietly
-    # vanish. Verified - it happened during testing.
-    base = os.path.join(archiv, '%s-%s' % (os.path.basename(os.path.abspath(out_dir)),
-                                             time.strftime('%Y-%m-%d-%H%M%S')))
-    # And one more guard on the second: when an archive of that name already
-    # exists, a number is appended. A backup must never be overwritten, not even
-    # by two runs within the same
-    # sekunde - overeno, stane se to pri skriptovanem pusteni za sebou.
-    if os.path.exists(base + '.zip'):
-        n = 2
-        while os.path.exists('%s-%d.zip' % (base, n)):
-            n += 1
-        base = '%s-%d' % (base, n)
-    fpath = shutil.make_archive(base, 'zip', root_dir=out_dir)
+    archive = archive_output(out_dir, content) if keep > 0 else None
+    prune_archives(out_dir, keep)
 
     for fname in content:
         path = os.path.join(out_dir, fname)
-        if os.path.isdir(path):
+        if os.path.isdir(path) and not os.path.islink(path):
             shutil.rmtree(path)
         else:
             os.remove(path)
+    return archive
+
+
+def archive_dir(out_dir):
+    """The archive sits ONE LEVEL UP, next to the destination, not inside it.
+
+    Inside, it would be uploaded to the hosting together with the site, and
+    every backup would be packed into the next one, growing geometrically.
+    """
+    return os.path.join(os.path.dirname(os.path.abspath(out_dir)), '_archiv')
+
+
+def archive_output(out_dir, content):
+    """Pack the entries about to be deleted into _archiv/<name>-<time>.zip.
+
+    Only what is going to be deleted goes in - dot entries stay in place, so
+    they have no business in the backup either, and .git would bloat it.
+    """
+    directory = archive_dir(out_dir)
+    if not os.path.isdir(directory):
+        os.makedirs(directory)
+    # Seconds in the name are necessary: two runs within the same minute would
+    # OVERWRITE each other's archive and the older version would quietly
+    # vanish. Verified - it happened during testing.
+    base = os.path.join(directory, '%s-%s' % (os.path.basename(os.path.abspath(out_dir)),
+                                               time.strftime('%Y-%m-%d-%H%M%S')))
+    # And one more guard on the second: when an archive of that name already
+    # exists, a number is appended. A backup must never be overwritten, not even
+    # by two runs within the same second - verified, it happens when the build
+    # is run from a script twice in a row.
+    fpath = base + '.zip'
+    n = 2
+    while os.path.exists(fpath):
+        fpath = '%s-%d.zip' % (base, n)
+        n += 1
+    with zipfile.ZipFile(fpath, 'w', zipfile.ZIP_DEFLATED) as z:
+        for fname in content:
+            path = os.path.join(out_dir, fname)
+            if os.path.isdir(path):
+                for root, _, files in os.walk(path):
+                    for f in sorted(files):
+                        full = os.path.join(root, f)
+                        z.write(full, os.path.relpath(full, out_dir))
+            else:
+                z.write(path, fname)
     return fpath
+
+
+def prune_archives(out_dir, keep):
+    """Keep only the newest `keep` archives of this destination.
+
+    Only files named the way archive_output() names them are considered, so
+    nothing else in _archiv is ever deleted - an archive of another
+    destination included.
+    """
+    directory = archive_dir(out_dir)
+    if not os.path.isdir(directory):
+        return
+    pattern = re.compile(r'^%s-(\d{4}-\d{2}-\d{2}-\d{6})(?:-(\d+))?\.zip$'
+                         % re.escape(os.path.basename(os.path.abspath(out_dir))))
+    found = []
+    for fname in os.listdir(directory):
+        m = pattern.match(fname)
+        if m:
+            found.append(((m.group(1), int(m.group(2) or 1)), fname))
+    found.sort()
+    for _, fname in found[:max(len(found) - keep, 0)]:
+        os.remove(os.path.join(directory, fname))
 
 
 def check_links(out_dir):
@@ -2331,7 +2399,10 @@ def check_links(out_dir):
     Returns the list of flattened links.
     """
     files, uppercase = set(), []
-    for root, _, names in os.walk(out_dir):
+    for root, dirs, names in os.walk(out_dir):
+        # Dot entries are not ours - .git, .well-known - and Z55 leaves them be,
+        # so they are neither checked nor offered as link targets.
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
         for s in names:
             rel = os.path.relpath(os.path.join(root, s), out_dir).replace(os.sep, '/')
             files.add(rel)
@@ -2426,7 +2497,7 @@ def template_dirs(vault):
 
 
 def collect(src, published_only, skip_dirs=()):
-    """Return ([(path, meta, body)], forgotten, legacy) for a file or directory.
+    """Return ([(path, meta, body)], forgotten, legacy, templates) for a directory.
 
     `forgotten` are articles carrying the frontmatter key publish but no marker.
     The key means nothing any more, so such an article does not go out - and its
@@ -2442,30 +2513,32 @@ def collect(src, published_only, skip_dirs=()):
     that is missing them.
     """
     templates = []
-    if os.path.isfile(src):
-        paths = [src]
-    else:
-        paths = []
-        for root, dirs, files in os.walk(src):
-            rel = os.path.relpath(root, src).replace(os.sep, '/').strip('./')
-            ponechat = []
-            for a in dirs:
-                if a.startswith(('.', '_')) or a in ATTACHMENT_DIRS:
-                    continue
-                if ('%s/%s' % (rel, a) if rel else a) in skip_dirs:
-                    # A marked article in here is a contradiction: the folder
-                    # says template, the marker says publish. It stays skipped
-                    # and the build says which one it was.
+    paths = []
+    for root, dirs, files in os.walk(src):
+        rel = os.path.relpath(root, src).replace(os.sep, '/').strip('./')
+        ponechat = []
+        for a in dirs:
+            if a.startswith(('.', '_')) or a in ATTACHMENT_DIRS:
+                continue
+            if ('%s/%s' % (rel, a) if rel else a) in skip_dirs:
+                # A marked article in here is a contradiction: the folder
+                # says template, the marker says publish. It stays skipped
+                # and the build says which one it was. With "*.md" there
+                # is no marker and so no contradiction.
+                if published_only:
                     templates.extend(
                         os.path.join(root, a, x)
                         for x in sorted(os.listdir(os.path.join(root, a)))
                         if x.lower().endswith('.md')
                         and is_published(os.path.join(root, a, x)))
-                    continue
-                ponechat.append(a)
-            dirs[:] = ponechat
-            paths.extend(os.path.join(root, s) for s in sorted(files)
-                         if s.lower().endswith('.md'))
+                continue
+            ponechat.append(a)
+        dirs[:] = ponechat
+        # A file starting with a dot or an underscore stays out, just
+        # like such a folder does, see K20.
+        paths.extend(os.path.join(root, s) for s in sorted(files)
+                     if s.lower().endswith('.md')
+                     and not s.startswith(('.', '_')))
     result, forgotten, legacy = [], [], []
     for c in paths:
         meta, body_text = split_frontmatter(read_text(c))
@@ -2480,68 +2553,47 @@ def collect(src, published_only, skip_dirs=()):
     return result, forgotten, legacy, templates
 
 
-def index_page(items):
-    lines = ['<h1>Obsah</h1>', '<ul class="rozcestnik">']
-    for c in sorted(items, key=lambda x: x['heading'].lower()):
-        lines.append('<li><a href="%s">%s</a></li>'
-                     % (c['file'], c['heading']))
-    lines.append('</ul>')
-    css = CSS.replace('@SIZE@', 'A4')
-    return HTML.format(lang=T['lang'], title='Obsah', css=css,
-                       body='\n'.join(lines), footer='')
-
-
 # ==============================================================================
 # Hlavni program
 # ==============================================================================
 
 def main():
     p = argparse.ArgumentParser(
-        description='Turn an Obsidian vault into HTML.')
-    p.add_argument('input', help='.md file or a directory')
-    p.add_argument('-o', '--out', help='output file or directory')
-    p.add_argument('--vault', help='where to look for ![[images]]'
-                                   ' (default: the input directory)')
-    p.add_argument('--title', help='title for a single file, when editing the'
-                                   ' source is not wanted (otherwise the'
-                                   ' frontmatter title, otherwise the filename)')
-    p.add_argument('--published-only', action='store_true',
-                   help='only articles carrying the publish marker in the name')
-    p.add_argument('--site', action='store_true',
-                   help='site mode: shared styl.css, images into img/.'
-                        ' Requires -o and implies --published-only')
-    p.add_argument('--base-url', help='absolute address of the site, e.g.'
-                                      ' https://pankostka.cz. Without it no'
-                                      ' rss.xml is written, because a feed'
-                                      ' cannot carry relative links')
+        description='Turn a directory of Markdown, typically an Obsidian vault,'
+                    ' into a static website.')
+    p.add_argument('--source', required=True,
+                   help='the directory with the .md files')
+    p.add_argument('--dest',
+                   help='the directory the site is built into. Required,'
+                        ' except with --check')
+    p.add_argument('--publish', required=True, metavar='PATTERN',
+                   help='what goes out: "*.md" everything, "*X.md" only the'
+                        ' articles whose name ends with the marker X, e.g.'
+                        ' "*\U0001F310.md". Quote it, or bash expands it')
+    p.add_argument('--keep-archives', type=int, metavar='N',
+                   help='how many zips of the previous output to keep in'
+                        ' _archiv next to the destination (default: %d)'
+                        % KEEP_ARCHIVES)
     p.add_argument('--check', action='store_true',
                    help='only verify that the site builds: writes to a temporary'
                         ' directory and touches nothing else. For a git hook')
-    p.add_argument('--clean', action='store_true',
-                   help='before building, archive the previous output into'
-                        ' _archiv and empty the output directory (site mode only)')
-    p.add_argument('--site-name', help='name of the site, used in the header and'
-                                       ' in page titles (default: the vault'
-                                       ' directory name)')
-    p.add_argument('--marker', default='🌐',
-                   help='the publish marker at the end of a filename'
-                        ' (default: a globe). A character that also turns up in'
-                        ' ordinary names is a poor marker - it is stripped off'
-                        ' the title as well')
-    p.add_argument('--all', action='store_true',
-                   help='convert every article, marker or not. The output is'
-                        ' still only a directory of HTML - uploading it'
-                        ' anywhere is a separate act. The build says how many'
-                        ' unmarked articles came along')
-    p.add_argument('--lang', default='cs',
-                   help='language of the generated site: cs or en (default: cs).'
-                        ' It also decides the page names, so a Czech site keeps'
-                        ' hledani.html and its published addresses')
+    # A pattern that bash expanded arrives as several file names, and all but
+    # the first land here. Collected rather than refused by argparse, so the
+    # error can say what happened instead of 'unrecognized arguments'.
+    p.add_argument('stray', nargs='*', help=argparse.SUPPRESS)
     args = p.parse_args()
 
+    if args.stray:
+        if all(x.lower().endswith('.md') for x in args.stray):
+            print('ERROR: --publish got several file names, so the shell'
+                  ' expanded the pattern. Put it in quotes: --publish "*.md"')
+        else:
+            print('ERROR: unexpected arguments: %s. The input is given by'
+                  ' --source.' % ' '.join(args.stray))
+        return 2
+
     try:
-        set_language(args.lang)
-        set_marker(args.marker)
+        marker = set_publish(args.publish)
     except Error as e:
         print('ERROR: %s' % e)
         return 2
@@ -2549,58 +2601,44 @@ def main():
     # A marker made of ordinary characters cannot be told apart from a name
     # that simply ends that way. It still works, but the author should hear it
     # once rather than wonder later why an article went out.
-    if not any(ord(z) > 0x2000 for z in args.marker):
+    if marker and not any(ord(z) > 0x2000 for z in marker):
         print('NOTE: the marker %r is made of ordinary characters, so an'
               ' article whose name merely ends that way goes out too.'
-              % args.marker)
+              % marker)
 
-    if not os.path.exists(args.input):
-        print('ERROR: input does not exist: %s' % args.input)
+    # Check mode writes nowhere, so a destination next to it would only make
+    # somebody believe the site went there.
+    if args.check and (args.dest or args.keep_archives is not None):
+        print('ERROR: --check writes nowhere, so --dest and --keep-archives'
+              ' make no sense with it.')
         return 2
-
-    # Site mode without the filter would dump the whole vault onto the
-    # internet. That is not a convenience, it is a safeguard.
-    # Check mode is site mode that builds into a temporary directory and throws
-    # the result away. It is for a git hook that wants to know whether the site
-    # builds at all. No mode writes into the vault any more, see guarantee Z45.
-    if args.check:
-        args.site = True
-    if args.site:
-        args.published_only = True
-    # --all wins over everything, site mode included. It is not a second way for
-    # an article to be published by accident - it is one explicit instruction,
-    # and the build repeats out loud what it did.
-    if args.all:
-        args.published_only = False
     # Where output goes is decided by a flag - no default path in the code. The
     # output belongs outside the repository and outside the vault, and only the
     # author knows where, see guarantee Z50.
-    if args.site and not args.out and not args.check:
-        print('ERROR: --site needs -o, that is where to build the site.')
+    if not args.check and not args.dest:
+        print('ERROR: --dest is required, that is where to build the site.')
+        return 2
+    keep = KEEP_ARCHIVES if args.keep_archives is None else args.keep_archives
+    if keep < 0:
+        print('ERROR: --keep-archives cannot be negative.')
         return 2
 
-    if args.clean and not args.site:
-        print('ERROR: --clean only makes sense together with --site.')
+    if not os.path.isdir(args.source):
+        print('ERROR: --source is not a directory: %s' % args.source)
         return 2
 
-    batch_mode = os.path.isdir(args.input)
-    vault = os.path.abspath(args.vault or
-                            (args.input if batch_mode
-                             else os.path.dirname(os.path.abspath(args.input))))
+    vault = os.path.abspath(args.source)
 
     tmp_dir = None
     try:
+        # Two config directories stop the build here, before the destination
+        # is emptied, so the output that was there stays in place.
+        conf_name = config_name(vault)
+        config = read_config(vault)
+        set_language(config['lang'])
+
         items, forgotten, legacy, templates = collect(
-            args.input, args.published_only, template_dirs(vault))
-        # --all is loud on purpose. The safeguard is that publishing is a
-        # deliberate act; a flag that switches it off has to say so, or the
-        # next person to read the log will not know what went out.
-        if args.all:
-            unmarked = [c for c, _, _ in items if not is_published(c)]
-            print('\nNOTE: --all, so %d of the %d articles carry no marker.'
-                  % (len(unmarked), len(items)))
-            print('A directory of HTML is what comes out; uploading it anywhere'
-                  ' is a separate act.')
+            args.source, bool(marker), template_dirs(vault))
         if not items:
             print('Nothing to convert.')
             return 1
@@ -2612,8 +2650,8 @@ def main():
         # repeat - in PKVault five notes out of the task template have the H1
         # 'Popis' - and a slug taken from the title would quietly overwrite one
         # with another. A filename is unambiguous within its folder. Should a
-        # clash happen anyway (the same name in two folders), a number is
-        # appended and it is reported.
+        # clash happen anyway (the same name in two folders), the build stops:
+        # on a website an address is a commitment.
         #
         # The frontmatter key slug overrides only the OUTPUT FILENAME. It exists
         # for the sake of address stability: a published article keeps its slug
@@ -2625,33 +2663,25 @@ def main():
         # knows only the target note's name and is resolved through slug(stem) -
         # see Conversion.resolve_wikilinks. Were the key the overriding slug,
         # links to such a note would stop leading anywhere.
-        plan, batch, used, clashes, guessed_dates = [], {}, set(), [], []
+        plan, batch, used, guessed_dates = [], {}, set(), []
         bad_dates = []
         oversized = []
         for path, meta, body_text in items:
             stem = os.path.splitext(os.path.basename(path))[0]
             key = slug(stem)
-            base = slug(meta['slug']) if meta.get('slug') else key
-            name, n = base, 2
-            while name in used:
-                name, n = '%s-%d' % (base, n), n + 1
-            if name != base:
-                # On a website an address is a commitment and must not change
-                # with whatever happens to be published alongside the article.
-                # A quiet rename to -2 is acceptable for a batch going out by
-                # email, not for a site.
-                if args.site:
-                    raise Error('Address clash on %s.html - two articles share a'
-                                ' name. Rename one of them: %s'
-                                % (base, path))
-                clashes.append('%s -> %s.html' % (path, name))
-            if args.site and not meta.get('date'):
-                # The decision to publish is carried by the marker, so a
+            name = slug(meta['slug']) if meta.get('slug') else key
+            if name in used:
+                # An address must not change with whatever happens to be
+                # published alongside the article, so there is no quiet -2.
+                raise Error('Address clash on %s.html - two articles share a'
+                            ' name. Rename one of them: %s' % (name, path))
+            if not meta.get('date'):
+                # The decision to publish is carried by --publish, so a
                 # missing date does not fail the build - the file's date is
                 # used. Nothing is written into the source, see guarantee Z45.
                 meta['date'] = file_date(path)
                 guessed_dates.append((path, meta['date']))
-            elif meta.get('date') and not is_date(meta['date']):
+            elif not is_date(meta['date']):
                 # Reported rather than refused: what a date should look like is
                 # the author's business, and a build that stops over one article
                 # is worse than one that says which article it is.
@@ -2660,103 +2690,83 @@ def main():
             batch.setdefault(key, name + '.html')
             plan.append((path, meta, body_text, name))
 
-        # Two config directories stop the build BEFORE --clean, so the output
-        # that was there stays in place rather than going to the archive.
-        conf_name = config_name(vault) if args.site else CONFIG_DIR
-
         if args.check:
             tmp_dir = tempfile.mkdtemp(prefix='md2html-kontrola-')
             out_dir = tmp_dir
-        elif args.site:
-            out_dir = args.out
-        elif batch_mode:
-            out_dir = args.out or 'html'
         else:
-            out_dir = None
-        if args.clean:
-            archiv = clean_output(out_dir)
-            if archiv:
+            out_dir = args.dest
+            archive = prepare_dest(out_dir, keep)
+            if archive:
                 print('  %s  (%.0f kB, the previous output)'
-                      % (archiv, os.path.getsize(archiv) / 1024.0))
-        if out_dir and not os.path.isdir(out_dir):
-            os.makedirs(out_dir)
+                      % (archive, os.path.getsize(archive) / 1024.0))
 
         renamed = {}
-        site = None
-        if args.site:
-            # Lista je z TAGU, ne z adresaru. Adresare by do verejne navigace
-            # propsaly strukturu vaultu - v menu by pristal i interni zapis.
-            all_tags = set()
-            leading = set()
-            plain_at = {}
-            # The tag sets of all the articles, each with its address. The
-            # filter in the header of an article counts out of them and opens
-            # the one article a click leaves, and the bar is drawn before the
-            # listing exists - so they are collected here, with the tags.
-            tag_sets = []
-            for path, meta, _, name in plan:
-                tags = tags_from_meta(meta)
-                lead = lead_tags(meta)
-                tag_sets.append({'url': name + '.html', 'tags': tags})
-                all_tags.update(tags)
-                leading.update(lead)
-                for tag in tags:
-                    if tag not in lead:
-                        plain_at.setdefault(tag, []).append(path)
-            # Stara slozka _web se uz necte. Mlcet o ni nejde: web by se
-            # built without a logo, without the bar and without the custom
-            # styles, and it would look like a fault in the generator rather
-            # than a directory nobody renamed.
-            if (os.path.isdir(os.path.join(vault, '_web'))
-                    and not os.path.isdir(os.path.join(vault, conf_name))):
-                print('\nNOTE: the vault has a _web directory, which is no longer'
-                      ' read. Rename it to %s or %s.' % CONFIG_DIRS)
-                print('Inside it, rename menu_webu.md to menu.md.')
+        # Lista je z TAGU, ne z adresaru. Adresare by do verejne navigace
+        # propsaly strukturu vaultu - v menu by pristal i interni zapis.
+        all_tags = set()
+        leading = set()
+        plain_at = {}
+        # The tag sets of all the articles, each with its address. The
+        # filter in the header of an article counts out of them and opens
+        # the one article a click leaves, and the bar is drawn before the
+        # listing exists - so they are collected here, with the tags.
+        tag_sets = []
+        for path, meta, _, name in plan:
+            tags = tags_from_meta(meta)
+            lead = lead_tags(meta)
+            tag_sets.append({'url': name + '.html', 'tags': tags})
+            all_tags.update(tags)
+            leading.update(lead)
+            for tag in tags:
+                if tag not in lead:
+                    plain_at.setdefault(tag, []).append(path)
+        # Stara slozka _web se uz necte. Mlcet o ni nejde: web by se
+        # built without a logo, without the bar and without the custom
+        # styles, and it would look like a fault in the generator rather
+        # than a directory nobody renamed.
+        if (os.path.isdir(os.path.join(vault, '_web'))
+                and not os.path.isdir(os.path.join(vault, conf_name))):
+            print('\nNOTE: the vault has a _web directory, which is no longer'
+                  ' read. Rename it to %s or %s.' % CONFIG_DIRS)
+            print('Inside it, rename menu_webu.md to menu.md.')
 
-            menu_source, intro, home_title, custom_css = site_inputs(vault, batch)
-            no_tag = any(not tags_from_meta(m) for _, m, _ in items)
-            site = {'name': args.site_name or os.path.basename(vault),
-                   'tags': sorted(all_tags),
-                   'lead_tags': sorted(leading),
-                   'tag_sets': tag_sets,
-                   'menu': menu_items(menu_source, sorted(all_tags), no_tag),
-                   'logo': None,
-                   'rss': bool(args.base_url),
-                   'description': text_from_html(intro) if intro else None,
-                   'head_extra': ('<link rel="alternate" type="application/rss+xml"'
-                             ' title="%s" href="rss.xml">'
-                             % (args.site_name or os.path.basename(vault)))
-                            if args.base_url else ''}
-            # Znacka rika, ze adresar patri generatoru. Uklid pred buildem smi
-            # wipe only a directory that carries it - never somebody else's,
-            # not even after a typo in the path.
-            open(os.path.join(out_dir, OUTPUT_MARKER), 'w').close()
-            cesta_css = os.path.join(out_dir, 'styl.css')
-            with open(cesta_css, 'w', encoding='utf-8', newline='\n') as f:
-                f.write(CSS_WEB)
-                if custom_css:
-                    f.write('\n/* --- ' + conf_name + '/styl.css --- */\n')
-                    f.write(custom_css)
-            print('  %s' % cesta_css)
-            site['logo'] = find_logo(vault, out_dir)
-            if not site['logo']:
-                print('  (no logo: %s/logo.svg or .png is expected,'
-                      ' the header sets the name instead)' % conf_name)
+        menu_source, intro, home_title, custom_css = site_inputs(vault, batch)
+        no_tag = any(not tags_from_meta(m) for _, m, _ in items)
+        site = {'name': config['name'],
+               'tags': sorted(all_tags),
+               'lead_tags': sorted(leading),
+               'tag_sets': tag_sets,
+               'menu': menu_items(menu_source, sorted(all_tags), no_tag),
+               'logo': None,
+               'rss': bool(config['base_url']),
+               'description': text_from_html(intro) if intro else None,
+               'head_extra': ('<link rel="alternate" type="application/rss+xml"'
+                         ' title="%s" href="rss.xml">'
+                         % config['name'])
+                        if config['base_url'] else ''}
+        # Znacka rika, ze adresar patri generatoru. Uklid pred buildem smi
+        # wipe only a directory that carries it - never somebody else's,
+        # not even after a typo in the path.
+        open(os.path.join(out_dir, OUTPUT_MARKER), 'w').close()
+        cesta_css = os.path.join(out_dir, 'styl.css')
+        with open(cesta_css, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(CSS_WEB)
+            if custom_css:
+                f.write('\n/* --- ' + conf_name + '/styl.css --- */\n')
+                f.write(custom_css)
+        print('  %s' % cesta_css)
+        site['logo'] = find_logo(vault, out_dir)
+        if not site['logo']:
+            print('  (no logo: %s/logo.svg or .png is expected,'
+                  ' the header sets the name instead)' % conf_name)
 
-        conv = Conversion(vault, batch, site=args.site)
+        conv = Conversion(vault, batch)
         produced = []
         for path, meta, body_text, name in plan:
-            heading, html = to_html(
-                path, conv,
-                title=None if batch_mode else args.title,
-                out_dir=out_dir if args.site else None, renamed=renamed,
-                site=site, date=meta.get('date'))
-            # -o je zaklad cesty, priponu doplnujeme.
-            if out_dir:
-                base_path = os.path.join(out_dir, name)
-            else:
-                base_path = os.path.splitext(args.out or name)[0]
-            html_soubor = base_path + '.html'
+            heading, html = to_html(path, conv, out_dir=out_dir,
+                                    renamed=renamed, site=site,
+                                    date=meta.get('date'))
+            html_soubor = os.path.join(out_dir, name + '.html')
             with open(html_soubor, 'w', encoding='utf-8', newline='\n') as f:
                 f.write(html)
             print('  %s  (%.0f kB)' % (html_soubor,
@@ -2764,17 +2774,16 @@ def main():
             produced.append({'heading': heading, 'date': meta.get('date', ''),
                              'tags': tags_from_meta(meta),
                              'file': os.path.basename(html_soubor),
-                             'excerpt': excerpt(body_text, meta, conv) if args.site else '',
-                             'text': text_from_html(html) if args.site else '',
+                             'excerpt': excerpt(body_text, meta, conv),
+                             'text': text_from_html(html),
                              'image': None})
-            if args.site:
-                zdroj_obr = excerpt_image(path)
-                if zdroj_obr:
-                    produced[-1]['image'] = copy_attachment(
-                        zdroj_obr, out_dir, renamed)
-                    if os.path.getsize(zdroj_obr) > EXCERPT_IMAGE_LIMIT:
-                        oversized.append(
-                            (zdroj_obr, os.path.getsize(zdroj_obr) / 1024.0))
+            zdroj_obr = excerpt_image(path)
+            if zdroj_obr:
+                produced[-1]['image'] = copy_attachment(
+                    zdroj_obr, out_dir, renamed)
+                if os.path.getsize(zdroj_obr) > EXCERPT_IMAGE_LIMIT:
+                    oversized.append(
+                        (zdroj_obr, os.path.getsize(zdroj_obr) / 1024.0))
 
         def zapis(nazev_souboru, html):
             cesta_s = os.path.join(out_dir, nazev_souboru)
@@ -2782,113 +2791,107 @@ def main():
                 f.write(html)
             return cesta_s
 
-        if args.site:
-            # Ordering: date descending, the name on a tie. Without the
-            # secondary key
-            # bylo poradi uvnitr serie se stejnym datem libovolne.
-            ordered = sorted(produced, key=lambda c: c['heading'].lower())
-            ordered.sort(key=lambda c: c['date'], reverse=True)
+        # Ordering: date descending, the name on a tie. Without the
+        # secondary key
+        # bylo poradi uvnitr serie se stejnym datem libovolne.
+        ordered = sorted(produced, key=lambda c: c['heading'].lower())
+        ordered.sort(key=lambda c: c['date'], reverse=True)
 
-            print('  %s  (a filter over %d articles)'
-                  % (zapis('index.html',
-                           front_page(ordered, site, intro, home_title)),
-                     len(ordered)))
+        print('  %s  (a filter over %d articles)'
+              % (zapis('index.html',
+                       front_page(ordered, site, intro, home_title)),
+                 len(ordered)))
 
-            # Tag pages use the same listing. They are produced here because
-            # the bar on every page links to them, and the link check would
-            # otherwise trip over a target that does not exist.
-            # The heading is hidden here as well - which tag the filter is on is
-            # said by the highlighted button in the bar, so it is redundant in
-            # the text.
-            for tag in site['tags']:
-                sem = [c for c in ordered if tag in c['tags']]
-                # Reachable = tags that co-occur with this one somewhere. The
-                # bar dims the rest, so a combination yielding nothing cannot
-                # even be clicked.
-                reachable = {t for c in sem for t in c['tags']}
-                for nazev_s, html_s in card_grid(sem, T['tag_prefix'] + slug(tag),
-                                                    tag, site, tag,
-                                                    hidden_heading=True,
-                                                    active_tag=tag,
-                                                    reachable=reachable):
-                    print('  %s  (%d articles, %d combinable tags)'
-                          % (zapis(nazev_s, html_s), len(sem),
-                             len(reachable - {tag})))
+        # Tag pages use the same listing. They are produced here because
+        # the bar on every page links to them, and the link check would
+        # otherwise trip over a target that does not exist.
+        # The heading is hidden here as well - which tag the filter is on is
+        # said by the highlighted button in the bar, so it is redundant in
+        # the text.
+        for tag in site['tags']:
+            sem = [c for c in ordered if tag in c['tags']]
+            # Reachable = tags that co-occur with this one somewhere. The
+            # bar dims the rest, so a combination yielding nothing cannot
+            # even be clicked.
+            reachable = {t for c in sem for t in c['tags']}
+            for nazev_s, html_s in card_grid(sem, T['tag_prefix'] + slug(tag),
+                                                tag, site, tag,
+                                                hidden_heading=True,
+                                                active_tag=tag,
+                                                reachable=reachable):
+                print('  %s  (%d articles, %d combinable tags)'
+                      % (zapis(nazev_s, html_s), len(sem),
+                         len(reachable - {tag})))
 
-            sem = [c for c in ordered if not c['tags']]
-            if sem:
-                for nazev_s, html_s in card_grid(
-                        sem, T['tag_prefix'] + T['no_tag_slug'], T['no_tag_heading'], site,
-                        tag_page(T['no_tag_slug']), hidden_heading=True,
-                        active_tag=T['no_tag_slug']):
-                    print('  %s  (%d articles without tags)'
-                          % (zapis(nazev_s, html_s), len(sem)))
+        sem = [c for c in ordered if not c['tags']]
+        if sem:
+            for nazev_s, html_s in card_grid(
+                    sem, T['tag_prefix'] + T['no_tag_slug'], T['no_tag_heading'], site,
+                    tag_page(T['no_tag_slug']), hidden_heading=True,
+                    active_tag=T['no_tag_slug']):
+                print('  %s  (%d articles without tags)'
+                      % (zapis(nazev_s, html_s), len(sem)))
 
-            if args.base_url:
-                print('  %s  (%d items)'
-                      % (zapis('rss.xml', rss(ordered, site, args.base_url)),
-                         min(len(ordered), RSS_ITEMS)))
-        elif batch_mode:
-            cesta_s = zapis('index.html', index_page(produced))
-            print('  %s  (an index of %d pages)' % (cesta_s, len(produced)))
+        if config['base_url']:
+            print('  %s  (%d items)'
+                  % (zapis('rss.xml', rss(ordered, site, config['base_url'])),
+                     min(len(ordered), RSS_ITEMS)))
 
-        if args.site:
-            flattened_links = check_links(out_dir)
-            if flattened_links:
-                print('\nFlattened file links (%d): no such target in the'
-                      ' output, only the text is left.' % len(flattened_links))
-                for x in flattened_links[:10]:
-                    print('  %s' % x)
-                if len(flattened_links) > 10:
-                    print('  ... and %d more' % (len(flattened_links) - 10))
+        flattened_links = check_links(out_dir)
+        if flattened_links:
+            print('\nFlattened file links (%d): no such target in the'
+                  ' output, only the text is left.' % len(flattened_links))
+            for x in flattened_links[:10]:
+                print('  %s' % x)
+            if len(flattened_links) > 10:
+                print('  ... and %d more' % (len(flattened_links) - 10))
 
-        if args.site:
-            # Kuratorovany seznam v KONFIG/menu.md rozhoduje, co je v liste. Novy
-            # a new tag does not add itself there, because the point of curating
-            # is to keep the bar
-            # kratkou - ale mlcet o tom by znamenalo, ze si autor doplni tag a
-            # and wonders why it is not in the bar.
-            in_menu = set(x for _, _, x in site['menu'] if x)
-            missing = [x for x in site['tags'] if x not in in_menu]
-            if missing:
-                print('\nTags outside the bar (%d): the page is generated and an'
-                      ' article footer links to it, but it is not in the bar.'
-                      % len(missing))
-                print('Add a line to %s/menu.md when it belongs there:' % conf_name)
-                for x in missing:
-                    print('  `#%s`  ->  %s' % (x, tag_page(x)))
+        # Kuratorovany seznam v KONFIG/menu.md rozhoduje, co je v liste. Novy
+        # a new tag does not add itself there, because the point of curating
+        # is to keep the bar
+        # kratkou - ale mlcet o tom by znamenalo, ze si autor doplni tag a
+        # and wonders why it is not in the bar.
+        in_menu = set(x for _, _, x in site['menu'] if x)
+        missing = [x for x in site['tags'] if x not in in_menu]
+        if missing:
+            print('\nTags outside the bar (%d): the page is generated and an'
+                  ' article footer links to it, but it is not in the bar.'
+                  % len(missing))
+            print('Add a line to %s/menu.md when it belongs there:' % conf_name)
+            for x in missing:
+                print('  `#%s`  ->  %s' % (x, tag_page(x)))
 
-            # The opposite case: the bar names a tag that no published article
-            # carries. Its page is never generated, so it is dimmed in the bar
-            # - but the author should know why, or the bar just looks broken.
-            # `_Obsidian` and `Obsidian` are one tag, so a single marked
-            # occurrence is enough to lead. Staying silent about the rest
-            # would be wrong: the author wrote the mark once and forgot it ten
-            # times, and the next reading of the vault will not show that.
-            half_marked = sorted(x for x in leading if x in plain_at)
-            if half_marked:
-                print('\nA leading tag written without the mark (%d): the tag'
-                      ' leads the filter, but only some articles say so. Add'
-                      ' the %r, or drop it everywhere:'
-                      % (len(half_marked), LEAD_MARK))
-                for x in half_marked:
-                    where = plain_at[x]
-                    print('  `#%s%s`  ->  written as `#%s` in %d:'
-                          % (LEAD_MARK, x, x, len(where)))
-                    for c in where[:5]:
-                        print('      %s' % c)
-                    if len(where) > 5:
-                        print('      ... and %d more' % (len(where) - 5))
+        # The opposite case: the bar names a tag that no published article
+        # carries. Its page is never generated, so it is dimmed in the bar
+        # - but the author should know why, or the bar just looks broken.
+        # `_Obsidian` and `Obsidian` are one tag, so a single marked
+        # occurrence is enough to lead. Staying silent about the rest
+        # would be wrong: the author wrote the mark once and forgot it ten
+        # times, and the next reading of the vault will not show that.
+        half_marked = sorted(x for x in leading if x in plain_at)
+        if half_marked:
+            print('\nA leading tag written without the mark (%d): the tag'
+                  ' leads the filter, but only some articles say so. Add'
+                  ' the %r, or drop it everywhere:'
+                  % (len(half_marked), LEAD_MARK))
+            for x in half_marked:
+                where = plain_at[x]
+                print('  `#%s%s`  ->  written as `#%s` in %d:'
+                      % (LEAD_MARK, x, x, len(where)))
+                for c in where[:5]:
+                    print('      %s' % c)
+                if len(where) > 5:
+                    print('      ... and %d more' % (len(where) - 5))
 
-            empty_tags = [x for x in in_menu if x not in site['tags']]
-            if empty_tags:
-                print('\nTags in the bar with no articles (%d): no page is'
-                      ' generated, they are dimmed in the bar and cannot be'
-                      ' clicked.' % len(empty_tags))
-                print('Publish an article with that tag, or drop the line from'
-                      ' %s/menu.md:' % conf_name)
-                for x in sorted(empty_tags):
-                    print('  `#%s`' % x)
+        empty_tags = [x for x in in_menu if x not in site['tags']]
+        if empty_tags:
+            print('\nTags in the bar with no articles (%d): no page is'
+                  ' generated, they are dimmed in the bar and cannot be'
+                  ' clicked.' % len(empty_tags))
+            print('Publish an article with that tag, or drop the line from'
+                  ' %s/menu.md:' % conf_name)
+            for x in sorted(empty_tags):
+                print('  `#%s`' % x)
 
         if oversized:
             print('\nOversized thumbnails (%d): on the front page they are shown'
@@ -2930,12 +2933,6 @@ def main():
                   ' these do NOT go out.' % len(forgotten))
             for c in forgotten:
                 print('  %s' % c)
-
-        if clashes:
-            print('\nName clashes (%d): the same filename in two folders, '
-                  'prejmenovano.' % len(clashes))
-            for k in clashes:
-                print('  %s' % k)
 
         if conv.flattened:
             unique = sorted(set(conv.flattened))

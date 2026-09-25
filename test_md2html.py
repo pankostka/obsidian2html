@@ -27,12 +27,13 @@ import sys
 import tempfile
 import time
 import unittest
+import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import md2html
 
 
-MARKER = md2html.PUBLISH_MARKER
+MARKER = '\U0001F310'
 
 
 class Zaklad(unittest.TestCase):
@@ -89,27 +90,47 @@ class Zaklad(unittest.TestCase):
     # -- spusteni -----------------------------------------------------------
 
     def build(self, *prepinace, **kw):
-        """Pusti main() a vrati (navratovy kod, vypis na stdout).
+        """Pusti main() a vrati (navratovy kod, vypis na stdout i stderr).
 
-        Vstup je vault a vystup self.vystup, pokud se nerekne jinak.
+        Vstup je vault, vystup self.vystup a publikuje se jen s globusem,
+        pokud se nerekne jinak. publikovat=None --publish vynecha uplne.
+        Chybu v argumentech hlasi argparse pres SystemExit, tady se z ni
+        stane navratovy kod jako z kterekoli jine.
         """
-        vstup = kw.pop('vstup', self.vault)
-        argv = ['md2html.py', vstup] + list(prepinace)
+        publikovat = kw.pop('publikovat', '*' + MARKER + '.md')
+        argv = ['md2html.py', '--source', kw.pop('vstup', self.vault)]
+        if publikovat is not None:
+            argv += ['--publish', publikovat]
         if kw.pop('s_vystupem', True):
-            argv += ['-o', self.vystup]
+            argv += ['--dest', self.vystup]
+        argv += list(prepinace)
         puvodni = sys.argv
         zachyt = io.StringIO()
         try:
             sys.argv = argv
-            with contextlib.redirect_stdout(zachyt):
-                kod = md2html.main()
+            with contextlib.redirect_stdout(zachyt), \
+                    contextlib.redirect_stderr(zachyt):
+                try:
+                    kod = md2html.main()
+                except SystemExit as e:
+                    kod = e.code
         finally:
             sys.argv = puvodni
         return kod, zachyt.getvalue()
 
-    def web(self, *prepinace, **kw):
-        """Build v rezimu --web. Nejcastejsi pripad, at se to nepise porad."""
-        return self.build('--site', *prepinace, **kw)
+    # Dnes je jen jeden druh buildu, web. Jmeno zustava, testy ho pouzivaji.
+    web = build
+
+    def konfigurace(self, text):
+        """Zalozi config.toml v konfiguracni slozce vaultu."""
+        return self.soubor('.obsidian2html/config.toml', text)
+
+    def archivy(self):
+        """Zipy predchoziho vystupu v _archiv vedle cile, serazene."""
+        adresar = os.path.join(self.docasny, '_archiv')
+        if not os.path.isdir(adresar):
+            return []
+        return sorted(os.listdir(adresar))
 
     # -- cteni vystupu ------------------------------------------------------
 
@@ -205,7 +226,7 @@ class Zaruky(Zaklad):
     def test_Z30_chybejici_obrazek_je_chyba(self):
         """V tichosti by vznikl dokument s prazdnym mistem a odesel uzivateli."""
         self.clanek('Prvni', 'Obrazek: ![[chybi.png]]\n')
-        kod, vypis = self.build(s_vystupem=True)
+        kod, vypis = self.web()
         self.assertEqual(kod, 1, 'build mel skoncit chybou, vypis:\n' + vypis)
         self.assertIn('ERROR', vypis)
 
@@ -249,11 +270,22 @@ class Zaruky(Zaklad):
     def test_Z50_web_bez_vystupu_skonci_chybou(self):
         """Kam se zapisuje, urcuje parametr - zadna vychozi cesta v kodu."""
         self.clanek('Prvni', 'Text.')
-        kod, vypis = self.build('--site', s_vystupem=False)
+        kod, vypis = self.build(s_vystupem=False)
         self.assertEqual(kod, 2, vypis)
-        self.assertIn('-o', vypis)
+        self.assertIn('--dest', vypis)
 
-    def test_Z50_uklid_nesmaze_cizi_adresar(self):
+    def test_Z50_kontrola_s_cilem_je_chyba(self):
+        """--check nikam nezapisuje, cil vedle nej by jen mate."""
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.build('--check')
+        self.assertEqual(kod, 2, vypis)
+        self.assertFalse(os.path.exists(self.vystup), 'kontrola zapsala do cile')
+
+        kod, vypis = self.build('--check', '--keep-archives', '3',
+                                s_vystupem=False)
+        self.assertEqual(kod, 2, vypis)
+
+    def test_Z55_uklid_nesmaze_cizi_adresar(self):
         """Mazat smi jen adresar se znackou, aby preklep v ceste neublizil."""
         self.clanek('Prvni', 'Text.')
         os.makedirs(self.vystup)
@@ -261,10 +293,106 @@ class Zaruky(Zaklad):
         with open(cizi, 'w', encoding='utf-8') as f:
             f.write('data, ktera nejsou generovana')
 
-        kod, vypis = self.web('--clean')
+        kod, vypis = self.web()
         self.assertNotEqual(kod, 0,
                             'build mel odmitnout uklidit adresar bez znacky')
         self.assertTrue(os.path.isfile(cizi), 'cizi soubor byl smazan')
+
+    def test_Z55_co_uz_na_web_nepatri_zmizi(self):
+        """Clanek, kteremu se odebral marker, nesmi zustat na webu z minula."""
+        self.clanek('Prvni', 'Text.')
+        cesta = self.clanek('Druha', 'Text.')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('druha.html', self.stranky())
+
+        os.remove(cesta)
+        self.clanek('Druha', 'Text.', publikovany=False)
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertNotIn('druha.html', self.stranky())
+        self.assertIn('prvni.html', self.stranky())
+
+    def test_Z55_polozky_s_teckou_zustanou(self):
+        """.git a rucne pridane soubory pro server build neprezije jen tak."""
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        os.makedirs(os.path.join(self.vystup, '.git'))
+        for rel in ('.git/HEAD', '.htaccess'):
+            with open(os.path.join(self.vystup, rel), 'w') as f:
+                f.write('x')
+
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertTrue(os.path.isfile(os.path.join(self.vystup, '.git', 'HEAD')))
+        self.assertTrue(os.path.isfile(os.path.join(self.vystup, '.htaccess')))
+
+    def test_Z55_cil_jen_s_teckou_se_postavi(self):
+        """Cerstvy klon repozitare nema znacku, ale cizi to neni."""
+        self.clanek('Prvni', 'Text.')
+        os.makedirs(os.path.join(self.vystup, '.git'))
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('prvni.html', self.stranky())
+
+    def test_Z55_predchozi_obsah_jde_do_archivu_o_uroven_vys(self):
+        """Archiv mimo cil se s webem nenahraje a nezabali sam do sebe."""
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertEqual(self.archivy(), [], 'prvni build nema co archivovat')
+        with open(os.path.join(self.vystup, '.htaccess'), 'w') as f:
+            f.write('x')
+
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        archivy = self.archivy()
+        self.assertEqual(len(archivy), 1, archivy)
+        self.assertTrue(archivy[0].startswith('web-'), archivy)
+        with zipfile.ZipFile(os.path.join(self.docasny, '_archiv',
+                                          archivy[0])) as z:
+            jmena = z.namelist()
+        self.assertIn('prvni.html', jmena)
+        self.assertNotIn('.htaccess', jmena)
+        self.assertNotIn('.vygenerovano', jmena)
+
+    def test_Z55_archivu_zustane_jen_zadany_pocet(self):
+        self.clanek('Prvni', 'Text.')
+        for _ in range(4):
+            kod, vypis = self.web('--keep-archives', '2')
+            self.assertEqual(kod, 0, vypis)
+        self.assertEqual(len(self.archivy()), 2, self.archivy())
+
+    def test_Z55_vychozi_pocet_archivu_je_deset(self):
+        self.clanek('Prvni', 'Text.')
+        for _ in range(12):
+            kod, vypis = self.web()
+            self.assertEqual(kod, 0, vypis)
+        self.assertEqual(len(self.archivy()), 10, self.archivy())
+
+    def test_Z55_nula_archivu_zadny_zip(self):
+        self.clanek('Prvni', 'Text.')
+        for _ in range(2):
+            kod, vypis = self.web('--keep-archives', '0')
+            self.assertEqual(kod, 0, vypis)
+        self.assertEqual(self.archivy(), [])
+
+    def test_Z55_cizi_soubor_v_archivu_zustane(self):
+        """Uklid archivu maze jen zipy tohoto cile ve tvaru, jaky sam dela."""
+        self.clanek('Prvni', 'Text.')
+        adresar = os.path.join(self.docasny, '_archiv')
+        os.makedirs(adresar)
+        cizi = [os.path.join(adresar, x) for x in
+                ('jiny-web-2020-01-01-120000.zip', 'web-poznamka.zip')]
+        for c in cizi:
+            with open(c, 'w') as f:
+                f.write('x')
+        for _ in range(2):
+            kod, vypis = self.web('--keep-archives', '0')
+            self.assertEqual(kod, 0, vypis)
+        for c in cizi:
+            self.assertTrue(os.path.isfile(c), c)
 
     def test_Z50_kontrola_po_sobe_nenecha_adresar(self):
         """--check nikam nezapisuje, ani do tempu. Hook bezi pri kazdem commitu."""
@@ -314,10 +442,10 @@ class Konvence(Zaklad):
         self.assertNotIn('soukromy.html', stranky)
 
     def test_K10_marker_se_da_zmenit(self):
-        """Vault smi pouzivat jiny znak. Vychozi zustava globus."""
+        """Vault smi pouzivat jiny znak nez globus."""
         self.soubor('Verejny ★.md', '---\ndate: 2026-01-01\n---\nText.\n')
         self.soubor('Soukromy.md', '---\ndate: 2026-01-01\n---\nText.\n')
-        kod, vypis = self.web('--marker', '★')
+        kod, vypis = self.web(publikovat='*★.md')
         self.assertEqual(kod, 0, vypis)
 
         stranky = self.stranky()
@@ -325,50 +453,50 @@ class Konvence(Zaklad):
         self.assertNotIn('soukromy.html', stranky)
         self.assertNotIn('★', self.vystupni('verejny.html'))
 
-    def test_K10_vychozi_marker_je_globus(self):
-        """Protejsek predchoziho: bez --marker plati globus, ne hvezda."""
-        self.soubor('Hvezda ★.md', '---\ndate: 2026-01-01\n---\nText.\n')
-        self.clanek('Globus', 'Text.')
-        kod, vypis = self.web()
-        self.assertEqual(kod, 0, vypis)
-
-        stranky = self.stranky()
-        self.assertIn('globus.html', stranky)
-        self.assertNotIn('hvezda.html', stranky)
+    def test_K10_publish_je_povinny(self):
+        """Vychozi hodnota by rozhodovala potichu, co jde ven."""
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web(publikovat=None)
+        self.assertEqual(kod, 2, vypis)
+        self.assertIn('--publish', vypis)
 
     def test_K10_marker_z_bezneho_znaku_se_ohlasi(self):
-        """Vykricnik se nedá odlisit od nazvu, ktery tak proste konci."""
+        """Vykricnik se neda odlisit od nazvu, ktery tak proste konci."""
         self.soubor('Pozor!.md', '---\ndate: 2026-01-01\n---\nText.\n')
-        kod, vypis = self.web('--marker', '!')
+        kod, vypis = self.web(publikovat='*!.md')
         self.assertEqual(kod, 0, vypis)
         self.assertIn('ordinary characters', vypis)
 
-    def test_K10_prazdny_marker_je_chyba(self):
-        """Prazdny marker by znamenal, ze publikuje vsechno - na to je --all."""
+    def test_K10_prazdny_vzor_je_chyba(self):
         self.clanek('Prvni', 'Text.')
-        kod, vypis = self.web('--marker', '')
+        kod, vypis = self.web(publikovat='')
         self.assertEqual(kod, 2, vypis)
-        self.assertIn('--all', vypis)
+        self.assertIn('--publish', vypis)
 
-    def test_K10_all_vezme_i_neoznacene(self):
-        """Vyroba HTML neni publikace, nahrani nekam je samostatny ukon."""
+    def test_K10_jiny_vzor_je_chyba(self):
+        """Z libovolne masky nejde poznat, co strhnout z titulku a adresy."""
+        self.clanek('Prvni', 'Text.')
+        for vzor in ('Navod*.md', '*.txt', '**.md', 'prvni.md'):
+            kod, vypis = self.web(publikovat=vzor)
+            self.assertEqual(kod, 2, '%s: %s' % (vzor, vypis))
+
+    def test_K10_vzor_rozbaleny_shellem_se_pozna(self):
+        """Bash z *.md udela seznam souboru. Build to musi rict, ne tise bezet."""
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web('b.md', 'c.md', publikovat='a.md')
+        self.assertEqual(kod, 2, vypis)
+        self.assertIn('quotes', vypis)
+
+    def test_K10_hvezdicka_vezme_i_neoznacene(self):
+        """--publish "*.md" je rezim VSE S VYJIMKOU."""
         self.clanek('Verejny', 'Text.', publikovany=True)
         self.clanek('Soukromy', 'Text.', publikovany=False)
-        kod, vypis = self.web('--all')
+        kod, vypis = self.web(publikovat='*.md')
         self.assertEqual(kod, 0, vypis)
 
         stranky = self.stranky()
         self.assertIn('verejny.html', stranky)
         self.assertIn('soukromy.html', stranky)
-
-    def test_K10_all_to_rekne_nahlas(self):
-        """Pojistka je vedomy ukon, takze prepinac, ktery ji vypina, musi byt slyset."""
-        self.clanek('Prvni', 'Text.', publikovany=False)
-        self.clanek('Druha', 'Text.', publikovany=False)
-        kod, vypis = self.web('--all')
-        self.assertEqual(kod, 0, vypis)
-        self.assertIn('--all', vypis)
-        self.assertIn('2 of the 2 articles carry no marker', vypis)
 
     def test_K10_klic_publish_marker_nenahradi(self):
         """Klic publish uz nic neznamena, ale build na nej upozorni."""
@@ -411,6 +539,15 @@ class Konvence(Zaklad):
         self.assertNotIn('vzor.html', self.stranky())
         self.assertIn('template folder', vypis)
 
+    def test_K15_s_hvezdickou_se_sablona_neohlasi(self):
+        """Bez markeru neni rozpor mezi slozkou a markerem, neni co hlasit."""
+        self.soubor('.obsidian/templates.json', '{"folder": "Sablony"}')
+        self.clanek('Sablona', 'Text.', slozka='Sablony')
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web(publikovat='*.md')
+        self.assertEqual(kod, 0, vypis)
+        self.assertNotIn('template folder', vypis)
+
     def test_K15_cte_se_i_nastaveni_Templateru(self):
         self.soubor('.obsidian/plugins/templater-obsidian/data.json',
                     '{"templates_folder": "Meta/Vzory"}')
@@ -440,6 +577,19 @@ class Konvence(Zaklad):
         self.assertIn('verejny.html', stranky)
         self.assertNotIn('skryty.html', stranky)
         self.assertNotIn('taky-skryty.html', stranky)
+
+    def test_K20_soubor_s_podtrzitkem_se_preskoci_v_obou_rezimech(self):
+        """Podtrzitko znamena mimo web vzdycky, i s markerem."""
+        self.clanek('Verejny', 'Text.')
+        self.clanek('_Poznamka', 'Text.')
+        self.soubor('_Koncept.md', '---\ndate: 2026-01-01\n---\nText.\n')
+        self.soubor('.Skryty.md', '---\ndate: 2026-01-01\n---\nText.\n')
+        for vzor in ('*' + MARKER + '.md', '*.md'):
+            kod, vypis = self.web(publikovat=vzor)
+            self.assertEqual(kod, 0, vypis)
+            self.assertEqual(self.stranky(),
+                             ['index.html', 'tag-obsidian.html', 'verejny.html'],
+                             vzor)
 
     def test_K25_titulek_je_nazev_souboru(self):
         """Ne H1. Cesta od titulku na webu k clanku ve vaultu ma byt zrejma."""
@@ -613,7 +763,8 @@ class Konvence(Zaklad):
         """Obe slozky naraz jsou chyba, ne prednost.
 
         Ta, ktera by prohrala, by se tise ignorovala a uprava v ni by nikam
-        nevedla. Build spadne jeste pred --clean, predchozi vystup zustane.
+        nevedla. Build spadne jeste pred vyprazdnenim cile, predchozi vystup
+        zustane.
         """
         self.clanek('Prvni', 'Text.')
         self.soubor('.obsidian2html/index.md', 'S teckou.\n')
@@ -622,10 +773,49 @@ class Konvence(Zaklad):
         pred = sorted(os.listdir(self.vystup))
 
         self.soubor('_obsidian2html/index.md', 'S podtrzitkem.\n')
-        kod, vypis = self.web('--clean')
+        kod, vypis = self.web()
         self.assertEqual(kod, 1, vypis)
         self.assertIn('both .obsidian2html and _obsidian2html', vypis)
         self.assertEqual(sorted(os.listdir(self.vystup)), pred)
+
+    def test_K70_config_toml_urci_nazev_jazyk_a_adresu(self):
+        self.clanek('Prvni', 'Text.')
+        self.konfigurace('# komentar\nname = "Pan Kostka"\nlang = "en"\n'
+                         'base_url = "https://example.com"\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        index = self.vystupni('index.html')
+        self.assertIn('Pan Kostka', index)
+        self.assertIn('<html lang="en">', index)
+        self.assertIn('<title>Prvni - Pan Kostka</title>',
+                      self.vystupni('prvni.html'))
+        self.assertIn('https://example.com', self.vystupni('rss.xml'))
+
+    def test_K70_bez_konfigurace_plati_vychozi_hodnoty(self):
+        """Nazev je jmeno slozky vaultu, jazyk cestina, RSS nevznikne."""
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        self.assertIn('<title>Prvni - vault</title>', self.vystupni('prvni.html'))
+        self.assertNotIn('rss.xml', os.listdir(self.vystup))
+
+    def test_K70_neznamy_klic_v_konfiguraci_je_chyba(self):
+        """Preklep v nmae by jinak tise vyrobil web se jmenem slozky."""
+        self.clanek('Prvni', 'Text.')
+        self.konfigurace('nmae = "Pan Kostka"\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 1, vypis)
+        self.assertIn('unknown key nmae', vypis)
+
+    def test_K70_neplatna_hodnota_v_konfiguraci_je_chyba(self):
+        self.clanek('Prvni', 'Text.')
+        for text in ('name = 42\n', 'base_url = "pankostka.cz"\n',
+                     'name = "neuzavrena\n'):
+            self.konfigurace(text)
+            kod, vypis = self.web()
+            self.assertEqual(kod, 1, '%s: %s' % (text, vypis))
 
     def test_K70_index_md_urcuje_titulek_titulky(self):
         """Frontmatter title v index.md prebije nazev vaultu na titulce."""
@@ -730,7 +920,7 @@ class Konvence(Zaklad):
 class Lokalizace(Zaklad):
 
     def test_K100_vychozi_je_cestina(self):
-        """Vault bez --lang se postavi cesky, vcetne nazvu stranek."""
+        """Vault bez lang v config.toml se postavi cesky, vcetne nazvu stranek."""
         self.clanek('Prvni', 'Text.')
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
@@ -742,7 +932,8 @@ class Lokalizace(Zaklad):
 
     def test_K100_anglicky_web_ma_anglicke_texty(self):
         self.clanek('Prvni', 'Text.')
-        kod, vypis = self.web('--lang', 'en')
+        self.konfigurace('lang = "en"\n')
+        kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
 
         index = self.vystupni('index.html')
@@ -755,7 +946,8 @@ class Lokalizace(Zaklad):
     def test_K100_pseudotag_bez_tagu_ma_svuj_slug(self):
         """Nazev stranky je soucasti jazyka, tak jako texty na ni."""
         self.clanek('Prvni', 'Text.', tagy='')
-        kod, vypis = self.web('--lang', 'en')
+        self.konfigurace('lang = "en"\n')
+        kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
 
         stranky = self.stranky()
@@ -972,13 +1164,15 @@ class Lokalizace(Zaklad):
     def test_K100_neznamy_jazyk_skonci_chybou(self):
         """Mlcky spadnout na cestinu by znamenalo tise vyrobit jiny web."""
         self.clanek('Prvni', 'Text.')
-        kod, vypis = self.web('--lang', 'de')
-        self.assertEqual(kod, 2, vypis)
-        self.assertIn('Unknown language', vypis)
+        self.konfigurace('lang = "de"\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 1, vypis)
+        self.assertIn('unknown language', vypis.lower())
 
     def test_K100_feed_hlasi_jazyk(self):
         self.clanek('Prvni', 'Text.')
-        kod, vypis = self.web('--lang', 'en', '--base-url', 'https://example.com')
+        self.konfigurace('lang = "en"\nbase_url = "https://example.com"\n')
+        kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
         self.assertIn('<language>en</language>', self.vystupni('rss.xml'))
 
@@ -1062,35 +1256,6 @@ class Syntaxe(Zaklad):
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
         self.assertIn('alt="schema"', self.vystupni('prvni.html'))
-
-
-# ==============================================================================
-# Samostatny HTML
-# ==============================================================================
-
-class Samostatny(Zaklad):
-
-    def test_obrazek_je_v_souboru_jako_data_uri(self):
-        """Jeden soubor snese mail i sitovy disk, relativni odkaz ne."""
-        cesta = self.clanek('Prvni', 'Obrazek: ![[schema.png]]\n')
-        self.obrazek('Attachments/schema.png')
-        kod, vypis = self.build(vstup=cesta)
-        self.assertEqual(kod, 0, vypis)
-
-        with open(self.vystup + '.html', encoding='utf-8') as f:
-            html = f.read()
-        self.assertIn('src="data:image/png;base64,', html)
-        self.assertNotIn('src="img/', html)
-
-    def test_styl_je_uvnitr_dokumentu(self):
-        cesta = self.clanek('Prvni', 'Text.')
-        kod, vypis = self.build(vstup=cesta)
-        self.assertEqual(kod, 0, vypis)
-
-        with open(self.vystup + '.html', encoding='utf-8') as f:
-            html = f.read()
-        self.assertIn('<style>', html)
-        self.assertNotIn('<link rel="stylesheet"', html)
 
 
 if __name__ == '__main__':
