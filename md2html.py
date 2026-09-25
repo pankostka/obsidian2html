@@ -2588,6 +2588,7 @@ def main():
                             (args.input if batch_mode
                              else os.path.dirname(os.path.abspath(args.input))))
 
+    tmp_dir = None
     try:
         items, forgotten, legacy, templates = collect(
             args.input, args.published_only, template_dirs(vault))
@@ -2663,7 +2664,6 @@ def main():
         # that was there stays in place rather than going to the archive.
         conf_name = config_name(vault) if args.site else CONFIG_DIR
 
-        tmp_dir = None
         if args.check:
             tmp_dir = tempfile.mkdtemp(prefix='md2html-kontrola-')
             out_dir = tmp_dir
@@ -2955,9 +2955,9 @@ def main():
         print('ERROR: %s' % e)
         return 1
     finally:
-        # Kontrolni rezim po sobe nesmi nechat adresar - hook bezi pri kazdem
-        # commitu a za mesic by jich v temp byly stovky.
-        if 'docasny' in dir() and tmp_dir and os.path.isdir(tmp_dir):
+        # Check mode must not leave its directory behind - the hook runs on
+        # every commit and within a month there would be hundreds in temp.
+        if tmp_dir and os.path.isdir(tmp_dir):
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
 

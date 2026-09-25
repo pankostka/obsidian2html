@@ -266,6 +266,20 @@ class Zaruky(Zaklad):
                             'build mel odmitnout uklidit adresar bez znacky')
         self.assertTrue(os.path.isfile(cizi), 'cizi soubor byl smazan')
 
+    def test_Z50_kontrola_po_sobe_nenecha_adresar(self):
+        """--check nikam nezapisuje, ani do tempu. Hook bezi pri kazdem commitu."""
+        self.clanek('Prvni', 'Text.')
+        temp = os.path.join(self.docasny, 'temp')
+        os.makedirs(temp)
+        puvodni, tempfile.tempdir = tempfile.tempdir, temp
+        try:
+            kod, vypis = self.build('--check', s_vystupem=False)
+        finally:
+            tempfile.tempdir = puvodni
+        self.assertEqual(kod, 0, vypis)
+        self.assertEqual(os.listdir(temp), [],
+                         'kontrola nechala v tempu adresar')
+
     def test_Z60_prilohy_maji_adresu_malymi_v_ascii(self):
         """Na Linuxu je Foo.png a foo.png rozdil, takze adresa musi byt jista."""
         self.clanek('Prvni', 'Obrazek: ![[Velký Obrázek.PNG]]\n')
