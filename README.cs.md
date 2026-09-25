@@ -113,11 +113,12 @@ Chybějící klíč má výchozí hodnotu, neznámý klíč nebo neplatná hodno
 - S `--if-changed` se web, u kterého se nic nezměnilo, nestaví znovu (Z57).
 - Přílohy mají adresu malými písmeny v ASCII, takže odkaz funguje i na linuxovém serveru (Z60).
 - Filtr podle tagů přežije kliknutí do článku (Z70) a když zbude jediný článek, otevře se (Z80).
+- Pod patičkou každé stránky je datum a čas poslední změny obsahu webu, ne čas buildu (Z85).
 
 ## Pro vývoj
 
 Pravidla, jejich zdůvodnění a hraniční případy jsou v [SPEC.cs.md](SPEC.cs.md), ten je autoritou pro kód i testy.  
-Testy se pouštějí `python test_md2html.py`, je jich 103 a běží pod sekundu.
+Testy se pouštějí `python test_md2html.py`, je jich 107 a běží pod sekundu.
 
 ## Licence
 

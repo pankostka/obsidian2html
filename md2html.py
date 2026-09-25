@@ -260,6 +260,7 @@ TEXTS = {
         'articles': 'Články',
         'copy_name': 'Zkopírovat název',
         'copied': 'Zkopírováno',
+        'updated': 'Aktualizováno',
         'tag_prefix': 'tag-',
         'no_tag_slug': 'bez-tagu',
         'no_tag_heading': 'Bez tagu',
@@ -298,6 +299,7 @@ TEXTS = {
         'articles': 'Articles',
         'copy_name': 'Copy the name',
         'copied': 'Copied',
+        'updated': 'Updated',
         'tag_prefix': 'tag-',
         'no_tag_slug': 'no-tag',
         'no_tag_heading': 'Without a tag',
@@ -527,6 +529,7 @@ body { padding-top: 1.25rem; }
                   border: 0; background: none; color: var(--tlum);
                   text-decoration: underline; cursor: pointer; }
 .paticka .kopie:hover { color: var(--odkaz); }
+.aktualizace { margin: .5rem 0 0; font-size: .75rem; color: var(--tlum); }
 
 /* The excerpt listing is a grid, not a list. auto-fill instead of three
    fixed columns: at 64rem three fit, on a phone one, and no breakpoints
@@ -1270,6 +1273,7 @@ class Conversion(object):
         self.vault = vault
         self.batch = batch or {}      # {slug of a note name: output file}
         self.flattened = []           # links that degraded to plain text
+        self.included = set()         # notes pulled in by ![[transclusion]]
 
     # -- transclusion -----------------------------------------------------
 
@@ -1311,6 +1315,7 @@ class Conversion(object):
         if not path or os.path.abspath(path) in seen:
             self.flattened.append(target)
             return ''
+        self.included.add(os.path.abspath(path))
         _, body_text = split_frontmatter(read_text(path))
         # Drop the embedded note's H1 - the target document already has one
         body_text = RE_H1.sub('', body_text, count=1).strip()
@@ -1884,7 +1889,46 @@ def footer_html(site, date=None, tags=(), name=None):
     links.append('<a href="#">%s</a>' % T['top'])
     parts.append('<span class="odkazy">%s</span>' % ''.join(links))
     script = COPY_SCRIPT.replace('@COPIED@', T['copied']) if name else ''
-    return '<footer class="paticka">%s</footer>%s' % (''.join(parts), script)
+    # When the content last changed is known only once every page is written,
+    # images included, so the footer carries a placeholder - see stamp_pages().
+    return ('<footer class="paticka">%s</footer>%s%s'
+            % (''.join(parts), UPDATED_PLACEHOLDER, script))
+
+
+# Filled in by stamp_pages() once the whole site is written, see Z85.
+UPDATED_PLACEHOLDER = '<!--md2html:updated-->'
+
+
+def last_change(paths):
+    """The newest modification time among the files the site was built from.
+
+    Not the build time, see Z85: the same source has to give the same site,
+    and an edit to a note that is not published must not show up on it.
+    """
+    times = []
+    for path in paths:
+        try:
+            times.append(os.path.getmtime(path))
+        except OSError:
+            continue
+    if not times:
+        return ''
+    return time.strftime('%Y-%m-%d %H:%M', time.localtime(max(times)))
+
+
+def stamp_pages(out_dir, stamp):
+    """Replace the placeholder in every page with the time of the last change."""
+    line = ('<p class="aktualizace">%s %s</p>' % (T['updated'], stamp)
+            if stamp else '')
+    for fname in os.listdir(out_dir):
+        if not fname.endswith('.html'):
+            continue
+        path = os.path.join(out_dir, fname)
+        with open(path, encoding='utf-8') as f:
+            html = f.read()
+        if UPDATED_PLACEHOLDER in html:
+            with open(path, 'w', encoding='utf-8', newline='\n') as f:
+                f.write(html.replace(UPDATED_PLACEHOLDER, line))
 
 
 def site_page(page_title, content, site, active=None, active_tag=None,
@@ -2896,6 +2940,17 @@ def main():
             print('  %s  (%d items)'
                   % (zapis('rss.xml', rss(ordered, site, config['base_url'])),
                      min(len(ordered), RSS_ITEMS)))
+
+        # The time of the last change goes in only now, when it is known which
+        # files the site was made of: articles, transcluded notes, images and
+        # the configuration directory. See Z85.
+        sources = [path for path, _, _, _ in plan]
+        sources += sorted(conv.included) + sorted(renamed.values())
+        conf_dir = os.path.join(vault, conf_name)
+        if os.path.isdir(conf_dir):
+            sources += [os.path.join(conf_dir, x) for x in os.listdir(conf_dir)
+                        if os.path.isfile(os.path.join(conf_dir, x))]
+        stamp_pages(out_dir, last_change(sources))
 
         flattened_links = check_links(out_dir)
         if flattened_links:

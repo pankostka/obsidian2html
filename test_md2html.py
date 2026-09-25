@@ -942,8 +942,49 @@ class Konvence(Zaklad):
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
         html = self.vystupni('s-datem.html')
-        self.assertIn('2020-05-05', html)
-        self.assertNotIn('2019-03-07', html)
+        # Datum clanku v paticce. Datum souboru se na strance objevi taky,
+        # ale v radku Aktualizovano podle Z85 - to je jina vec.
+        self.assertIn('<span>2020-05-05</span>', html)
+        self.assertNotIn('<span>2019-03-07</span>', html)
+
+    def test_Z85_pod_patickou_je_posledni_zmena_obsahu(self):
+        """Nejnovejsi cas zmeny souboru, ze ktereho web vznikl."""
+        stary = self.clanek('Stary', 'Text.')
+        novy = self.clanek('Novy', 'Text.')
+        os.utime(stary, (time.mktime((2024, 1, 2, 3, 4, 0, 0, 0, -1)),) * 2)
+        os.utime(novy, (time.mktime((2025, 6, 7, 8, 9, 0, 0, 0, -1)),) * 2)
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        radek = '<p class="aktualizace">Aktualizováno 2025-06-07 08:09</p>'
+        for stranka in ('index.html', 'stary.html', 'tag-obsidian.html'):
+            self.assertIn(radek, self.vystupni(stranka), stranka)
+
+    def test_Z85_neverejny_clanek_cas_nezmeni(self):
+        """Uprava soukrome poznamky se na verejnem webu nesmi projevit."""
+        verejny = self.clanek('Verejny', 'Text.')
+        soukromy = self.clanek('Soukromy', 'Text.', publikovany=False)
+        os.utime(verejny, (time.mktime((2024, 1, 2, 3, 4, 0, 0, 0, -1)),) * 2)
+        os.utime(soukromy, (time.mktime((2025, 6, 7, 8, 9, 0, 0, 0, -1)),) * 2)
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('Aktualizováno 2024-01-02 03:04', self.vystupni('index.html'))
+
+    def test_Z85_obrazek_se_pocita(self):
+        clanek = self.clanek('Prvni', 'Obrazek: ![[schema.png]]\n')
+        obrazek = self.obrazek('Attachments/schema.png')
+        os.utime(clanek, (time.mktime((2024, 1, 2, 3, 4, 0, 0, 0, -1)),) * 2)
+        os.utime(obrazek, (time.mktime((2025, 6, 7, 8, 9, 0, 0, 0, -1)),) * 2)
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('Aktualizováno 2025-06-07 08:09', self.vystupni('prvni.html'))
+
+    def test_Z85_anglicky_web_pise_updated(self):
+        self.clanek('Prvni', 'Text.')
+        self.konfigurace('lang = "en"\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('<p class="aktualizace">Updated ', self.vystupni('index.html'))
 
     def test_K80_datum_ktere_datem_neni_se_ohlasi(self):
         """Zbyly zastupny symbol sablony by tise rozhodil poradi na titulce."""

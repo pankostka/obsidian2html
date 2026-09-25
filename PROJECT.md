@@ -273,6 +273,18 @@ Na kopii PKVaultu trvá běh bez změny zhruba 0,3 s.
 
 Testy 103.
 
+### 20. Datum poslední změny pod patičkou - HOTOVO
+
+Pod patičkou každé stránky je vlevo `Aktualizováno 2026-09-25 12:43`, popsané jako Z85. Je to nejnovější čas změny souboru, ze kterého web vznikl: publikované články, vložené poznámky, obrázky zkopírované do `img/` a soubory v konfigurační složce.
+
+Čas buildu se zvažoval a zahodil. Ruční build by změnil každou stránku, takže porovnání dvou verzí generátoru by přestalo fungovat. A `--if-changed` sleduje celý vault, takže veřejný web by ukázal, kdy autor upravil soukromou poznámku.
+
+Obrázky jsou známé až po vysázení všech stránek, proto patička nese zástupný komentář a `stamp_pages()` ho doplní na konci buildu. Transkluze si `Conversion` pamatuje v `included`.
+
+Ověřeno na kopii PKVaultu: ve všech 17 stránkách přibyl jen ten řádek a položka `updated` v tabulce textů, kterou stránky s filtrem nesou celou.
+
+Testy 107.
+
 ## Otevřené otázky
 
 - **Globus v titulcích s `"*.md"`.** Bez markeru se nestrhává nic, takže náhled PKVaultALL má u článků s globusem v titulku `Obsidian Co je 🌐`. Staré `--all` globus strhávalo, protože marker měl výchozí hodnotu. Pro vault bez markeru je to jedno.

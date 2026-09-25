@@ -162,3 +162,11 @@ Textový dotaz do toho mluví jen tím, že zužuje množinu, ve které se poč�
 Skáče titulka i lišta v hlavičce článku.  
 Článek k tomu nese vedle sad štítků i adresy článků, jinak by věděl, že výsledek je jeden, ale ne který.  
 Číslo `1` na štítku to říká dopředu, takže se k němu nic dalšího nekreslí.
+
+**Z85. Pod patičkou každé stránky je vlevo datum a čas poslední změny obsahu webu.**  
+Tvar je `Aktualizováno 2026-09-25 12:43`, na anglickém webu `Updated`, v místním čase.  
+Je to nejnovější čas změny souboru, ze kterého web opravdu vznikl: publikovaného článku, vložené poznámky, obrázku a souboru v konfigurační složce.  
+**Není to čas buildu.** Ten by se měnil s každým ručním buildem, takže stejný zdroj by nedal stejný web a porovnání dvou verzí generátoru by hlásilo rozdíl na každé stránce.  
+A `--if-changed` sleduje celý vault, takže web by po úpravě soukromé poznámky ukázal čas, kdy autor pracoval na něčem, co na webu není.  
+Soubor, který na web nejde - neoznačený článek, poznámka s podtržítkem - čas nezmění.  
+Nová verze `md2html.py` ho nezmění taky: obsah webu je ten samý, jen jinak vysázený.

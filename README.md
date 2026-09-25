@@ -115,11 +115,12 @@ A missing key has its default; an unknown key or an invalid value stops the buil
 - With `--if-changed`, a site where nothing changed is not built again (Z57).
 - Attachments get lower-case ASCII addresses, so links work on a Linux server too (Z60).
 - The tag filter survives a click into an article (Z70), and when a single article is left, it opens (Z80).
+- Below the footer of every page is the date and time the site's content last changed, not the build time (Z85).
 
 ## Development
 
 The rules, the reasons behind them and the edge cases are in [SPEC.cs.md](SPEC.cs.md) (Czech), which is the authority for the code and the tests.  
-Tests are run with `python test_md2html.py`; there are 103 of them and they run in under a second.
+Tests are run with `python test_md2html.py`; there are 107 of them and they run in under a second.
 
 ## License
 
