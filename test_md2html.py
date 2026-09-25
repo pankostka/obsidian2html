@@ -5,9 +5,9 @@ r"""
    Testy k md2html.py. Spousti se `python test_md2html.py`, zavislost zadna
    nad ramec toho, co potrebuje sam generator.
 
-   ZADANIM JSOU KONVENCE Z README.cs.md, ne implementace. Kazdy test je jedna
+   ZADANIM JSOU KONVENCE ZE SPEC.cs.md, ne implementace. Kazdy test je jedna
    veta odtud, prevedena na otazku, kterou lze zodpovedet ano/ne. Kdyz se test
-   a README rozejdou, autoritou je README - test se opravi podle nej.
+   a SPEC rozejdou, autoritou je SPEC - test se opravi podle nej.
 
    Nazev testu proto zacina kodem konvence: test_Z10_* overuje zaruku Z10,
    test_K40_* konvenci K40. Kdyz test spadne, kod v nazvu rekne, ktera veta

@@ -2,7 +2,7 @@
 
 Pracovní dokument. Co se dělá, co zbývá, co se už zkusilo. Důležité nahoře, slepé cesty dole.
 
-**Konvence nástroje nejsou tady, jsou v [README.cs.md](README.cs.md).** Ten je autoritou; když si kód a konvence odporují, chyba je v kódu. Tady je jen práce kolem.
+**Konvence nástroje nejsou tady, jsou v [SPEC.cs.md](SPEC.cs.md).** Ten je autoritou; když si kód a konvence odporují, chyba je v kódu. Tady je jen práce kolem.
 
 ## Stav
 
@@ -51,7 +51,7 @@ Při ověřování se ukázala drobná vada, opravena hned: kurátorovaná lišt
 
 52 testů v `test_md2html.py`, spouští se `python test_md2html.py`, běží pod sekundu a nepotřebují nic nad rámec toho, co potřebuje generátor.
 
-Zadáním jsou konvence z `README.cs.md`, ne implementace. Název testu začíná kódem konvence, takže když spadne, rovnou říká, která věta přestala platit.
+Zadáním jsou konvence ze `SPEC.cs.md`, ne implementace. Název testu začíná kódem konvence, takže když spadne, rovnou říká, která věta přestala platit.
 
 Několik testů je záměrně v párech: vedle mrtvého odkazu se ověřuje i živý, vedle náhledu podle názvu i příloha s názvem jiným. Bez protějšku by testu vyhověl i generátor, který zplošťuje nebo zobrazuje úplně všechno.
 
