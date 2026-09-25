@@ -167,7 +167,7 @@ Po dnech je tedy osa zhruba do dvou měsíců, po měsících do pěti let, nad 
 Úchyty se posouvají po stejných krocích, jaké mají sloupce, a stojí nad jejich středem.  
 Pod osou jsou u osy po dnech měsíce a čísla dní - každý den, každý druhý, nebo 1., 8., 15., 22. a 29., podle toho, co se vejde.  
 Bez čísel dní by krátká osa vypadala jako osa po měsících.  
-Sobota a neděle mají číslo jinou barvou a dnešek je v pilulce barvy odkazů; barvy jsou tokeny `--vikend` a `--odkaz` (Z40).  
+Sobota a neděle mají číslo červeně (token `--vikend`, Z40) a dnešek je v pilulce barvy textu, takže se od víkendu odliší i na webu s červenými odkazy.  
 Dnešek je očíslovaný vždycky, když do osy patří, a sousední číslo, které by se s ním srazilo, ustoupí.  
 Je to dnešek čtenáře, spočítaný v prohlížeči: web může stát beze změny dny po buildu.  
 U ostatních os jsou pod ní roky; co se nevejde, vynechá se.  

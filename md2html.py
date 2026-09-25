@@ -657,13 +657,14 @@ CSS_PERIOD = """
 .osa > span { flex: 1; min-width: 0; white-space: nowrap; }
 .osa.stred > span { text-align: center; }
 .osa b { font-weight: inherit; }
-/* On an axis of days: weekends in their own colour, today as a pill in the
-   colour of the links. Both are tokens, so styl.css changes them in one
-   line (Z40). */
-:root { --vikend: #c0392b; }
-@media (prefers-color-scheme: dark) { :root { --vikend: #ef8a7e; } }
+/* On an axis of days: weekends in red, today as a pill in the colour of the
+   text, so it stays apart from the weekends even on a site whose links are
+   red. The red is a token of its own, so styl.css changes it in one line
+   (Z40). */
+:root { --vikend: #b02a37; }
+@media (prefers-color-scheme: dark) { :root { --vikend: #e8737f; } }
 .osa .vikend { color: var(--vikend); }
-.osa .dnes { background: var(--odkaz); color: var(--pozadi); font-weight: 600;
+.osa .dnes { background: var(--text); color: var(--pozadi); font-weight: 600;
              border-radius: 999px; padding: 0 .35em; }
 
 /* The period makes the count beside the search field long, and on a phone
