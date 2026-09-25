@@ -261,6 +261,7 @@ TEXTS = {
         'articles': 'Články',
         'copy_name': 'Zkopírovat název',
         'copied': 'Zkopírováno',
+        'edit': 'Upravit v Obsidianu',
         'updated': 'Aktualizováno',
         'tag_prefix': 'tag-',
         'no_tag_slug': 'bez-tagu',
@@ -306,6 +307,7 @@ TEXTS = {
         'articles': 'Articles',
         'copy_name': 'Copy the name',
         'copied': 'Copied',
+        'edit': 'Edit in Obsidian',
         'updated': 'Updated',
         'tag_prefix': 'tag-',
         'no_tag_slug': 'no-tag',
@@ -1792,7 +1794,40 @@ def to_html(path, conv, out_dir, renamed, site, date=None):
         header=(header_html(site, live_filter=bool(site['menu']))
                 + (filter_script(site) if site['menu'] else '')),
         body=''.join(masthead) + body,
-        footer=footer_html(site, own_meta.get('date'), tags, heading))
+        footer=footer_html(site, own_meta.get('date'), tags, heading,
+                           edit_link(site.get('edit_vault'), path)))
+
+
+def find_vault_root(src):
+    """The nearest directory from `src` upwards that holds .obsidian/, or None.
+
+    --source may be a folder inside a vault, and Obsidian knows the vault by
+    its root, so the address has to be counted from there, see Z90.
+    """
+    here = os.path.abspath(src)
+    while True:
+        if os.path.isdir(os.path.join(here, '.obsidian')):
+            return here
+        parent = os.path.dirname(here)
+        if parent == here:
+            return None
+        here = parent
+
+
+def edit_link(vault_root, path):
+    """The obsidian:// address that opens `path` in its vault, or None.
+
+    The vault goes by its folder name and the note by its path inside it,
+    without .md - the form Obsidian itself uses. No absolute path: the link
+    keeps working when the vault moves, see Z90.
+    """
+    if not vault_root:
+        return None
+    rel = os.path.relpath(os.path.abspath(path), vault_root).replace(os.sep, '/')
+    if rel.lower().endswith('.md'):
+        rel = rel[:-3]
+    return 'obsidian://open?vault=%s&file=%s' % (
+        quote(os.path.basename(vault_root), safe=''), quote(rel, safe=''))
 
 
 # ==============================================================================
@@ -2220,8 +2255,11 @@ def header_html(site, active=None, active_tag=None, reachable=None,
     return ''.join(parts)
 
 
-def footer_html(site, date=None, tags=(), name=None):
-    """Date, the article's tags and links. On an article, a copy-name button too."""
+def footer_html(site, date=None, tags=(), name=None, edit=None):
+    """Date, the article's tags and links. On an article, a copy-name button too.
+
+    `edit` is the obsidian:// address of the article's source, see Z90.
+    """
     parts = []
     if date:
         parts.append('<span>%s</span>' % date)
@@ -2229,6 +2267,9 @@ def footer_html(site, date=None, tags=(), name=None):
         parts.append('<span class="tagy">%s</span>' % ' '.join(
             '<a href="%s">#%s</a>' % (tag_page(t), t) for t in tags))
     links = []
+    if edit:
+        links.append('<a href="%s" class="upravit">%s</a>'
+                     % (edit.replace('&', '&amp;'), T['edit']))
     if name:
         links.append('<button type="button" id="kopirovat" class="kopie"'
                       ' data-nazev="%s">%s</button>'
@@ -2866,9 +2907,9 @@ def check_links(out_dir):
         dead = []
         for attr, link in re.findall(r'(href|src|action)="([^"]+)"', without_script):
             # file: in an article about links is a deliberate example, not a
-            # broken link.
+            # broken link. obsidian: opens the source in the vault, see Z90.
             if link.startswith(('http:', 'https:', 'mailto:', 'data:', 'file:',
-                                 '#', '//')):
+                                 'obsidian:', '#', '//')):
                 continue
             target = unquote(link.split('#')[0].split('?')[0])
             if not target or target in files:
@@ -2940,12 +2981,12 @@ def template_dirs(vault):
     return found
 
 
-def source_fingerprint(vault, publish):
+def source_fingerprint(vault, publish, edit_links=False):
     """A fingerprint of everything the site is built from, see Z57.
 
     Path, size and modification time of every file that may affect the site,
-    the --publish pattern and this script itself - a new version of the
-    generator means a new build. Content is not read: comparing times is enough
+    the --publish pattern, --edit-links and this script itself - a new version
+    of the generator means a new build. Content is not read: comparing times is enough
     and keeps a run with nothing to do at a fraction of a second.
 
     Entries starting with a dot stay out, except the configuration directory
@@ -2958,6 +2999,8 @@ def source_fingerprint(vault, publish):
     with open(os.path.abspath(__file__), 'rb') as f:
         h.update(f.read())
     h.update(('publish=%s\n' % publish).encode('utf-8'))
+    if edit_links:
+        h.update(b'edit-links\n')
     paths = []
     for root, dirs, files in os.walk(vault):
         dirs[:] = [d for d in dirs if not d.startswith('.')
@@ -3067,6 +3110,9 @@ def main():
     p.add_argument('--if-changed', action='store_true',
                    help='build only when the source or the generator changed'
                         ' since the last build. For a scheduler')
+    p.add_argument('--edit-links', action='store_true',
+                   help='give every article a link that opens its source in'
+                        ' Obsidian. For a site only its author reads')
     # A pattern that bash expanded arrives as several file names, and all but
     # the first land here. Collected rather than refused by argparse, so the
     # error can say what happened instead of 'unrecognized arguments'.
@@ -3119,13 +3165,23 @@ def main():
         return 2
 
     vault = os.path.abspath(args.source)
+    # Without a vault there is nothing an obsidian:// link could open, and a
+    # link that goes nowhere is what Z10 rules out. Stopped here, before the
+    # destination is touched.
+    vault_root = None
+    if args.edit_links:
+        vault_root = find_vault_root(vault)
+        if not vault_root:
+            print('ERROR: --edit-links needs an Obsidian vault, but neither'
+                  ' %s nor any folder above it has .obsidian in it.' % vault)
+            return 2
 
     tmp_dir = None
     try:
         # A scheduled build with nothing to do stops before it touches
         # anything, see Z57. The fingerprint is stored only at the very end,
         # so a build that failed is tried again next time.
-        fingerprint = source_fingerprint(vault, args.publish)
+        fingerprint = source_fingerprint(vault, args.publish, args.edit_links)
         if args.if_changed and stored_fingerprint(args.dest) == fingerprint:
             print('No change since the last build of %s, nothing done.'
                   % args.dest)
@@ -3241,6 +3297,7 @@ def main():
                'tags': sorted(all_tags),
                'lead_tags': sorted(leading),
                'tag_sets': tag_sets,
+               'edit_vault': vault_root,
                'bins': (period_axis([m['date'] for _, m, _, _ in plan])
                           if config['date_filter'] else []),
                'menu': menu_items(menu_source, sorted(all_tags), no_tag),

@@ -986,6 +986,54 @@ class Konvence(Zaklad):
         self.assertEqual(kod, 0, vypis)
         self.assertIn('<p class="aktualizace">Updated ', self.vystupni('index.html'))
 
+    def test_Z90_bez_prepinace_odkaz_do_obsidianu_neni(self):
+        """Verejny web nesmi prozradit nazev vaultu ani jeho slozky."""
+        self.soubor('.obsidian/app.json', '{}')
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertNotIn('obsidian://', self.vystupni('prvni.html'))
+
+    def test_Z90_odkaz_otevre_clanek_ve_vaultu(self):
+        """Vault podle jmena slozky, cesta uvnitr vaultu bez .md."""
+        self.soubor('.obsidian/app.json', '{}')
+        self.clanek('Předmět', 'Text.', slozka='Fy - Fyzika')
+        kod, vypis = self.web('--edit-links')
+        self.assertEqual(kod, 0, vypis)
+        html = self.vystupni('predmet.html')
+        self.assertIn('<a href="obsidian://open?vault=vault&amp;file='
+                      'Fy%20-%20Fyzika%2FP%C5%99edm%C4%9Bt%20%F0%9F%8C%90"'
+                      ' class="upravit">Upravit v Obsidianu</a>', html)
+        # Kontrola odkazu ho nesmi vzit za soubor a zplostit.
+        self.assertNotIn('Flattened', vypis)
+
+    def test_Z90_zdroj_uvnitr_vaultu_se_pocita_od_korene(self):
+        self.soubor('.obsidian/app.json', '{}')
+        self.clanek('Prvni', 'Text.', slozka='Sekce')
+        kod, vypis = self.web('--edit-links',
+                              vstup=os.path.join(self.vault, 'Sekce'))
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('obsidian://open?vault=vault&amp;file=Sekce%2FPrvni%20',
+                      self.vystupni('prvni.html'))
+
+    def test_Z90_bez_vaultu_build_skonci_a_cile_se_nedotkne(self):
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web('--edit-links')
+        self.assertEqual(kod, 2, vypis)
+        self.assertIn('--edit-links needs an Obsidian vault', vypis)
+        self.assertFalse(os.path.exists(self.vystup))
+
+    def test_Z90_prepinac_se_pocita_do_otisku(self):
+        """Zapnout odkazy je zmena webu, takze --if-changed musi stavet."""
+        self.soubor('.obsidian/app.json', '{}')
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web('--if-changed')
+        self.assertEqual(kod, 0, vypis)
+        kod, vypis = self.web('--if-changed', '--edit-links')
+        self.assertEqual(kod, 0, vypis)
+        self.assertNotIn('No change', vypis)
+        self.assertIn('obsidian://', self.vystupni('prvni.html'))
+
     def test_K80_datum_ktere_datem_neni_se_ohlasi(self):
         """Zbyly zastupny symbol sablony by tise rozhodil poradi na titulce."""
         self.soubor('Prvni %s.md' % MARKER,

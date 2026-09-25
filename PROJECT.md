@@ -307,6 +307,16 @@ Při zkoušení v prohlížeči se ukázala chyba, kterou testy nevidí: `binOf`
 
 Testy 115.
 
+### 22. Odkaz do Obsidianu - HOTOVO
+
+Popsané jako Z90. S `--edit-links` má patička článku odkaz *Upravit v Obsidianu*, `obsidian://open?vault=...&file=...`. Podnět: na lokálním webu ProjektKrizik je k `fy-2026-09-22-soustava-si-a-prevody-jednotek.html` pracné dohledat `02 Předměty/Fy - Fyzika/Fy 2026-09-22 Soustava SI a převody jednotek.md`.
+
+Zvažovalo se a zahodilo: `file:///` (z `http(s)` ho prohlížeč zablokuje a `.md` jen zobrazí jako text), `obsidian://open?path=` s absolutní cestou (rozbije se přesunem vaultu a prozradí disk), vlastní protokol v registru pro libovolný editor (instalace navíc) a klíč v `config.toml` (z jednoho vaultu vzniká veřejný web i náhled a odkaz patří jen do náhledu). Protokol `obsidian://` ověřen ručně na ProjektKrizik před implementací.
+
+Vault se hledá nahoru od `--source` podle `.obsidian/` (`find_vault_root`), odkaz skládá `edit_link`. Kontrola odkazů přeskakuje schéma `obsidian:`, jinak by odkaz zploštila. Přepínač jde do otisku.
+
+Testy 120.
+
 ## Otevřené otázky
 
 - **Globus v titulcích s `"*.md"`.** Bez markeru se nestrhává nic, takže náhled PKVaultALL má u článků s globusem v titulku `Obsidian Co je 🌐`. Staré `--all` globus strhávalo, protože marker měl výchozí hodnotu. Pro vault bez markeru je to jedno.

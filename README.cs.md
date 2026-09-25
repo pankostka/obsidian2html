@@ -47,6 +47,7 @@ Ze zdrojového adresáře vznikne web: sdílený `styl.css`, obrázky ve složce
 | `--publish "vzor"`  | co se publikuje: `"*🌐.md"` jen s markerem, `"*.md"` všechno (K10)    |
 | `--check`           | jen ověří, že se web postaví, nikam nezapisuje. Pro git hook          |
 | `--if-changed`      | postaví web, jen když se od minula něco změnilo. Pro plánovač (Z57)   |
+| `--edit-links`      | článek dostane odkaz, který jeho zdroj otevře v Obsidianu (Z90)       |
 
 `--check` postaví celý web do dočasného adresáře, výsledek zahodí a dočasný adresář smaže.  
 Vrátí `0`, když build prošel, a `1`, když ne, a vypíše stejná upozornění jako normální build.  
@@ -57,6 +58,12 @@ Cílového adresáře se nedotkne, takže nic nemaže ani nearchivuje (Z55).
 `--if-changed` je pro build pouštěný pravidelně, třeba každých pět minut z plánovače.  
 Když se ve zdroji od posledního buildu nic nezměnilo, skončí hned a na cíl nesáhne, takže se web zbytečně nepřepisuje.  
 Nová verze `md2html.py` se počítá jako změna.
+
+`--edit-links` je pro web, který čte jen jeho autor.  
+V patičce každého článku přibude odkaz *Upravit v Obsidianu* a klik na něj otevře poznámku, ze které článek vznikl.  
+Prohlížeč se napoprvé zeptá, jestli smí Obsidian spustit.  
+Na veřejný web nepatří, prozradil by název vaultu a jeho složky.  
+`--source` musí ležet ve vaultu Obsidianu, tedy ve složce se `.obsidian/` nebo pod ní, jinak build skončí chybou.
 
 Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
 
@@ -117,11 +124,12 @@ Chybějící klíč má výchozí hodnotu, neznámý klíč nebo neplatná hodno
 - Filtr podle tagů přežije kliknutí do článku (Z70) a když zbude jediný článek, otevře se (Z80).
 - Volitelný filtr na období se spojuje s tagy a jeho histogram ukazuje i dny, měsíce nebo roky bez článku (Z75).
 - Pod patičkou každé stránky je datum a čas poslední změny obsahu webu, ne čas buildu (Z85).
+- S `--edit-links` otevře odkaz v patičce článku jeho zdroj v Obsidianu, bez přepínače na webu po vaultu nic nezůstane (Z90).
 
 ## Pro vývoj
 
 Pravidla, jejich zdůvodnění a hraniční případy jsou v [SPEC.cs.md](SPEC.cs.md), ten je autoritou pro kód i testy.  
-Testy se pouštějí `python test_md2html.py`, je jich 115 a běží pod sekundu.
+Testy se pouštějí `python test_md2html.py`, je jich 120 a běží pod sekundu.
 
 ## Licence
 
