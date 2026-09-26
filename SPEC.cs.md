@@ -203,7 +203,7 @@ A `--if-changed` sleduje celý vault, takže web by po úpravě soukromé pozná
 Soubor, který na web nejde - neoznačený článek, poznámka s podtržítkem - čas nezmění.  
 Nová verze `md2html.py` ho nezmění taky: obsah webu je ten samý, jen jinak vysázený.
 
-**Z90. S `--edit-links` má patička každého článku odkaz, který jeho zdroj otevře v Obsidianu.**  
+**Z90. S `--edit-links` má nadpis každého článku i jeho karta v přehledu odkaz, který zdroj otevře v Obsidianu.**  
 Na lokálním webu se článek čte a vzápětí opravuje, a dohledat k `fy-2026-09-22-soustava-si.html` jeho poznámku ve vaultu je zbytečná práce.  
 Od adresy k souboru se zpátky nedojde, protože slug zahodí diakritiku, velikost písmen i složku (K30) - odkaz proto musí vložit build, který cestu zná.  
 Odkaz má tvar `obsidian://open?vault=ProjektKrizik&file=02%20P%C5%99edm%C4%9Bty%2F...`, tedy vault podle jména složky a poznámka podle cesty uvnitř vaultu, bez `.md`.  
@@ -211,9 +211,13 @@ Otevře ho Obsidian, který si protokol `obsidian://` zaregistruje při instalac
 **Absolutní cesta v odkazu není**, takže odkaz funguje dál, i když se vault přesune jinam, a na disku nic neprozradí.  
 Vault se hledá od `--source` nahoru podle složky `.obsidian/`, protože `--source` smí být i podsložka vaultu a Obsidian cestu počítá od jeho kořene.  
 Když vault nahoře není, build skončí s kódem `2` dřív, než sáhne na cíl - odkaz, který nic neotevře, je mrtvý odkaz (Z10).  
-Odkaz dostane jen článek, protože jen ten má jeden zdroj; titulka a stránky tagů ho nemají.  
+Odkaz dostane jen článek, protože jen ten má jeden zdroj; titulka a stránky tagů ho mají u karet svých článků, ne u sebe.  
+Na kartě je proto, aby se kvůli opravě nemusel článek rozklikávat.  
+**Je to ikonka tužky vpravo od nadpisu, ne text.**  
+Tužka je vložené SVG v barvě textu, protože emoji a znaky Unicode vypadají podle písma čtenáře a některá písma je nemají.  
+Slova *Upravit v Obsidianu* jsou v `title` a `aria-label`, takže je ukáže najetí myší a přečte čtečka.  
 **Výchozí je vypnuto a je to přepínač, ne klíč v `config.toml`.**  
 Název vaultu a jeho složky jsou soukromé, na veřejný web nepatří.  
 Z jednoho vaultu přitom může vzniknout veřejný web i lokální náhled a odkaz patří jen do náhledu - rozhoduje tedy, kdo tenhle build čte, ne vlastnost webu (K70).  
 Přepínač se počítá do otisku, takže jeho zapnutí `--if-changed` pozná jako změnu (Z57).  
-Odkaz má třídu `upravit`, takže ho jde ve `styl.css` přestylovat nebo schovat (Z40).
+Odkaz má třídu `upravit` a s nadpisem ho drží blok `titulek`, takže ho jde ve `styl.css` přestylovat nebo schovat (Z40).

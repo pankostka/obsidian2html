@@ -60,7 +60,7 @@ Když se ve zdroji od posledního buildu nic nezměnilo, skončí hned a na cíl
 Nová verze `md2html.py` se počítá jako změna.
 
 `--edit-links` je pro web, který čte jen jeho autor.  
-V patičce každého článku přibude odkaz *Upravit v Obsidianu* a klik na něj otevře poznámku, ze které článek vznikl.  
+Vpravo od nadpisu článku i jeho karty v přehledu přibude tužka a klik na ni otevře poznámku, ze které článek vznikl.  
 Prohlížeč se napoprvé zeptá, jestli smí Obsidian spustit.  
 Na veřejný web nepatří, prozradil by název vaultu a jeho složky.  
 `--source` musí ležet ve vaultu Obsidianu, tedy ve složce se `.obsidian/` nebo pod ní, jinak build skončí chybou.
@@ -124,7 +124,7 @@ Chybějící klíč má výchozí hodnotu, neznámý klíč nebo neplatná hodno
 - Filtr podle tagů přežije kliknutí do článku (Z70) a když zbude jediný článek, otevře se (Z80).
 - Volitelný filtr na období se spojuje s tagy a jeho histogram ukazuje i dny, měsíce nebo roky bez článku (Z75).
 - Pod patičkou každé stránky je datum a čas poslední změny obsahu webu, ne čas buildu (Z85).
-- S `--edit-links` otevře odkaz v patičce článku jeho zdroj v Obsidianu, bez přepínače na webu po vaultu nic nezůstane (Z90).
+- S `--edit-links` otevře tužka u nadpisu článku a jeho karty zdroj v Obsidianu, bez přepínače na webu po vaultu nic nezůstane (Z90).
 
 ## Pro vývoj
 

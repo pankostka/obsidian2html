@@ -1003,9 +1003,26 @@ class Konvence(Zaklad):
         html = self.vystupni('predmet.html')
         self.assertIn('<a href="obsidian://open?vault=vault&amp;file='
                       'Fy%20-%20Fyzika%2FP%C5%99edm%C4%9Bt%20%F0%9F%8C%90"'
-                      ' class="upravit">Upravit v Obsidianu</a>', html)
+                      ' class="upravit" title="Upravit v Obsidianu"', html)
+        # Odkaz stoji vpravo u nadpisu, v paticce uz neni.
+        self.assertIn('<div class="titulek"><h1>', html)
+        self.assertNotIn('class="upravit"',
+                         html[html.index('<footer'):])
         # Kontrola odkazu ho nesmi vzit za soubor a zplostit.
         self.assertNotIn('Flattened', vypis)
+
+    def test_Z90_odkaz_ma_i_karta_v_prehledu(self):
+        """Na titulce i na strance tagu, aby se nemuselo rozklikavat."""
+        self.soubor('.obsidian/app.json', '{}')
+        self.clanek('Prvni', 'Text.')
+        kod, vypis = self.web('--edit-links')
+        self.assertEqual(kod, 0, vypis)
+        odkaz = 'obsidian://open?vault=vault&amp;file=Prvni%20'
+        self.assertIn(odkaz, self.vystupni('tag-obsidian.html'))
+        index = self.vystupni('index.html')
+        # Karta kreslena skriptem i ta bez skriptu.
+        self.assertIn('"edit": "<a href=\\"' + odkaz, index)
+        self.assertIn('<div class="titulek"><h2><a href="prvni.html">', index)
 
     def test_Z90_zdroj_uvnitr_vaultu_se_pocita_od_korene(self):
         self.soubor('.obsidian/app.json', '{}')

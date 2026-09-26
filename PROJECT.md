@@ -317,6 +317,16 @@ Vault se hledá nahoru od `--source` podle `.obsidian/` (`find_vault_root`), odk
 
 Testy 120.
 
+### 23. Tužka u nadpisu místo textu v patičce - HOTOVO
+
+Odkaz z Z90 se přestěhoval z patičky vpravo k nadpisu článku a přibyl i na kartách titulky a stránek tagů, aby se kvůli opravě nemusel článek otevírat. Místo textu je ikonka tužky jako vložené SVG (`EDIT_ICON`, `edit_button`, `with_edit`), text zůstal v `title` a `aria-label`.
+
+Zvažovalo se a zahodilo: emoji klíče nebo tužky (vzhled podle písma a systému, v tlumené barvě patičky nejde obarvit), znak tužky U+270E (některá písma ho nemají), logo Obsidianu (ochranná známka a na malé velikosti nečitelné).
+
+Karta na titulce dostane v datech klíč `edit` jen s přepínačem, takže bez něj se PKVault liší jen skriptem a CSS - ověřeno na zmrazené kopii vaultu.
+
+Testy 121.
+
 ## Otevřené otázky
 
 - **Globus v titulcích s `"*.md"`.** Bez markeru se nestrhává nic, takže náhled PKVaultALL má u článků s globusem v titulku `Obsidian Co je 🌐`. Staré `--all` globus strhávalo, protože marker měl výchozí hodnotu. Pro vault bez markeru je to jedno.

@@ -419,6 +419,13 @@ body { padding-top: 1.25rem; }
                  font-size: .85rem; }
 .zahlavi .tagy a { text-decoration: none; color: var(--tlum); }
 .zahlavi .tagy a:hover { color: var(--odkaz); }
+/* A heading with the edit link (Z90) on its right, level with the text. */
+.titulek { display: flex; align-items: baseline; gap: .6rem; }
+.titulek > :first-child { flex: 1; min-width: 0; }
+.upravit { color: var(--tlum); text-decoration: none; font-size: 1rem;
+           line-height: 1; }
+.upravit:hover { color: var(--odkaz); }
+.upravit svg { display: block; }
 .jen-ctecka { position: absolute; width: 1px; height: 1px; overflow: hidden;
               clip-path: inset(50%); white-space: nowrap; }
 
@@ -1120,9 +1127,10 @@ function card(c, label) {
     ? '<a class="nahled" href="' + url + '"><img src="' + c.image
       + '" alt=""></a>'
     : '';
+  const heading = '<h2><a href="' + url + '">' + esc(c.title) + '</a></h2>';
   return '<article class="karta">' + thumb
-       + '<h2><a href="' + url + '">' + esc(c.title)
-       + '</a></h2>' + (meta ? '<div class="meta">' + meta + '</div>' : '')
+       + (c.edit ? '<div class="titulek">' + heading + c.edit + '</div>' : heading)
+       + (meta ? '<div class="meta">' + meta + '</div>' : '')
        + '<p class="perex">' + label + '</p></article>';
 }
 
@@ -1778,7 +1786,9 @@ def to_html(path, conv, out_dir, renamed, site, date=None):
     # Heading and tags live in one block, so the rule falls below both. It
     # is therefore on that block rather than on the h1.
     tags = tags_from_meta(own_meta)
-    masthead = ['<div class="zahlavi"><h1>%s</h1>' % heading]
+    masthead = ['<div class="zahlavi">',
+                with_edit('<h1>%s</h1>' % heading,
+                          edit_link(site.get('edit_vault'), path))]
     if tags:
         masthead.append('<div class="tagy">%s</div>' % ' '.join(
             '<a href="%s">#%s</a>' % (tag_page(x), x) for x in tags))
@@ -1794,8 +1804,7 @@ def to_html(path, conv, out_dir, renamed, site, date=None):
         header=(header_html(site, live_filter=bool(site['menu']))
                 + (filter_script(site) if site['menu'] else '')),
         body=''.join(masthead) + body,
-        footer=footer_html(site, own_meta.get('date'), tags, heading,
-                           edit_link(site.get('edit_vault'), path)))
+        footer=footer_html(site, own_meta.get('date'), tags, heading))
 
 
 def find_vault_root(src):
@@ -1828,6 +1837,33 @@ def edit_link(vault_root, path):
         rel = rel[:-3]
     return 'obsidian://open?vault=%s&file=%s' % (
         quote(os.path.basename(vault_root), safe=''), quote(rel, safe=''))
+
+
+# A pencil drawn in the text colour. An SVG and not an emoji or a Unicode
+# character: those take their look from whatever font the reader has, and
+# some fonts lack them altogether.
+EDIT_ICON = ('<svg viewBox="0 0 16 16" width="1em" height="1em" fill="none"'
+             ' stroke="currentColor" stroke-width="1.5" stroke-linecap="round"'
+             ' stroke-linejoin="round" aria-hidden="true">'
+             '<path d="M11 2.5l2.5 2.5L5 13.5H2.5V11z"/>'
+             '<path d="M9.5 4l2.5 2.5"/></svg>')
+
+
+def edit_button(edit):
+    """The icon link that opens a source in Obsidian, see Z90.
+
+    The words go into title and aria-label, so hovering shows them and a
+    screen reader reads them instead of the picture.
+    """
+    return ('<a href="%s" class="upravit" title="%s" aria-label="%s">%s</a>'
+            % (edit.replace('&', '&amp;'), T['edit'], T['edit'], EDIT_ICON))
+
+
+def with_edit(heading, edit):
+    """A heading with the edit link on its right, or the heading alone."""
+    if not edit:
+        return heading
+    return '<div class="titulek">%s%s</div>' % (heading, edit_button(edit))
 
 
 # ==============================================================================
@@ -2255,11 +2291,8 @@ def header_html(site, active=None, active_tag=None, reachable=None,
     return ''.join(parts)
 
 
-def footer_html(site, date=None, tags=(), name=None, edit=None):
-    """Date, the article's tags and links. On an article, a copy-name button too.
-
-    `edit` is the obsidian:// address of the article's source, see Z90.
-    """
+def footer_html(site, date=None, tags=(), name=None):
+    """Date, the article's tags and links. On an article, a copy-name button too."""
     parts = []
     if date:
         parts.append('<span>%s</span>' % date)
@@ -2267,9 +2300,6 @@ def footer_html(site, date=None, tags=(), name=None, edit=None):
         parts.append('<span class="tagy">%s</span>' % ' '.join(
             '<a href="%s">#%s</a>' % (tag_page(t), t) for t in tags))
     links = []
-    if edit:
-        links.append('<a href="%s" class="upravit">%s</a>'
-                     % (edit.replace('&', '&amp;'), T['edit']))
     if name:
         links.append('<button type="button" id="kopirovat" class="kopie"'
                       ' data-nazev="%s">%s</button>'
@@ -2447,7 +2477,8 @@ def card(c, state=''):
     if c.get('image'):
         parts.append('<a class="nahled" href="%s"><img src="%s" alt=""></a>'
                     % (url, c['image']))
-    parts.append('<h2><a href="%s">%s</a></h2>' % (url, c['heading']))
+    parts.append(with_edit('<h2><a href="%s">%s</a></h2>' % (url, c['heading']),
+                           c.get('edit')))
     labels = []
     if c['date']:
         labels.append(c['date'])
@@ -2589,6 +2620,8 @@ def front_page(articles, site, intro='', heading=None):
                      'text': c['text'], 'image': c.get('image'),
                      'tags': [{'name': x, 'label': x, 'slug': slug(x)}
                               for x in c['tags']]})
+        if c.get('edit'):
+            data[-1]['edit'] = edit_button(c['edit'])
     # The sequence </ is split inside the data, so that a string in an article
     # cannot close the script element sooner than it should.
     cards = json.dumps(data, ensure_ascii=False).replace('</', '<' + chr(92) + '/')
@@ -3346,7 +3379,8 @@ def main():
                              'file': os.path.basename(html_soubor),
                              'excerpt': excerpt(body_text, meta, conv),
                              'text': text_from_html(html),
-                             'image': None})
+                             'image': None,
+                             'edit': edit_link(site.get('edit_vault'), path)})
             zdroj_obr = excerpt_image(path)
             if zdroj_obr:
                 produced[-1]['image'] = copy_attachment(
