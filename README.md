@@ -60,7 +60,7 @@ When nothing in the source changed since the last build, it stops at once and le
 A new version of `md2html.py` counts as a change.
 
 `--edit-links` is for a site that only its author reads.  
-The footer of every article gets an *Edit in Obsidian* link, and clicking it opens the note the article was made from.  
+A pencil appears to the right of the heading of every article and of its card in the listing, and clicking it opens the note the article was made from.  
 The first time, the browser asks whether it may start Obsidian.  
 It does not belong on a public site, since it would give away the name of the vault and its folders.  
 `--source` has to lie in an Obsidian vault, that is in a folder with `.obsidian/` or below one, otherwise the build stops with an error.
@@ -124,7 +124,7 @@ A missing key has its default; an unknown key or an invalid value stops the buil
 - The tag filter survives a click into an article (Z70), and when a single article is left, it opens (Z80).
 - The optional date filter combines with the tags, and its histogram shows the days, months or years without an article too (Z75).
 - Below the footer of every page is the date and time the site's content last changed, not the build time (Z85).
-- With `--edit-links`, a link in the footer of an article opens its source in Obsidian; without the switch nothing of the vault is left on the site (Z90).
+- With `--edit-links`, a pencil by the heading of an article and of its card opens its source in Obsidian; without the switch nothing of the vault is left on the site (Z90).
 
 ## Development
 
