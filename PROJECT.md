@@ -327,6 +327,20 @@ Karta na titulce dostane v datech klíč `edit` jen s přepínačem, takže bez 
 
 Testy 121.
 
+### 24. Prázdná pilulka na konci každé řady - HOTOVO
+
+Popsané jako K98. Podnět: článek bez tagu se přes tagy nedal najít. Pseudo-tag `#` sbíral jen články úplně bez tagů, takže článek s jediným běžným tagem neměl cestu přes první řadu a naopak.
+
+Každou řadu teď uzavírá pilulka bez jména s počtem článků, které v té řadě žádný tag nemají (`filter_chips`, v JS `PSEUDO` a `LEADING` u `matchesTags`). Obě naráz vrátí články bez tagů, takže `#` odešel i se stránkou `tag-bez-tagu.html`. Osamělý `#` v `menu.md` build přeskočí a ohlásí. Hlavní tag se bere podle celého webu, jako všude jinde v K97.
+
+Pilulka se kreslí, jen když zužuje, tedy sedí aspoň na jeden článek a ne na všechny. Jméno pro čtečku nese `aria-label`, nápověda v `title` říká *filtrovat na články bez hlavního tagu*. Šablony nápověd proto berou celý text místo jména tagu a `#` přidává až skript.
+
+Při ověřování v prohlížeči se ukázalo, že vybraná pilulka bez počtu nemá v tlačítku žádný text a splaskne na výšku zaškrtávátka. Drží ji znak nulové šířky v `::before`.
+
+Ověřeno na kopii výstupu PKVaultu: proti předchozí verzi se liší jen skripty, tabulka textů a `styl.css`. Na titulce je 17 článků bez hlavního a 17 bez běžného tagu, filtr, popisek výsledku i lišta v hlavičce článku fungují.
+
+Testy 125.
+
 ## Otevřené otázky
 
 - **Globus v titulcích s `"*.md"`.** Bez markeru se nestrhává nic, takže náhled PKVaultALL má u článků s globusem v titulku `Obsidian Co je 🌐`. Staré `--all` globus strhávalo, protože marker měl výchozí hodnotu. Pro vault bez markeru je to jedno.

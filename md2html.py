@@ -225,11 +225,11 @@ CONFIG_FILE = 'config.toml'
 # somebody else survives even a typo in the path.
 OUTPUT_MARKER = '.vygenerovano'
 
-# The pseudo-tag for articles without tags. In the bar it is a '#' button - a
-# bare hash is useless as a page title, and useless to a screen reader too, so
-# its page carries a real heading. Both the slug and the heading come from the
-# language table; only the button label is the same everywhere.
-NO_TAG_LABEL = '#'
+# A lone hash on a line of menu.md used to put the 'articles without tags'
+# pseudo-tag in the bar. That pseudo-tag and its page are gone - the filter
+# closes each row with an empty pill instead, see filter_chips - so the line
+# is skipped and the build says so.
+NO_TAG_LINE = '#'
 
 
 # ==============================================================================
@@ -264,9 +264,14 @@ TEXTS = {
         'edit': 'Upravit v Obsidianu',
         'updated': 'Aktualizováno',
         'tag_prefix': 'tag-',
-        'no_tag_slug': 'bez-tagu',
-        'no_tag_heading': 'Bez tagu',
-        'no_tag_scope': 'článcích bez tagu',
+        'no_lead_slug': 'bez-hlavniho-tagu',
+        'no_lead_label': 'bez hlavního tagu',
+        'no_lead_hint': 'články bez hlavního tagu',
+        'no_lead_scope': 'článcích bez hlavního tagu',
+        'no_plain_slug': 'bez-bezneho-tagu',
+        'no_plain_label': 'bez běžného tagu',
+        'no_plain_hint': 'články bez běžného tagu',
+        'no_plain_scope': 'článcích bez běžného tagu',
         'newer': 'Novější',
         'older': 'Starší',
         'page_of': 'Stránka %d z %d',
@@ -275,9 +280,9 @@ TEXTS = {
         'no_overlap': 's #%s se nepotkává v žádném článku',
         'clear_filter': 'zrušit filtr',
         'remove_filter': 'odebrat filtr',
-        'hold_tag': 'držet #%s ve filtru',
-        'release_tag': 'přestat držet #%s',
-        'filter_tag': 'filtrovat na #%s',
+        'hold_tag': 'držet %s ve filtru',
+        'release_tag': 'přestat držet %s',
+        'filter_tag': 'filtrovat na %s',
         'nothing_found': 'nic nenalezeno',
         'in_scope': ' v ',
         'and': ' a ',
@@ -310,9 +315,14 @@ TEXTS = {
         'edit': 'Edit in Obsidian',
         'updated': 'Updated',
         'tag_prefix': 'tag-',
-        'no_tag_slug': 'no-tag',
-        'no_tag_heading': 'Without a tag',
-        'no_tag_scope': 'articles without a tag',
+        'no_lead_slug': 'no-lead-tag',
+        'no_lead_label': 'without a lead tag',
+        'no_lead_hint': 'articles without a lead tag',
+        'no_lead_scope': 'articles without a lead tag',
+        'no_plain_slug': 'no-plain-tag',
+        'no_plain_label': 'without a plain tag',
+        'no_plain_hint': 'articles without a plain tag',
+        'no_plain_scope': 'articles without a plain tag',
         'newer': 'Newer',
         'older': 'Older',
         'page_of': 'Page %d of %d',
@@ -321,9 +331,9 @@ TEXTS = {
         'no_overlap': 'never occurs together with #%s',
         'clear_filter': 'clear the filter',
         'remove_filter': 'remove the filter',
-        'hold_tag': 'keep #%s in the filter',
-        'release_tag': 'stop keeping #%s',
-        'filter_tag': 'filter to #%s',
+        'hold_tag': 'keep %s in the filter',
+        'release_tag': 'stop keeping %s',
+        'filter_tag': 'filter to %s',
         'nothing_found': 'nothing found',
         'in_scope': ' in ',
         'and': ' and ',
@@ -539,6 +549,13 @@ body { padding-top: 1.25rem; }
 .parstitek.vybrany { border-color: var(--odkaz); }
 .parstitek.vybrany > button { background: var(--odkaz); color: #fff; }
 .parstitek .pocet-tagu { opacity: .6; font-size: .8em; margin-left: .35em; }
+/* The empty pill of a row stands for the articles with no tag in it. Nothing
+   but the count is written on it, and held or browsed it has no count
+   either, so it keeps a width of its own instead of shrinking to a sliver -
+   and the zero-width space keeps the height of a line of text. */
+.parstitek.prazdny > button { min-width: 2.2em; text-align: center; }
+.parstitek.prazdny > button::before { content: "\\200b"; }
+.parstitek.prazdny .pocet-tagu { margin-left: 0; }
 
 .paticka { margin-top: 3.5rem; padding-top: 1rem;
            border-top: 1px solid var(--linka);
@@ -715,7 +732,7 @@ HTML_WEB = ('<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
 # page is still standing in the header of the article one opens from it.
 #
 # What the page around it has to supply: ARTICLES (each with `tags`),
-# ALL_TAGS, NO_TAG, TXT, the state in `held` and `current`, `filters` with
+# ALL_TAGS, TXT, the state in `held` and `current`, `filters` with
 # `syncFilters`, `countFor(combo, words)` and `render()`. What a click does is
 # each side's own business - the front page redraws its listing, an article
 # leaves for the front page carrying the new state. A click on a NAME says so
@@ -732,9 +749,22 @@ function syncFilters() {
                                                  : held.slice();
 }
 
+// The empty pill closing each row stands for the articles that have no tag in
+// that row, see filter_chips. Which tags lead is the SITE's business - one
+// marked occurrence is enough (K97) - so the leading row is read off the
+// chips, not off the article. An article with no tag at all has none in
+// either row, and holding both empty pills finds exactly those.
+const LEADING = new Set(ALL_TAGS.filter(t => t.lead && !t.pseudo).map(t => t.name));
+const PSEUDO = {};
+ALL_TAGS.forEach(t => { if (t.pseudo) { PSEUDO[t.name] = t; } });
+
 function matchesTags(c, combo) {
-  return combo.every(f => f === NO_TAG ? c.tags.length === 0
-                                       : c.tags.some(t => t.name === f));
+  return combo.every(f => {
+    const pseudo = PSEUDO[f];
+    if (!pseudo) { return c.tags.some(t => t.name === f); }
+    const inRow = c.tags.some(t => LEADING.has(t.name) === (pseudo.pseudo === 'lead'));
+    return !inRow;
+  });
 }
 
 // The period is a third axis of the filter, joined with AND like the tags.
@@ -840,9 +870,13 @@ function facetRows(words) {
     // can actually reach, and the eye has less to sort through.
     if (count === 0) { continue; }
     const classes = 'parstitek' + (isHeld ? ' drzeny' : '')
-                    + (isCurrent ? ' vybrany' : '');
-    const hint = isHeld ? withTag(TXT.release_tag, tag.label)
-                        : withTag(TXT.hold_tag, tag.label);
+                    + (isCurrent ? ' vybrany' : '')
+                    + (tag.pseudo ? ' prazdny' : '');
+    // A tag is named with its hash in the hints; the empty pill has no name,
+    // so it says what it stands for instead.
+    const what = tag.pseudo ? tag.hint : '#' + tag.label;
+    const hint = isHeld ? withTag(TXT.release_tag, what)
+                        : withTag(TXT.hold_tag, what);
     // The checkbox holds the tag and nothing else. It is a real input, so
     // the keyboard and the screen reader get it for free.
     //
@@ -857,9 +891,12 @@ function facetRows(words) {
       + (isHeld ? ' disabled' : '')
       + ' aria-pressed="' + (isCurrent ? 'true' : 'false') + '"'
       + (isHeld ? '' : ' title="' + esc(isCurrent ? TXT.remove_filter
-                       : withTag(TXT.filter_tag, tag.label)) + '"')
-      // No hash in front of the name: the pill already says this is a tag,
-      // and the pseudo-tag, whose label IS a hash, would read as two.
+                       : withTag(TXT.filter_tag, what)) + '"')
+      // The empty pill shows nothing but its count, which is no name for a
+      // screen reader - it gets one of its own.
+      + (tag.pseudo ? ' aria-label="' + esc(tag.aria
+                       + (inFilter ? '' : ' ' + count)) + '"' : '')
+      // No hash in front of the name: the pill already says this is a tag.
       + '>' + esc(tag.label)
       + (inFilter ? '' : '<span class="pocet-tagu">' + count + '</span>')
       + '</button></span>';
@@ -928,7 +965,6 @@ for (const id of ['fasety', 'fasety-dalsi']) {
 # work out, and the search index would be paid for on every article.
 ARTICLE_FILTER = r"""<script>
 const ALL_TAGS = @TAGS@;
-const NO_TAG = '@NO_TAG@';
 const TXT = @TEXTS@;
 const BINS = @BINS@;
 const ARTICLES = @TAG_SETS@.map(a => ({ url: a.url, bin: binOf(a.date),
@@ -1022,7 +1058,6 @@ FRONT_PAGE = r"""<h1 class="jen-ctecka">@HEADING@</h1>
 // filtered to a tag it adds ?tag= as well, and only that tag's articles are
 // searched.
 const ARTICLES = @DATA@;
-const NO_TAG = '@NO_TAG@';
 // Tag order is taken from the bar, so the eye looks for a tag in the same
 // place as everywhere else.
 const ALL_TAGS = @TAGS@;
@@ -1084,8 +1119,8 @@ function scopeLabel() {
   const narrowed = since || until;
   if (!filters.length && !narrowed) return '';
   const tags = filters.length
-    ? TXT.in_scope + filters.map(f => f === NO_TAG ? TXT.no_tag_scope
-                                                   : '#' + f).join(TXT.and)
+    ? TXT.in_scope + filters.map(f => PSEUDO[f] ? PSEUDO[f].scope
+                                                : '#' + f).join(TXT.and)
     : '';
   return tags + (narrowed ? (tags ? ', ' : ' ') + periodLabel() : '');
 }
@@ -1941,7 +1976,25 @@ def demote_headings(text):
                                            flags=re.M))
 
 
-def menu_items(text, tags, no_tag=False):
+def menu_lines(text):
+    """The item lines of menu.md, stripped of their bullet and backticks.
+
+    A tag is written in backticks: `#PowerBI`. Without them Obsidian would
+    treat it as a real vault tag and the bar would show up in tag search,
+    where it does not belong - it is site configuration, not content. The
+    backticks are only a wrapper; a bare #tag is still read, so older files
+    keep working.
+    """
+    for line in (text or '').split('\n'):
+        r = line.strip().lstrip('-*').strip()
+        if not r or r.startswith('>'):
+            continue
+        if len(r) > 2 and r.startswith('`') and r.endswith('`'):
+            r = r[1:-1].strip()
+        yield r
+
+
+def menu_items(text, tags):
     """Bar items as [(label, address, tag)]. Tag is None for a fixed link.
 
     Without .obsidian2html/menu.md these are all tags in alphabetical order. A
@@ -1954,23 +2007,11 @@ def menu_items(text, tags, no_tag=False):
       [[Article name]]        a link to an article, address derived from the name
     A leading bullet is ignored, so that it can be a list inside Obsidian.
     """
-    pseudo = (NO_TAG_LABEL, tag_page(T['no_tag_slug']), None)
     if not text:
-        done = [(t, tag_page(t), t) for t in tags]
-        return done + ([pseudo] if no_tag else [])
+        return [(t, tag_page(t), t) for t in tags]
 
     items = []
-    for line in text.split('\n'):
-        r = line.strip().lstrip('-*').strip()
-        if not r or r.startswith('>'):
-            continue
-        # A tag is written in backticks: `#PowerBI`. Without them Obsidian
-        # would treat it as a real vault tag and the bar would show up in tag
-        # search, where it does not belong - it is site configuration, not
-        # content. The backticks are only a wrapper; a bare #tag is still read,
-        # so older files keep working.
-        if len(r) > 2 and r.startswith('`') and r.endswith('`'):
-            r = r[1:-1].strip()
+    for r in menu_lines(text):
         m = re.match(r'^\[\[([^\]|]+?)(?:\\?\|([^\]]+))?\]\]$', r)
         if m:
             target = m.group(1).strip()
@@ -1981,20 +2022,12 @@ def menu_items(text, tags, no_tag=False):
         if m:
             items.append((m.group(1).strip(), m.group(2).strip(), None))
             continue
-        if r == NO_TAG_LABEL:
-            # A lone hash on a line is the 'articles without tags' pseudo-tag.
-            if no_tag:
-                items.append(pseudo)
-            continue
         if r.startswith('#') and len(r) > 1 and not r[1].isspace():
             # The mark is stripped here too, so a tag copied from an article
             # as it is written there, `#_Obsidian`, names the same tag.
             tag = bare_tag(r[1:])
             items.append((tag, tag_page(tag), tag))
-    # When menu.md never mentions the pseudo-tag, it appends itself - articles
-    # without tags would otherwise be reachable from nowhere but the front page.
-    if no_tag and pseudo not in items:
-        items.append(pseudo)
+    # A lone hash, NO_TAG_LINE, falls through: its page is gone.
     return items
 
 
@@ -2139,7 +2172,7 @@ def combination_url(tags):
     return 'index.html?' + '&'.join('tag=%s' % quote(t) for t in tags)
 
 
-def filter_chips(site, untagged):
+def filter_chips(site, tag_lists):
     """The tags of the filter, in the order and the split both bars use.
 
     THE BAR IS CURATED, THE FILTER IS COMPLETE. `.obsidian2html/menu.md`
@@ -2154,16 +2187,30 @@ def filter_chips(site, untagged):
     where the article is tagged. Both rows run ALPHABETICALLY: there is no
     curated order to follow here, and among twenty chips the alphabet is the
     only order a reader can predict.
+
+    EACH ROW CLOSES WITH AN EMPTY PILL for the articles that have no tag in
+    it. Without it an article nobody tagged, or tagged in one row only, could
+    not be reached through that row at all. Holding both finds the articles
+    with no tag whatsoever, so no third pill is needed. `tag_lists` are the
+    tags of every article, one list each.
+
+    An empty pill is drawn only when it narrows: at least one article falls
+    into it, and not every one. A pill that yields everything is a click that
+    changes nothing - and on a site with no leading tag, the empty pill of the
+    first row would be exactly that.
     """
     leading = set(site.get('lead_tags') or ())
     chips = [{'name': tag, 'label': tag, 'lead': tag in leading}
              for tag in site['tags']]
-    if untagged or any(url == tag_page(T['no_tag_slug'])
-                       for _, url, _ in site['menu']):
-        # The pseudo-tag closes the second row. It names no topic, it collects
-        # what fell through, and the leading row is for the axes one files by.
-        chips.append({'name': T['no_tag_slug'], 'label': NO_TAG_LABEL,
-                      'lead': False})
+    for row, lead in (('lead', True), ('plain', False)):
+        hits = sum(1 for tags in tag_lists
+                   if not any((t in leading) == lead for t in tags))
+        if 0 < hits < len(tag_lists):
+            chips.append({'name': T['no_%s_slug' % row], 'label': '',
+                          'lead': lead, 'pseudo': row,
+                          'aria': T['no_%s_label' % row],
+                          'hint': T['no_%s_hint' % row],
+                          'scope': T['no_%s_scope' % row]})
     return chips
 
 
@@ -2180,10 +2227,9 @@ def filter_script(site):
             .replace('@FACETS@', FACET_JS)
             .replace('@BINS@', json.dumps(site.get('bins') or []))
             .replace('@TAG_SETS@', json.dumps(sets, ensure_ascii=False))
-            .replace('@TAGS@', json.dumps(filter_chips(site, any(not s['tags'] for s in sets)),
+            .replace('@TAGS@', json.dumps(filter_chips(site, [s['tags'] for s in sets]),
                                           ensure_ascii=False))
-            .replace('@TEXTS@', json.dumps(T, ensure_ascii=False))
-            .replace('@NO_TAG@', T['no_tag_slug']))
+            .replace('@TEXTS@', json.dumps(T, ensure_ascii=False)))
 
 
 def header_html(site, active=None, active_tag=None, reachable=None,
@@ -2250,7 +2296,7 @@ def header_html(site, active=None, active_tag=None, reachable=None,
             '</form>', '</div>']
     chips = []
     for label, url, tag in site['menu']:
-        if fixed_only and (tag or url == tag_page(T['no_tag_slug'])):
+        if fixed_only and tag:
             continue
         # `active` is either a tag name or a filename - so that a fixed item,
         # Search for instance, can be highlighted too.
@@ -2632,7 +2678,7 @@ def front_page(articles, site, intro='', heading=None):
     plain = ['<div class="vypis">'] + [card(c) for c in articles] + ['</div>']
 
     # The very same chips the bar of an article draws, see filter_chips.
-    chips = filter_chips(site, any(not c['tags'] for c in articles))
+    chips = filter_chips(site, [c['tags'] for c in articles])
 
     bins = site.get('bins') or []
     period = (PERIOD_HTML.replace('@PERIOD@', escape(T['period']))
@@ -2649,7 +2695,6 @@ def front_page(articles, site, intro='', heading=None):
                     .replace('@TAGS@', json.dumps(chips, ensure_ascii=False))
                     .replace('@TEXTS@', json.dumps(T, ensure_ascii=False))
                     .replace('@LIST@', ''.join(plain))
-                    .replace('@NO_TAG@', T['no_tag_slug'])
                     .replace('@NEEDS_JS@', escape(T['needs_js']))
                     .replace('@INTRO@', intro)
                     .replace('@HEADING@', escape(heading)))
@@ -3325,7 +3370,6 @@ def main():
             print('Inside it, rename menu_webu.md to menu.md.')
 
         menu_source, intro, home_title, custom_css = site_inputs(vault, batch)
-        no_tag = any(not tags_from_meta(m) for _, m, _ in items)
         site = {'name': config['name'],
                'tags': sorted(all_tags),
                'lead_tags': sorted(leading),
@@ -3333,7 +3377,7 @@ def main():
                'edit_vault': vault_root,
                'bins': (period_axis([m['date'] for _, m, _, _ in plan])
                           if config['date_filter'] else []),
-               'menu': menu_items(menu_source, sorted(all_tags), no_tag),
+               'menu': menu_items(menu_source, sorted(all_tags)),
                'logo': None,
                'rss': bool(config['base_url']),
                'description': text_from_html(intro) if intro else None,
@@ -3427,15 +3471,6 @@ def main():
                       % (zapis(nazev_s, html_s), len(sem),
                          len(reachable - {tag})))
 
-        sem = [c for c in ordered if not c['tags']]
-        if sem:
-            for nazev_s, html_s in card_grid(
-                    sem, T['tag_prefix'] + T['no_tag_slug'], T['no_tag_heading'], site,
-                    tag_page(T['no_tag_slug']), hidden_heading=True,
-                    active_tag=T['no_tag_slug']):
-                print('  %s  (%d articles without tags)'
-                      % (zapis(nazev_s, html_s), len(sem)))
-
         if config['base_url']:
             print('  %s  (%d items)'
                   % (zapis('rss.xml', rss(ordered, site, config['base_url'])),
@@ -3497,6 +3532,15 @@ def main():
                     print('      %s' % c)
                 if len(where) > 5:
                     print('      ... and %d more' % (len(where) - 5))
+
+        # The retired pseudo-tag. Its page is gone and the line does
+        # nothing now; saying so beats the author looking for a chip that
+        # will never come back.
+        if NO_TAG_LINE in menu_lines(menu_source):
+            print('\nThe lone `%s` in %s/menu.md is skipped: the page of'
+                  ' articles without tags is gone, the filter closes each row'
+                  ' with an empty pill instead. Drop the line.'
+                  % (NO_TAG_LINE, conf_name))
 
         empty_tags = [x for x in in_menu if x not in site['tags']]
         if empty_tags:

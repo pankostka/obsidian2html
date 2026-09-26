@@ -100,8 +100,18 @@ U hierarchie se posuzuje **každá část zvlášť**: `_Obsidian/Video` povýš
 Protože `_Obsidian` a `Obsidian` je jeden tag, stačí značka u jednoho výskytu a tag vede - build ale vypíše články, které ji nemají, protože ze zápisu se nedůslednost nepozná.  
 Kurátorovaný `menu.md` řídí lištu v hlavičce, do filtru nemluví; značku v něm psát netřeba, a když se tam zkopíruje, přeskočí se.
 
+**K98. Každou řadu filtru uzavírá prázdná pilulka pro články, které v ní žádný tag nemají.**  
+Bez ní by se k článku bez hlavního tagu nedalo dostat přes první řadu a k článku bez běžného tagu přes druhou, a článek bez tagů vůbec by nebyl vidět ani v jedné.  
+Hlavní je tag podle celého webu, ne podle zápisu v článku (K97): článek s `Obsidian` bez podtržítka má hlavní tag, když ho jinde někdo označil.  
+Obě pilulky naráz dávají články bez jediného tagu, takže třetí pilulka není potřeba.  
+Pilulka nemá jméno, nese jen počet, a čtečce obrazovky říká, co znamená, vlastním `aria-label`.  
+Kreslí se, jen když zužuje: sedí na ni aspoň jeden článek a ne všechny.  
+Na webu bez hlavního tagu by pilulka první řady nesla všechno, a klik, který nic nezmění, do lišty nepatří.  
+Stránku nemá, žije jen ve filtru; v adrese je jako `?tag=bez-hlavniho-tagu` a `?tag=bez-bezneho-tagu`, anglicky `no-lead-tag` a `no-plain-tag`.  
+Dřívější pseudo-tag `#` se stránkou `tag-bez-tagu.html` zmizel, a když ho `menu.md` pořád jmenuje, build řádek přeskočí a ohlásí to.
+
 **K100. Jazyk webu určuje klíč `lang` v `config.toml`, výchozí je `cs`.** Lokalizuje se jen to, co vidí **návštěvník** - hlášky při buildu čte ten, kdo build spouští, a ty jsou anglicky vždycky.  
-Součástí jazyka jsou i **názvy stránek**: český web má `tag-bez-tagu.html`, anglický `tag-no-tag.html`.  
+Součástí jazyka jsou i **názvy v adrese**: prázdná pilulka z K98 je na českém webu `?tag=bez-bezneho-tagu`, na anglickém `?tag=no-plain-tag`.  
 Adresa, která je jednou venku, je závazek, a odvození od jazyka ho drží na obou stranách.  
 Skloňování řeší v prohlížeči `Intl.PluralRules`, takže v kódu nejsou žádná pravidla na počítání - tabulka nese jen tvary. Čeština jich potřebuje tři, angličtina dvě.  
 Neznámý jazyk build zastaví. Tiše spadnout na češtinu by znamenalo vyrobit jiný web, než si člověk vyžádal.

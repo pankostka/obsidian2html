@@ -1118,26 +1118,28 @@ class Lokalizace(Zaklad):
         self.assertNotIn('Titulka', index)
 
 
-    def test_K100_pseudotag_bez_tagu_ma_svuj_slug(self):
-        """Nazev stranky je soucasti jazyka, tak jako texty na ni."""
+    def test_K100_prazdna_pilulka_ma_jmeno_podle_jazyka(self):
+        """Jmeno jde do adresy, `?tag=no-plain-tag`, tak jako jmena stranek."""
         self.clanek('Prvni', 'Text.', tagy='')
+        self.clanek('Druha', 'Text.', tagy='obsidian')
         self.konfigurace('lang = "en"\n')
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
 
-        stranky = self.stranky()
-        self.assertIn('tag-no-tag.html', stranky)
-        self.assertNotIn('tag-bez-tagu.html', stranky)
+        index = self.vystupni('index.html')
+        self.assertIn('"name": "no-plain-tag"', index)
+        self.assertNotIn('"name": "bez-bezneho-tagu"', index)
 
-    def test_K100_pseudotag_ma_cesky_slug_na_ceskem_webu(self):
+    def test_K100_prazdna_pilulka_ma_ceske_jmeno_na_ceskem_webu(self):
         """Protejsek predchoziho, aby test neprosel generatoru s jednim jazykem."""
         self.clanek('Prvni', 'Text.', tagy='')
+        self.clanek('Druha', 'Text.', tagy='obsidian')
         kod, vypis = self.web()
         self.assertEqual(kod, 0, vypis)
 
-        stranky = self.stranky()
-        self.assertIn('tag-bez-tagu.html', stranky)
-        self.assertNotIn('tag-no-tag.html', stranky)
+        index = self.vystupni('index.html')
+        self.assertIn('"name": "bez-bezneho-tagu"', index)
+        self.assertNotIn('"name": "no-plain-tag"', index)
 
     def test_K100_tabulka_textu_je_zapecena_v_titulce(self):
         """Skloňování resi prohlizec pres Intl.PluralRules, tvary nese tabulka."""
@@ -1399,6 +1401,70 @@ class Lokalizace(Zaklad):
         self.assertIn('id="fasety-dalsi"', html)
         # Abecedne v ramci celku, ze ktereho si rady vybiraji: Alfa pred Video.
         self.assertLess(html.index('"name": "Alfa"'), html.index('"name": "Video"'))
+
+    def test_K97_kazdou_radu_uzavira_prazdna_pilulka(self):
+        """Clanek bez tagu v jedne rade se k ni dostane pres jeji prazdnou pilulku.
+
+        Pilulka nema jmeno, jen cislo, takze ctecce obrazovky rika, co je,
+        vlastni aria-label.
+        """
+        self.clanek('Prvni', 'Text.', tagy='_Obsidian, Video')
+        self.clanek('Druha', 'Text.', tagy='Alfa')
+        self.clanek('Treti', 'Text.', tagy='_Obsidian')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        for html in (self.vystupni('index.html'), self.vystupni('prvni.html')):
+            self.assertIn('"name": "bez-hlavniho-tagu", "label": "", "lead": true,'
+                          ' "pseudo": "lead"', html)
+            self.assertIn('"name": "bez-bezneho-tagu", "label": "", "lead": false,'
+                          ' "pseudo": "plain"', html)
+            self.assertIn('"aria": "bez hlavního tagu"', html)
+        # Na konci sve rady: za vsemi tagy.
+        html = self.vystupni('index.html')
+        self.assertLess(html.index('"name": "Video"'),
+                        html.index('"name": "bez-hlavniho-tagu"'))
+
+    def test_K97_prazdna_pilulka_jen_kdyz_zuzuje(self):
+        """Pilulka, na kterou nesedi zadny clanek nebo sedi vsechny, se nekresli.
+
+        Na webu bez hlavniho tagu by pilulka prvni rady nesla vsechno, a klik,
+        ktery nic nezmeni, na listu nepatri.
+        """
+        self.clanek('Prvni', 'Text.', tagy='Obsidian')
+        self.clanek('Druha', 'Text.', tagy='')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('index.html')
+        self.assertNotIn('"name": "bez-hlavniho-tagu"', html)
+        # Druha nema bezny tag, Prvni ano - tady pilulka zuzuje.
+        self.assertIn('"name": "bez-bezneho-tagu"', html)
+
+    def test_K97_bez_clanku_mimo_radu_neni_prazdna_pilulka(self):
+        self.clanek('Prvni', 'Text.', tagy='Obsidian')
+        self.clanek('Druha', 'Text.', tagy='Video')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('index.html')
+        self.assertNotIn('"pseudo"', html)
+
+    def test_K97_stranka_clanku_bez_tagu_uz_neni(self):
+        """Clanky bez tagu najde prazdna pilulka, samostatna stranka zmizela.
+
+        Osamely `#` v menu.md tak nic nedela a build to rekne.
+        """
+        self.clanek('Prvni', 'Text.', tagy='')
+        self.clanek('Druha', 'Text.', tagy='obsidian')
+        self.soubor('.obsidian2html/menu.md', '- `#obsidian`\n- `#`\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        stranky = self.stranky()
+        self.assertNotIn('tag-bez-tagu.html', stranky)
+        self.assertNotIn('tag-bez-tagu.html', self.vystupni('druha.html'))
+        self.assertIn('lone `#`', vypis)
 
     def test_znacka_neni_soucasti_jmena_tagu(self):
         """`_Obsidian` a `Obsidian` je jeden tag, jedna stranka, jedna adresa.

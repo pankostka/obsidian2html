@@ -80,6 +80,7 @@ Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
 - **Datum** patří do frontmatteru jako `date: RRRR-MM-DD`, jinak se vezme datum souboru (K80).
 - **Tag** `Obsidian/Video` jsou dva tagy, `Obsidian` a `Video` (K95).
 - **Hlavní tag** se označí podtržítkem, `_Obsidian`, a ve filtru na titulce pak vede (K97).
+- **Článek bez tagu** v jedné z řad filtru najde prázdná pilulka na konci té řady (K98).
 
 Klíče frontmatteru jsou anglicky: `date`, `title`, `excerpt`, `slug`, `tags` (K90).
 
@@ -129,7 +130,7 @@ Chybějící klíč má výchozí hodnotu, neznámý klíč nebo neplatná hodno
 ## Pro vývoj
 
 Pravidla, jejich zdůvodnění a hraniční případy jsou v [SPEC.cs.md](SPEC.cs.md), ten je autoritou pro kód i testy.  
-Testy se pouštějí `python test_md2html.py`, je jich 120 a běží pod sekundu.
+Testy se pouštějí `python test_md2html.py`, je jich 125 a běží pod sekundu.
 
 ## Licence
 
