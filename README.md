@@ -80,6 +80,7 @@ Exit code: `0` done, `1` conversion error, `2` bad arguments.
 - **The date** belongs in the frontmatter as `date: YYYY-MM-DD`; otherwise the file's date is used (K80).
 - **The tag** `Obsidian/Video` is two tags, `Obsidian` and `Video` (K95).
 - **A leading tag** is marked with an underscore, `_Obsidian`, and then leads the filter on the front page (K97).
+- **An article without a tag** in one of the rows of the filter is found by the empty pill at the end of that row (K98).
 
 The frontmatter keys are in English: `date`, `title`, `excerpt`, `slug`, `tags` (K90).
 
@@ -129,7 +130,7 @@ A missing key has its default; an unknown key or an invalid value stops the buil
 ## Development
 
 The rules, the reasons behind them and the edge cases are in [SPEC.cs.md](SPEC.cs.md) (Czech), which is the authority for the code and the tests.  
-Tests are run with `python test_md2html.py`; there are 120 of them and they run in under a second.
+Tests are run with `python test_md2html.py`; there are 125 of them and they run in under a second.
 
 ## License
 
