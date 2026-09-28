@@ -48,7 +48,7 @@ Platí to v obou režimech, takže ani `_Poznámka 🌐.md` na web nejde.
 **K60. Náhledový obrázek se jmenuje jako článek** a leží v `Attachments/` vedle něj. Porovnává se přes slug, takže sedne `Obsidian Co je.png` i `obsidian-co-je.png`. Pojmenovat ho pevně nejde: jedna složka `Attachments/` obsluhuje všechny články své složky, takže by mezi nimi kolidoval. Doporučený rozměr je 630x290. Jiný rozměr se nepředělává - ořez a vycentrování obstará CSS v prohlížeči (`object-fit: cover`, horní část zůstane), takže generátor nepotřebuje knihovnu na obrázky.
 
 **K70. Konfigurace webu leží ve složce `.obsidian2html/` nebo `_obsidian2html/`** v kořeni vaultu. Obsahuje (abecedně):
-- `config.toml` - název, jazyk a adresa webu a filtr na období, viz níže.
+- `config.toml` - název, jazyk a adresa webu, filtr na období a hlavní tagy, viz níže.
 - `index.md` (ruční úvod na titulce) - vykreslí se na všech stránkách.
 - `logo.svg` - logo vlevo nahoře. Klikatelné (home).
 - `menu.md` (kurátorovaná lišta) - určuje pořadí tagů. Pokud není tak je abecední.
@@ -71,6 +71,7 @@ name = "Pan Kostka"                 # název webu
 lang = "cs"                         # jazyk webu, cs nebo en (K100)
 base_url = "https://pankostka.cz"   # adresa webu, bez ní nevznikne rss.xml
 date_filter = true                  # posuvník s histogramem na titulce (Z75)
+lead_tags = "folders"               # hlavní tag i z adresáře (K96)
 ```
 
 - `name` - název webu vlevo nahoře (u loga jako jeho alternativní text), v titulku každé stránky a v RSS. Výchozí je jméno složky vaultu.
@@ -78,6 +79,7 @@ date_filter = true                  # posuvník s histogramem na titulce (Z75)
 - `base_url` - absolutní adresa, na které web poběží. Potřebuje ji jen RSS, protože čtečka kanál čte jinde a relativní odkaz by tam nikam nevedl. Bez ní `rss.xml` nevznikne.
 - `date_filter` - filtr na období podle Z75, `true` nebo `false` bez uvozovek. Výchozí je `false`.  
 	Text `"false"` v uvozovkách je chyba, jinak by se jako neprázdný text četl jako zapnuto.
+- `lead_tags` - co dělá tag hlavním: `"underscore"` jen podtržítko podle K97, `"folders"` navíc adresář první úrovně podle K96. Výchozí je `"underscore"`.
 
 Každý klíč smí chybět a pak platí výchozí hodnota, chybět smí i celý soubor.  
 **Neznámý klíč nebo neplatná hodnota je chyba** a build se zastaví - překlep v `nmae` by jinak tiše vyrobil web se jménem složky.  
@@ -85,14 +87,36 @@ Každý klíč smí chybět a pak platí výchozí hodnota, chybět smí i celý
 
 **K80. Publikovaný článek by měl mít ve frontmatteru `date`.** Když ho nemá, použije se datum souboru. Je to vratké, protože datum souboru se mění při kopírování i při synchronizaci, ale je to jednoduché a nepotřebuje to git - ten ve vstupním adresáři fungovat nemusí. Při shodě dat rozhoduje název článku, aby bylo pořadí jednoznačné.  Tvar `RRRR-MM-DD` se kontroluje a build na cokoli jiného upozorní (třeba datum šablony `{{date:YYYY-MM-DD}}`)
 
-**K90. Klíče frontmatteru, konfigurace a přepínače jsou anglicky.** Tedy `date`, `title`, `excerpt`, `slug`, `tags`, v `config.toml` `name`, `lang`, `base_url`, `date_filter`, a přepínače `--source`, `--dest`, `--publish`, `--check`, `--keep-archives`, `--if-changed`, `--edit-links`. Obsah článků je česky, rozhraní nástroje ne - nástroj je veřejný a jeho příkazová řádka i klíče jsou to jediné, co cizí uživatel musí napsat sám. České klíče `datum`, `titul` a `perex` se už nečtou; když na ně build narazí, ohlásí to, protože jinak by článek tiše přišel o datum nebo titulek.
+**K90. Klíče frontmatteru, konfigurace a přepínače jsou anglicky.** Tedy `date`, `title`, `excerpt`, `slug`, `tags`, v `config.toml` `name`, `lang`, `base_url`, `date_filter`, `lead_tags`, a přepínače `--source`, `--dest`, `--publish`, `--check`, `--keep-archives`, `--if-changed`, `--edit-links`. Obsah článků je česky, rozhraní nástroje ne - nástroj je veřejný a jeho příkazová řádka i klíče jsou to jediné, co cizí uživatel musí napsat sám. České klíče `datum`, `titul` a `perex` se už nečtou; když na ně build narazí, ohlásí to, protože jinak by článek tiše přišel o datum nebo titulek.
 
 **K95. Hierarchický tag `Obsidian/Video` se rozpadne na dva samostatné tagy.**  
 Vzniknou z něj `Obsidian` a `Video`, každý se svou stránkou, takže `Video` sbírá videa z celého vaultu, ne jen ta u Obsidianu - a přesně podle toho chce člověk filtrovat.  
-O tom, který tag je hlavní, hierarchie nerozhoduje, to říká značka podle K97.
+O tom, který tag je hlavní, hierarchie nerozhoduje, to říká značka podle K97, případně adresář podle K96.
+
+**K96. S `lead_tags = "folders"` je hlavním tagem i adresář první úrovně**, ve kterém článek leží.  
+Vault bývá rozdělený do adresářů podle stejných témat jako web, a psát totéž ještě tagem s podtržítkem je práce navíc, na kterou se zapomíná.  
+Podtržítko podle K97 platí dál a přidá hlavní tag, který jde napříč adresáři, třeba `_Todo` nebo `_Organizační`.  
+Výchozí je `"underscore"`, tedy jen podtržítko, takže vault, který nic neřekne, se nezmění.
+
+Z názvu adresáře se tag udělá takhle:
+- mezery na začátku a na konci zmizí a víc mezer uvnitř se slije do jedné,
+- číslo na začátku, jedno až tři místa, za ním tečka, mezera, pomlčka nebo podtržítko, určuje pořadí a do jména nepatří: `02.Předměty` je tag `Předměty`,
+- od pomlčky obklopené mezerami dál je poznámka pro autora: `Ma - Matematika` je tag `Ma`, `E-shop` zůstane celý.
+
+Doporučený oddělovač je tečka, protože cesta bez mezery nepotřebuje ve Windows uvozovky.  
+Čtyři číslice nejsou pořadí, ale jméno (`2026`), a číslice přilepená k písmenu patří ke slovu (`3D tisk`).  
+Tag dává jen **první úroveň**: hlubší bývá technická (`Materiály`, `Attachments`), nebo ji líp řekne běžný tag.  
+Článek v kořeni tag z adresáře nemá a najde ho prázdná pilulka podle K98.  
+Adresář začínající tečkou nebo podtržítkem tag nedá, protože se podle K20 přeskakuje celý.
+
+V první řadě jdou očíslované adresáře podle čísla, za nimi ostatní hlavní tagy abecedně; druhá řada zůstává abecední.  
+Tag z frontmatteru se stejnou adresou jako tag z adresáře je tentýž tag a jméno má z adresáře: `skola` v článku je `Škola`.  
+Dva adresáře se stejným tagem (`01.Škola`, `05.Škola`) dají jeden tag s nižším číslem a adresář, ze kterého nic nezbude (`01`), nedá žádný - obojí build ohlásí, protože ve vaultu to vidět není.  
+Tagy, které se liší jen mezerou nebo pomlčkou (`Power BI` a `PowerBI`), build ohlásí, ale nesloučí: mají různé adresy a které jméno platí, ví autor.  
+Na tag z adresáře, který jiný článek píše bez podtržítka, build neupozorňuje: vede podle toho, kde článek leží, ne podle značky.
 
 **K97. Tag s podtržítkem na začátku je hlavní**, tedy `_Obsidian` proti běžnému `Obsidian`.  
-Ve filtru na titulce vede první řadu, všechno ostatní jde do druhé; obě řady jsou abecedně.  
+Ve filtru na titulce vede první řadu, všechno ostatní jde do druhé; obě řady jsou abecedně, jen očíslované adresáře podle K96 jdou napřed.  
 Podtržítko je jen značka, ne část jména: tag se pořád jmenuje `Obsidian`, má stránku `tag-obsidian.html` a v článku se vypíše bez něj.  
 Který tag je důležitý, tedy říká vault na místě, kde se článek taguje, ne konfigurace webu - povýšit tag znamená napsat jeden znak, ne editovat soubor navíc.  
 Podtržítko se navíc řadí před písmena, takže hlavní tagy drží pohromadě i v seznamu tagů uvnitř Obsidianu.  

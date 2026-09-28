@@ -80,6 +80,7 @@ Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
 - **Datum** patří do frontmatteru jako `date: RRRR-MM-DD`, jinak se vezme datum souboru (K80).
 - **Tag** `Obsidian/Video` jsou dva tagy, `Obsidian` a `Video` (K95).
 - **Hlavní tag** se označí podtržítkem, `_Obsidian`, a ve filtru na titulce pak vede (K97).
+- **Hlavní tag z adresáře**: s `lead_tags = "folders"` vede i adresář první úrovně, `02.Předměty` je tag `Předměty` a číslo určuje pořadí (K96).
 - **Článek bez tagu** v jedné z řad filtru najde prázdná pilulka na konci té řady (K98).
 
 Klíče frontmatteru jsou anglicky: `date`, `title`, `excerpt`, `slug`, `tags` (K90).
@@ -90,7 +91,7 @@ Nastavení webu leží ve vaultu ve složce `_obsidian2html/`, nebo `.obsidian2h
 Obě naráz jsou chyba.  
 Všechno v ní je nepovinné:
 
-- `config.toml` - název, jazyk a adresa webu a filtr na období.
+- `config.toml` - název, jazyk a adresa webu, filtr na období a hlavní tagy.
 - `index.md` - ruční úvod na titulce.
 - `logo.svg` - logo vlevo nahoře, odkaz na titulku.
 - `menu.md` - lišta v hlavičce, určuje pořadí tagů. Bez ní je abecední.
@@ -103,12 +104,14 @@ name = "Pan Kostka"                 # název webu
 lang = "cs"                         # jazyk webu, cs nebo en
 base_url = "https://pankostka.cz"   # adresa webu, bez ní nevznikne rss.xml
 date_filter = true                  # posuvník s histogramem na titulce
+lead_tags = "folders"               # hlavní tag i z adresáře
 ```
 
 - `name` - název webu vlevo nahoře, v titulku každé stránky a v RSS. Výchozí je jméno složky vaultu.
 - `lang` - jazyk tlačítek a popisků webu, ne článků (K100). Výchozí je `cs`.
 - `base_url` - adresa, na které web poběží. Bez ní nevznikne `rss.xml`.
 - `date_filter` - `true` přidá na titulku pod štítky posuvník na období s histogramem článků (Z75). Po dnech, měsících nebo rocích podle toho, jak dlouhé období web pokrývá. Výchozí je `false`, píše se bez uvozovek.
+- `lead_tags` - `"folders"` udělá hlavním tagem i adresář první úrovně, ve kterém článek leží, a podtržítko pak přidá další (K96). Výchozí `"underscore"` bere jen podtržítko.
 
 Chybějící klíč má výchozí hodnotu, neznámý klíč nebo neplatná hodnota build zastaví.
 

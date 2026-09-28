@@ -1820,7 +1820,9 @@ def to_html(path, conv, out_dir, renamed, site, date=None):
     # the markdown sit one level lower, see demote_headings.
     # Heading and tags live in one block, so the rule falls below both. It
     # is therefore on that block rather than on the h1.
-    tags = tags_from_meta(own_meta)
+    known = site.get('article_tags') or {}
+    tags = (known[os.path.abspath(path)] if os.path.abspath(path) in known
+            else tags_from_meta(own_meta))
     masthead = ['<div class="zahlavi">',
                 with_edit('<h1>%s</h1>' % heading,
                           edit_link(site.get('edit_vault'), path))]
@@ -1964,6 +1966,98 @@ def lead_tags(meta):
     return out
 
 
+# An ordering prefix of a folder: one to three digits, then a separator or the
+# end of the name. Four digits are not an order but a name, `2026`, and a
+# digit glued to a letter is part of the word, `3D tisk`.
+RE_FOLDER_ORDER = re.compile(r'^(\d{1,3})(?:[ ._-]+|$)')
+# Everything from a spaced dash on is a note to the author, `Ma - Matematika`.
+# A bare dash is part of the word, `E-shop`.
+FOLDER_NOTE = ' - '
+
+
+def folder_tag(folder):
+    """(tag, order) that the name of a top folder gives, see K96.
+
+    `02.Predmety` gives ('Predmety', 2), `Ma - Matematika` gives ('Ma', None).
+    The tag may come out empty, `01` or `01 - `, and then the folder gives no
+    tag at all - the caller reports it.
+    """
+    name = ' '.join(folder.split())
+    order = None
+    m = RE_FOLDER_ORDER.match(name)
+    if m:
+        order = int(m.group(1))
+        name = name[m.end():]
+    return name.split(FOLDER_NOTE)[0].strip(), order
+
+
+def top_folder(path, root):
+    """The folder under `root` an article sits in, None for one in the root."""
+    rel = os.path.relpath(os.path.abspath(path), os.path.abspath(root))
+    parts = rel.split(os.sep)
+    return parts[0] if len(parts) > 1 else None
+
+
+def folder_tags(paths, root):
+    """The tags of the top folders, as ({folder: tag}, {tag: order}, notes).
+
+    Only the top level gives a tag: a deeper one is either technical
+    (Materialy, Attachments) or better said by an ordinary tag. Two folders
+    that give one tag (`01.Skola`, `05.Skola`) are one tag, ordered by the
+    lower number, and so are two spellings with one address (`Skola`,
+    `skola`). The name comes from the lower number or, without one, is
+    the first alphabetically. `notes` are the messages for the
+    build: an empty tag and a merge, both most likely a slip.
+    """
+    found = {}
+    for path in paths:
+        folder = top_folder(path, root)
+        if folder is not None and folder not in found:
+            found[folder] = folder_tag(folder)
+    notes = []
+    groups = {}
+    for folder, (tag, order) in sorted(found.items()):
+        if not tag:
+            notes.append('folder %r gives no tag, its name is only an order'
+                         % folder)
+            continue
+        groups.setdefault(slug(tag), []).append((folder, tag, order))
+    tag_of, order_of = {}, {}
+    for members in groups.values():
+        members.sort(key=lambda m: (m[2] is None, m[2] or 0, m[1]))
+        tag = members[0][1]
+        orders = [m[2] for m in members if m[2] is not None]
+        if orders:
+            order_of[tag] = min(orders)
+        for folder, _, _ in members:
+            tag_of[folder] = tag
+        if len(members) > 1:
+            notes.append('folders %s give one tag %r'
+                         % (', '.join(repr(m[0]) for m in members), tag))
+    return tag_of, order_of, notes
+
+
+def article_tags(path, meta, root, folder_of):
+    """(tags, lead) of an article. `folder_of` is None without folder tags.
+
+    Without folders the frontmatter decides and the mark promotes (K97).
+    With them the top folder leads and the mark can add more (K96): the
+    folder says where a note lies, but a tag cutting across folders
+    (Organizacni, Todo) can matter as much. A frontmatter tag with the
+    address of a folder tag is that tag, under the folder's spelling.
+    """
+    tags, lead = tags_from_meta(meta), lead_tags(meta)
+    if folder_of is None:
+        return tags, lead
+    spelling = dict((slug(t), t) for t in folder_of.values())
+    tags = [spelling.get(slug(t), t) for t in tags]
+    lead = [spelling.get(slug(t), t) for t in lead]
+    folder = folder_of.get(top_folder(path, root))
+    first = [folder] if folder else []
+    return (first + [t for t in tags if t != folder],
+            first + [t for t in lead if t != folder])
+
+
 def demote_headings(text):
     """Push markdown sections one level down, because the h1 is the title.
 
@@ -2072,7 +2166,7 @@ def config_name(vault):
 
 
 def read_config(vault):
-    """Return the site's name, lang, base_url and date_filter from config.toml.
+    """Return the site's name, lang, base_url, date_filter and lead_tags.
     See K70.
 
     Every key may be missing and then its default applies, so may the whole
@@ -2080,7 +2174,7 @@ def read_config(vault):
     would otherwise quietly produce a site named after the folder.
     """
     config = {'name': os.path.basename(vault), 'lang': 'cs', 'base_url': None,
-              'date_filter': False}
+              'date_filter': False, 'lead_tags': 'underscore'}
     path = os.path.join(vault, config_name(vault), CONFIG_FILE)
     if not os.path.isfile(path):
         return config
@@ -2113,6 +2207,9 @@ def read_config(vault):
     if config['lang'] not in TEXTS:
         raise Error('%s: unknown language %s. Available: %s.'
                     % (path, config['lang'], ', '.join(sorted(TEXTS))))
+    if config['lead_tags'] not in ('underscore', 'folders'):
+        raise Error('%s: lead_tags must be "underscore" or "folders", not %r.'
+                    % (path, config['lead_tags']))
     if config['base_url'] and not re.match(r'^https?://[^\s/]+', config['base_url']):
         raise Error('%s: base_url must be an absolute address starting with'
                     ' https:// or http://, not %r.' % (path, config['base_url']))
@@ -3345,9 +3442,14 @@ def main():
         # the one article a click leaves, and the bar is drawn before the
         # listing exists - so they are collected here, with the tags.
         tag_sets = []
+        tags_of = {}
+        folder_of, order_of, folder_notes = None, {}, []
+        if config['lead_tags'] == 'folders':
+            folder_of, order_of, folder_notes = folder_tags(
+                [p for p, _, _, _ in plan], args.source)
         for path, meta, _, name in plan:
-            tags = tags_from_meta(meta)
-            lead = lead_tags(meta)
+            tags, lead = article_tags(path, meta, args.source, folder_of)
+            tags_of[os.path.abspath(path)] = tags
             entry = {'url': name + '.html', 'tags': tags}
             # The date only on a site with the date filter. Without it the
             # article would carry it for nothing, on every page load.
@@ -3370,14 +3472,20 @@ def main():
             print('Inside it, rename menu_webu.md to menu.md.')
 
         menu_source, intro, home_title, custom_css = site_inputs(vault, batch)
+        # A numbered folder comes first, in the order of its number, the rest
+        # alphabetically. Only a folder has a number, so the second row stays
+        # alphabetical as it was.
+        ordered_tags = sorted(all_tags, key=lambda t: (
+            t not in order_of, order_of.get(t, 0), t))
         site = {'name': config['name'],
-               'tags': sorted(all_tags),
+               'tags': ordered_tags,
                'lead_tags': sorted(leading),
                'tag_sets': tag_sets,
+               'article_tags': tags_of,
                'edit_vault': vault_root,
                'bins': (period_axis([m['date'] for _, m, _, _ in plan])
                           if config['date_filter'] else []),
-               'menu': menu_items(menu_source, sorted(all_tags)),
+               'menu': menu_items(menu_source, ordered_tags),
                'logo': None,
                'rss': bool(config['base_url']),
                'description': text_from_html(intro) if intro else None,
@@ -3419,7 +3527,7 @@ def main():
             print('  %s  (%.0f kB)' % (html_soubor,
                                        os.path.getsize(html_soubor) / 1024.0))
             produced.append({'heading': heading, 'date': meta.get('date', ''),
-                             'tags': tags_from_meta(meta),
+                             'tags': tags_of[os.path.abspath(path)],
                              'file': os.path.basename(html_soubor),
                              'excerpt': excerpt(body_text, meta, conv),
                              'text': text_from_html(html),
@@ -3518,7 +3626,11 @@ def main():
         # occurrence is enough to lead. Staying silent about the rest
         # would be wrong: the author wrote the mark once and forgot it ten
         # times, and the next reading of the vault will not show that.
-        half_marked = sorted(x for x in leading if x in plain_at)
+        # A folder tag leads by where the article lies, not by a mark, so
+        # an article elsewhere writing it plainly has forgotten nothing.
+        folder_lead = set(folder_of.values()) if folder_of else set()
+        half_marked = sorted(x for x in leading
+                             if x in plain_at and x not in folder_lead)
         if half_marked:
             print('\nA leading tag written without the mark (%d): the tag'
                   ' leads the filter, but only some articles say so. Add'
@@ -3532,6 +3644,28 @@ def main():
                     print('      %s' % c)
                 if len(where) > 5:
                     print('      ... and %d more' % (len(where) - 5))
+
+        # Folder tags. Both an empty one and a merge are most likely a slip,
+        # and neither can be seen in the vault.
+        if folder_notes:
+            print('\nFolders and tags (%d):' % len(folder_notes))
+            for x in folder_notes:
+                print('  %s' % x)
+        # Two tags that differ in a space or a dash only, `Power BI` and
+        # `PowerBI`. With folders they come about easily, the folder written
+        # one way and the old tag another - and each gets its own chip.
+        # Merged they are not: which spelling is right, the author knows.
+        if folder_of is not None:
+            near = {}
+            for x in site['tags']:
+                near.setdefault(slug(x).replace('-', ''), []).append(x)
+            near = [v for v in near.values() if len(v) > 1]
+            if near:
+                print('\nTags that differ in a space or a dash only (%d):'
+                      ' each has its own chip and page. Pick one spelling:'
+                      % len(near))
+                for v in near:
+                    print('  %s' % ', '.join('`#%s`' % x for x in v))
 
         # The retired pseudo-tag. Its page is gone and the line does
         # nothing now; saying so beats the author looking for a chip that

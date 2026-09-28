@@ -1518,6 +1518,166 @@ class Lokalizace(Zaklad):
         self.assertIn('Druha', vypis)
         self.assertNotIn('Prvni', vypis.split('without the mark')[1])
 
+    # -- K96: hlavni tag z adresare ------------------------------------------
+
+    def test_K96_hlavni_tag_je_adresar_prvni_urovne(self):
+        """S lead_tags = "folders" vede prvni radu adresar, ve kterem clanek lezi.
+
+        Clanek v koreni zadny tag z adresare nema a najde ho prazdna pilulka.
+        """
+        self.konfigurace('lead_tags = "folders"\n')
+        self.clanek('Prvni', 'Text.', tagy='Video', slozka='Obsidian')
+        self.clanek('Druha', 'Text.', tagy='Video')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('index.html')
+        self.assertIn('"name": "Obsidian", "label": "Obsidian", "lead": true', html)
+        self.assertIn('"name": "Video", "label": "Video", "lead": false', html)
+        self.assertIn('"name": "bez-hlavniho-tagu"', html)
+        self.assertIn('#Obsidian', self.vystupni('prvni.html'))
+        self.assertNotIn('#Obsidian', self.vystupni('druha.html'))
+        self.assertIn('prvni.html', self.vystupni('tag-obsidian.html'))
+
+    def test_K96_bez_nastaveni_se_adresare_neberou(self):
+        """Vychozi je podtrzitko, takze vault, ktery nic nerika, se nezmeni."""
+        self.clanek('Prvni', 'Text.', tagy='Video', slozka='Obsidian')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertNotIn('tag-obsidian.html', self.stranky())
+
+    def test_K96_neplatny_rezim_skonci_chybou(self):
+        self.clanek('Prvni', 'Text.')
+        self.konfigurace('lead_tags = "slozky"\n')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 1, vypis)
+        self.assertIn('lead_tags must be', vypis)
+
+    def test_K96_podtrzitko_prida_hlavni_tag(self):
+        """Tag napric adresari (Todo) se do prvni rady dostane podtrzitkem."""
+        self.konfigurace('lead_tags = "folders"\n')
+        self.clanek('Prvni', 'Text.', tagy='_Todo, Video', slozka='Skola')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('index.html')
+        self.assertIn('"name": "Skola", "label": "Skola", "lead": true', html)
+        self.assertIn('"name": "Todo", "label": "Todo", "lead": true', html)
+        self.assertIn('"name": "Video", "label": "Video", "lead": false', html)
+
+    def test_K96_cislo_urcuje_poradi_a_do_jmena_nepatri(self):
+        """Ocislovane adresare jdou podle cisla, za nimi ostatni abecedne.
+
+        Oddelovac muze byt tecka, mezera, pomlcka i podtrzitko, cislo ma
+        jedno az tri mista.
+        """
+        self.konfigurace('lead_tags = "folders"\n')
+        self.clanek('Prvni', 'Text.', tagy='', slozka='010.Alfa')
+        self.clanek('Druha', 'Text.', tagy='', slozka='2_Zeta')
+        self.clanek('Treti', 'Text.', tagy='', slozka='Beta')
+        self.clanek('Ctvrta', 'Text.', tagy='', slozka='03-Gama')
+        self.clanek('Pata', 'Text.', tagy='', slozka='04 Delta')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('index.html')
+        # Poradi rika filtr. Karty jdou podle data a jmena, ty ne.
+        filtr = html.split('const ALL_TAGS')[1]
+        poradi = [filtr.index('"name": "%s"' % x)
+                  for x in ('Zeta', 'Gama', 'Delta', 'Alfa', 'Beta')]
+        self.assertEqual(poradi, sorted(poradi))
+        for x in ('alfa', 'zeta', 'beta', 'gama', 'delta'):
+            self.assertIn('tag-%s.html' % x, self.stranky())
+        self.assertNotIn('"name": "010', html)
+
+    def test_K96_ctyri_cislice_a_cislo_bez_oddelovace_jsou_jmeno(self):
+        self.konfigurace('lead_tags = "folders"\n')
+        self.clanek('Prvni', 'Text.', tagy='', slozka='2026')
+        self.clanek('Druha', 'Text.', tagy='', slozka='3D tisk')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('index.html')
+        self.assertIn('"name": "2026", "label": "2026", "lead": true', html)
+        self.assertIn('"name": "3D tisk", "label": "3D tisk", "lead": true', html)
+
+    def test_K96_pomlcka_s_mezerami_odrizne_poznamku(self):
+        """`Ma - Matematika` je tag Ma, `E-shop` zustane cely."""
+        self.konfigurace('lead_tags = "folders"\n')
+        self.clanek('Prvni', 'Text.', tagy='', slozka='02.Ma - Matematika')
+        self.clanek('Druha', 'Text.', tagy='', slozka='E-shop')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('index.html')
+        self.assertIn('"name": "Ma", "label": "Ma", "lead": true', html)
+        self.assertIn('"name": "E-shop", "label": "E-shop", "lead": true', html)
+        self.assertNotIn('"name": "Ma - Matematika"', html)
+
+    def test_K96_tag_da_jen_prvni_uroven(self):
+        """Hlubsi uroven je technicka, nebo ji lip rekne bezny tag."""
+        self.konfigurace('lead_tags = "folders"\n')
+        self.clanek('Prvni', 'Text.', tagy='', slozka='Predmety/Ma')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        self.assertIn('tag-predmety.html', self.stranky())
+        self.assertNotIn('tag-ma.html', self.stranky())
+
+    def test_K96_tag_se_stejnou_adresou_jako_adresar_je_tentyz_tag(self):
+        """`Škola` z adresare a `skola` z frontmatteru jsou jeden tag.
+
+        Jmeno je z adresare. Chybejici podtrzitko build nehlasi: adresar
+        vede podle toho, kde clanek lezi, ne podle znacky.
+        """
+        self.konfigurace('lead_tags = "folders"\n')
+        self.clanek('Prvni', 'Text.', tagy='', slozka='Škola')
+        self.clanek('Druha', 'Text.', tagy='skola')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('index.html')
+        self.assertIn('"name": "Škola", "label": "Škola", "lead": true', html)
+        self.assertNotIn('"name": "skola"', html)
+        self.assertIn('#Škola', self.vystupni('druha.html'))
+        stranka = self.vystupni('tag-skola.html')
+        self.assertIn('prvni.html', stranka)
+        self.assertIn('druha.html', stranka)
+        self.assertNotIn('without the mark', vypis)
+
+    def test_K96_dva_adresare_s_jednim_tagem_i_prazdny_tag_build_ohlasi(self):
+        """Oboji je nejspis prehlednuti a ve vaultu neni videt.
+
+        Slouceny tag se radi podle nizsiho cisla.
+        """
+        self.konfigurace('lead_tags = "folders"\n')
+        self.clanek('Prvni', 'Text.', tagy='', slozka='05.Skola')
+        self.clanek('Druha', 'Text.', tagy='', slozka='01.Skola')
+        self.clanek('Treti', 'Text.', tagy='', slozka='03.Alfa')
+        self.clanek('Ctvrta', 'Text.', tagy='', slozka='04')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        self.assertIn('give one tag', vypis)
+        self.assertIn('gives no tag', vypis)
+        html = self.vystupni('index.html')
+        filtr = html.split('const ALL_TAGS')[1]
+        self.assertLess(filtr.index('"name": "Skola"'), filtr.index('"name": "Alfa"'))
+        stranka = self.vystupni('tag-skola.html')
+        self.assertIn('prvni.html', stranka)
+        self.assertIn('druha.html', stranka)
+
+    def test_K96_skoro_shodu_jmen_build_ohlasi_ale_neslouci(self):
+        """`Power BI` a `PowerBI` maji ruzne adresy. Ktere jmeno plati, vi autor."""
+        self.konfigurace('lead_tags = "folders"\n')
+        self.clanek('Prvni', 'Text.', tagy='_PowerBI', slozka='Power BI')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        self.assertIn('differ in a space or a dash', vypis)
+        self.assertIn('tag-power-bi.html', self.stranky())
+        self.assertIn('tag-powerbi.html', self.stranky())
+
     def test_K100_neznamy_jazyk_skonci_chybou(self):
         """Mlcky spadnout na cestinu by znamenalo tise vyrobit jiny web."""
         self.clanek('Prvni', 'Text.')

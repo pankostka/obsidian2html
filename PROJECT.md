@@ -341,12 +341,25 @@ Ověřeno na kopii výstupu PKVaultu: proti předchozí verzi se liší jen skri
 
 Testy 125.
 
+### 25. Hlavní tag z adresáře - HOTOVO
+
+Popsané jako K96, zapíná se v `config.toml` klíčem `lead_tags = "folders"`, výchozí `"underscore"` nechává všechno jak bylo. Podnět: v PKVaultu se hlavní tag psal podtržítkem a totéž říkal adresář, jen to 15 článků z 35 (HeliosGreen, Kostky, Finance) nemělo napsané a hlavní tag jim chyběl.
+
+Hlavní tag je adresář **první úrovně** a podtržítko přidá další. Zkoušelo se i čistě adresáři bez podtržítka a se dvěma úrovněmi na ProjektKriziku a zahodilo se: první řadu to zaplnilo tím, kde poznámka leží, a vyhodilo z ní tagy napříč adresáři (`Organizační` 22 článků, `Todo` 6), druhá úroveň zdvojila předměty (`Ma` z tagu vedle `Ma - Matematika` z adresáře) a podadresáře `98 Nástroje` přidaly pilulky s jedním článkem.
+
+Jméno tagu: číslo na začátku (1 až 3 místa a oddělovač, doporučená tečka kvůli uvozovkám ve Windows) určuje pořadí v první řadě a ze jména zmizí, od pomlčky s mezerami dál je poznámka. Řez na holé pomlčce by rozbil `E-shop` a `SW-Jiný`, proto jen s mezerami. Tag z frontmatteru se stejnou adresou jako adresář se sloučí pod jméno adresáře; skoro-shody (`Power BI` a `PowerBI`) build jen hlásí, protože mají různé adresy a slučovat by bylo tiché kouzlo.
+
+Ověřeno: PKVault ve výchozím režimu shodný bajt za bajtem se starou verzí, liší se jen otisk v `.vygenerovano`, který nese verzi generátoru. S `folders` má PKVault v první řadě `HeliosGreen`, `Kostky`, `Finance` i `O webu` a build ohlásí `Power BI` proti `PowerBI`. ProjektKrizik má první řadu v pořadí Škola, Předměty, Projekty, Jídlo, Nástroje, Šablony a za nimi `_tagy`.
+
+Testy 136.
+
 ## Otevřené otázky
 
 - **Globus v titulcích s `"*.md"`.** Bez markeru se nestrhává nic, takže náhled PKVaultALL má u článků s globusem v titulku `Obsidian Co je 🌐`. Staré `--all` globus strhávalo, protože marker měl výchozí hodnotu. Pro vault bez markeru je to jedno.
 - **Dva weby z jednoho vaultu.** `PKVault!.cmd` a `PKVaultALL.cmd` staví ze stejného vaultu s jiným názvem webu a náhled bez RSS. S `config.toml` ve vaultu sdílí obě dávky jeden název i `base_url`.
 
 
+- **Komentář za `tags:` se čte jako tag.** Šablona v ProjektKriziku má `tags:  # tag předmětu, např. _Předmět/Ma` a z komentáře vzniknou tagy `# tag předmětu`, `např. _Předmět` a `Ma`. Na web se to dostalo jen proto, že se šablona publikuje: ProjektKrizik bere `*.md` a K15 jeho `99 Šablony` nepoznalo.
 - **Vynucovat tagy?** `dokumentace_JD.md` chce PascalCase a jednu variantu na tag, protože se porovnávají jako řetězce a dvě varianty tiše rozpůlí stránku tagu. Skript to nekontroluje ani nehlásí.
 
 ## Slepé cesty
