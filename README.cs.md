@@ -75,8 +75,8 @@ Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
 - **Titulek** článku je název souboru bez markeru, přebije ho klíč `title` ve frontmatteru (K25).
 - **Adresa** článku je název souboru bez diakritiky, malými písmeny a s pomlčkami, třeba `obsidian-nastaveni.html` (K30).
 - **Perex** na kartě je první odstavec článku (K40).
-- **Přílohy** se hledají vedle článku, v jeho složce `Attachments/` a nakonec v celém vaultu (K50).
-- **Náhledový obrázek** karty leží v `Attachments/` a jmenuje se jako článek, doporučený rozměr je 630x290 (K60).
+- **Přílohy** se hledají vedle článku, ve složce pojmenované jako článek, v jeho složce `Attachments/` a nakonec v celém vaultu (K50).
+- **Náhledový obrázek** karty se jmenuje jako článek a leží ve složce článku nebo v `Attachments/`, doporučený rozměr je 630x290 (K60).
 - **Datum** patří do frontmatteru jako `date: RRRR-MM-DD`, jinak se vezme datum souboru (K80).
 - **Tag** `Obsidian/Video` jsou dva tagy, `Obsidian` a `Video` (K95).
 - **Hlavní tag** se označí podtržítkem, `_Obsidian`, a ve filtru na titulce pak vede (K97).

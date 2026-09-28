@@ -778,6 +778,62 @@ class Konvence(Zaklad):
         self.assertIn('src="img/schema.png"', html)
         self.assertIn('<img ', html)
 
+    def test_K50_priloha_se_najde_ve_slozce_clanku(self):
+        """Slozka se jmenuje jako clanek, na webu dostane vlastni podslozku."""
+        self.clanek('Prvni', 'Obrazek: ![[schema.png]]\n')
+        self.obrazek('Prvni/schema.png')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('src="img/prvni/schema.png"', self.vystupni('prvni.html'))
+        self.assertTrue(os.path.isfile(
+            os.path.join(self.vystup, 'img', 'prvni', 'schema.png')))
+
+    def test_K50_slozka_clanku_smi_nest_marker(self):
+        """Autor muze pri zverejneni prejmenovat slozku i s globusem, nebo ne."""
+        self.clanek('Prvni', 'Obrazek: ![[schema.png]]\n')
+        self.obrazek('Prvni %s/schema.png' % MARKER)
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('src="img/prvni/schema.png"', self.vystupni('prvni.html'))
+
+    def test_K50_dve_slozky_jednoho_clanku_jsou_chyba(self):
+        """Vybrat jednu by tise schovalo druhou."""
+        self.clanek('Prvni', 'Obrazek: ![[schema.png]]\n')
+        self.obrazek('Prvni/schema.png')
+        self.obrazek('Prvni %s/schema.png' % MARKER)
+        kod, vypis = self.web()
+        self.assertEqual(kod, 1, vypis)
+        self.assertIn('two attachment folders', vypis)
+
+    def test_K50_stejny_nazev_u_dvou_clanku_nekoliduje(self):
+        """Kazdy clanek ma svou schema.png a kazdy dostane tu svou."""
+        self.clanek('Prvni', 'Obrazek: ![[schema.png]]\n')
+        self.clanek('Druhy', 'Obrazek: ![[schema.png]]\n')
+        self.obrazek('Prvni/schema.png')
+        with open(self.obrazek('Druhy/schema.png'), 'ab') as f:
+            f.write(b'jiny obsah')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('src="img/prvni/schema.png"', self.vystupni('prvni.html'))
+        self.assertIn('src="img/druhy/schema.png"', self.vystupni('druhy.html'))
+
+    def test_K50_slozka_clanku_ma_prednost_pred_Attachments(self):
+        """Protejsek: stejny nazev v Attachments se nevezme."""
+        self.clanek('Prvni', 'Obrazek: ![[schema.png]]\n')
+        self.obrazek('Prvni/schema.png')
+        self.obrazek('Attachments/schema.png')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('src="img/prvni/schema.png"', self.vystupni('prvni.html'))
+
+    def test_K60_nahled_ve_slozce_clanku(self):
+        self.clanek('Obsidian Co je', 'Text.')
+        self.obrazek('Obsidian Co je/Obsidian Co je.png')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('"image": "img/obsidian-co-je/obsidian-co-je.png"',
+                      self.vystupni('index.html'))
+
     def test_K60_nahled_se_jmenuje_jako_clanek(self):
         """Porovnava se pres slug, takze sedne i priloha malymi s podtrzitkem."""
         self.clanek('Obsidian Co je', 'Text.')

@@ -1633,10 +1633,50 @@ def outside_code(text, substitute):
     return ''.join(parts)
 
 
-def find_file(name, base, vault):
-    """Find a file the way Obsidian does: next to the note, in its attachment
-    folder, then anywhere in the vault. Returns None when nothing matches."""
+def article_folder(article_path):
+    """The article's own attachment folder: next to it, named like it.
+
+    Matching goes through slug() with the marker stripped, so the folder may
+    carry the marker or not, the same as the article it belongs to.
+    The author may rename the folder on publishing or not. Having both at once
+    is an error - picking one would quietly hide the other.
+    Returns None when the article has no such folder.
+    """
+    base = os.path.dirname(os.path.abspath(article_path))
+    wanted = slug(strip_marker(os.path.splitext(os.path.basename(article_path))[0]))
+    found = [os.path.join(base, d) for d in sorted(os.listdir(base))
+             if slug(strip_marker(d)) == wanted
+             and os.path.isdir(os.path.join(base, d))]
+    if len(found) > 1:
+        raise Error('Article %s has two attachment folders: %s'
+                    % (article_path, ', '.join(os.path.basename(d) for d in found)))
+    return found[0] if found else None
+
+
+def folder_owner(source):
+    """Slug of the article whose own folder holds `source`, otherwise None.
+
+    Such an attachment goes to img/<slug>/ on the site. Each article folder may
+    have its own schema.png, and one flat img/ would make them clash.
+    """
+    folder = os.path.dirname(os.path.abspath(source))
+    wanted = slug(strip_marker(os.path.basename(folder)))
+    parent = os.path.dirname(folder)
+    for s in os.listdir(parent):
+        stem, ext = os.path.splitext(s)
+        if ext.lower() == '.md' and slug(strip_marker(stem)) == wanted \
+                and os.path.isfile(os.path.join(parent, s)):
+            return wanted
+    return None
+
+
+def find_file(name, base, vault, own=None):
+    """Find a file the way Obsidian does: next to the note, in the article's
+    own folder, in its attachment folder, then anywhere in the vault. Returns
+    None when nothing matches."""
     candidates = [os.path.join(base, name)]
+    if own:
+        candidates.append(os.path.join(own, name))
     for p in ATTACHMENT_DIRS:
         candidates.append(os.path.join(base, p, name))
     for c in candidates:
@@ -1739,10 +1779,16 @@ def copy_attachment(source, out_dir, renamed):
     Linux Foo.png and foo.png differ, which means a mistyped link works on
     Windows and returns 404 on the server. `renamed` guards against two
     different files ending up under one address.
+
+    A file from an article's own folder goes one level deeper, into
+    img/<slug of the article>/, see folder_owner().
     """
-    directory = os.path.join(out_dir, 'img')
     stem, ext = os.path.splitext(os.path.basename(source))
     name = slug(stem) + ext.lower()
+    owner = folder_owner(source)
+    if owner:
+        name = owner + '/' + name
+    directory = os.path.dirname(os.path.join(out_dir, 'img', name))
     drive = renamed.get(name)
     source = os.path.abspath(source)
     if drive and drive != source:
@@ -1751,12 +1797,12 @@ def copy_attachment(source, out_dir, renamed):
     if not drive:
         if not os.path.isdir(directory):
             os.makedirs(directory)
-        shutil.copy2(source, os.path.join(directory, name))
+        shutil.copy2(source, os.path.join(out_dir, 'img', name))
         renamed[name] = source
     return 'img/' + name
 
 
-def copy_images(html, base, vault, out_dir, renamed):
+def copy_images(html, base, vault, out_dir, renamed, own=None):
     """src="path" -> src="img/name.ext", and the file is copied.
 
     A data URI would make every page carry its own copy of the images, and the
@@ -1772,7 +1818,7 @@ def copy_images(html, base, vault, out_dir, renamed):
         link = m.group(1)
         if link.startswith(('http:', 'https:', 'data:', '//')):
             return m.group(0)
-        path = find_file(unquote(link), base, vault)
+        path = find_file(unquote(link), base, vault, own)
         if not path:
             missing.append(link)
             return m.group(0)
@@ -1814,7 +1860,8 @@ def to_html(path, conv, out_dir, renamed, site, date=None):
     ])
     body = re.sub(r'(<table>.*?</table>)', r'<div class="tabulka">\1</div>',
                   body, flags=re.S)
-    body = copy_images(body, base, conv.vault, out_dir, renamed)
+    body = copy_images(body, base, conv.vault, out_dir, renamed,
+                       article_folder(path))
 
     # The article title is the only h1 on the page. Sections coming from
     # the markdown sit one level lower, see demote_headings.
@@ -2527,15 +2574,19 @@ def excerpt_image(article_path):
 
     The publish marker is stripped off the article name - it has no business
     being in an attachment name.
+
+    The article's own folder comes first, see article_folder(). It belongs to
+    this article alone, so it is the more specific of the two.
     """
-    directory = os.path.join(os.path.dirname(article_path), 'Attachments')
-    if not os.path.isdir(directory):
-        return None
     wanted = slug(strip_marker(os.path.splitext(os.path.basename(article_path))[0]))
-    for fname in sorted(os.listdir(directory)):
-        stem, ext = os.path.splitext(fname)
-        if ext.lower() in IMAGE_EXTS and slug(stem) == wanted:
-            return os.path.join(directory, fname)
+    for directory in (article_folder(article_path),
+                      os.path.join(os.path.dirname(article_path), 'Attachments')):
+        if not directory or not os.path.isdir(directory):
+            continue
+        for fname in sorted(os.listdir(directory)):
+            stem, ext = os.path.splitext(fname)
+            if ext.lower() in IMAGE_EXTS and slug(strip_marker(stem)) == wanted:
+                return os.path.join(directory, fname)
     return None
 
 

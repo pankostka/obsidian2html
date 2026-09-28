@@ -353,6 +353,22 @@ Ověřeno: PKVault ve výchozím režimu shodný bajt za bajtem se starou verzí
 
 Testy 136.
 
+### 26. Přílohy ve složce článku - generátor HOTOVO, vaulty zbývají
+
+Popsané jako K50 a K60, výstup v Z60. Podnět: autor pracuje hlavně v průzkumníku a u jedné `Attachments/` na složku nedohledá, co ke kterému článku patří. Přílohy teď smějí ležet ve složce vedle článku pojmenované jako on (`Obsidian Co je/` pro `Obsidian Co je 🌐.md`).
+
+Porovnává se přes slug bez markeru, takže složka smí nést globus i nemusí - autor chce přejmenovávat článek i složku naráz a plugin Custom Attachment Location dělá totéž. Obě naráz jsou chyba (`article_folder`). Složka článku jde při hledání hned po souboru vedle článku, před `Attachments/`.
+
+Web byl a zůstává plochý, `img/` je jedna složka ze stejného důvodu jako články v kořeni. Složka článku ale přináší stejné názvy u různých článků, takže její přílohy jdou do `img/<slug složky>/` (`folder_owner`). Pozná se to podle umístění souboru, ne podle toho, kdo ho hledal, takže to platí i pro náhled a pro obrázek nalezený hledáním v celém vaultu.
+
+Sdílený obrázek se do `Attachments/` nevrací, autor ho chce raději u každého článku zvlášť.
+
+Ověřeno: PKVault i ProjektKrizik jsou proti předchozí verzi shodné bajt za bajtem, liší se jen `.vygenerovano`.
+
+Zbývá: zálohovat oba vaulty do `C:\_zaloha`, skriptem přestěhovat přílohy z `Attachments/` do složek článků (nejdřív na zkoušku), porovnat weby a sepsat nastavení pluginu.
+
+Testy 142.
+
 ## Otevřené otázky
 
 - **Globus v titulcích s `"*.md"`.** Bez markeru se nestrhává nic, takže náhled PKVaultALL má u článků s globusem v titulku `Obsidian Co je 🌐`. Staré `--all` globus strhávalo, protože marker měl výchozí hodnotu. Pro vault bez markeru je to jedno.
