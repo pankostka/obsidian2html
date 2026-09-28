@@ -80,6 +80,7 @@ Exit code: `0` done, `1` conversion error, `2` bad arguments.
 - **The date** belongs in the frontmatter as `date: YYYY-MM-DD`; otherwise the file's date is used (K80).
 - **The tag** `Obsidian/Video` is two tags, `Obsidian` and `Video` (K95).
 - **A leading tag** is marked with an underscore, `_Obsidian`, and then leads the filter on the front page (K97).
+- **A leading tag from a folder**: with `lead_tags = "folders"` the top-level folder leads too, `02.Předměty` is the tag `Předměty` and the number sets the order (K96).
 - **An article without a tag** in one of the rows of the filter is found by the empty pill at the end of that row (K98).
 
 The frontmatter keys are in English: `date`, `title`, `excerpt`, `slug`, `tags` (K90).
@@ -90,7 +91,7 @@ The site settings live in the vault in the `_obsidian2html/` folder, or `.obsidi
 Both at once is an error.  
 Everything in it is optional:
 
-- `config.toml` - the name, language and address of the site, and the date filter.
+- `config.toml` - the name, language and address of the site, the date filter and the leading tags.
 - `index.md` - a hand-written introduction on the front page.
 - `logo.svg` - the logo at the top left, a link to the front page.
 - `menu.md` - the bar in the header, sets the order of the tags. Without it the order is alphabetical.
@@ -103,12 +104,14 @@ name = "Pan Kostka"                 # the name of the site
 lang = "cs"                         # the language of the site, cs or en
 base_url = "https://pankostka.cz"   # the address of the site, no rss.xml without it
 date_filter = true                  # a slider with a histogram on the front page
+lead_tags = "folders"               # the folder gives a leading tag too
 ```
 
 - `name` - the name of the site at the top left, in the title of every page and in RSS. The default is the name of the vault folder.
 - `lang` - the language of the site's buttons and labels, not of the articles (K100). The default is `cs`.
 - `base_url` - the address the site will run at. Without it no `rss.xml` is produced.
 - `date_filter` - `true` adds a period slider under the tags on the front page, with a histogram of articles (Z75). By day, month or year, depending on how long a period the site covers. The default is `false`, written without quotes.
+- `lead_tags` - `"folders"` makes the top-level folder an article sits in a leading tag as well, and the underscore then adds more (K96). The default `"underscore"` takes the underscore only.
 
 A missing key has its default; an unknown key or an invalid value stops the build.
 
