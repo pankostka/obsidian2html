@@ -3132,10 +3132,12 @@ def check_links(out_dir):
 
         dead = []
         for attr, link in re.findall(r'(href|src|action)="([^"]+)"', without_script):
-            # file: in an article about links is a deliberate example, not a
-            # broken link. obsidian: opens the source in the vault, see Z90.
-            if link.startswith(('http:', 'https:', 'mailto:', 'data:', 'file:',
-                                 'obsidian:', '#', '//')):
+            # Any URI scheme is somebody else's address, not a file of ours:
+            # file: in an article about links is a deliberate example,
+            # obsidian: opens the source in the vault (Z90), and custom
+            # schemes such as heliosgreen: open an application. Two letters
+            # at least, so a Windows drive (C:\...) is still a path.
+            if re.match(r'[A-Za-z][A-Za-z0-9+.-]+:', link) or link.startswith(('#', '//')):
                 continue
             target = unquote(link.split('#')[0].split('?')[0])
             if not target or target in files:

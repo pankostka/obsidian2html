@@ -184,6 +184,17 @@ class Zaruky(Zaklad):
         self.assertEqual(kod, 0, vypis)
         self.assertIn('<a href="druha.html">Druha</a>', self.vystupni('prvni.html'))
 
+    def test_Z10_odkaz_s_vlastnim_protokolem_zustane(self):
+        """Odkaz do jine aplikace (heliosgreen://) neni soubor webu."""
+        self.clanek('Prvni', '[Mapovani](heliosgreen://v1/x/Folders\\(10368\\)/'
+                             'OpenBrowse?TemplateId=1&TitleText=Abc)')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertNotIn('Flattened links', vypis)
+        self.assertIn('<a href="heliosgreen://v1/x/Folders(10368)/'
+                      'OpenBrowse?TemplateId=1&amp;TitleText=Abc">Mapovani</a>',
+                      self.vystupni('prvni.html'))
+
     def test_Z10_stitek_bez_stranky_se_ztlumi(self):
         """Lista smi jmenovat tag, ktery nema clanek. Ztlumi se, nezplosti."""
         self.clanek('Prvni', 'Text.', tagy='obsidian')
