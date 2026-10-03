@@ -11,3 +11,6 @@ venv/
 # Vystupy prevodu
 *.html
 *.pdf
+
+# Obsidian (lokalni nastaveni vaultu)
+.obsidian/
