@@ -353,7 +353,7 @@ Ověřeno: PKVault ve výchozím režimu shodný bajt za bajtem se starou verzí
 
 Testy 136.
 
-### 26. Přílohy ve složce článku - generátor HOTOVO, vaulty zbývají
+### 26. Přílohy ve složce článku - HOTOVO, zbývá plugin
 
 Popsané jako K50 a K60, výstup v Z60. Podnět: autor pracuje hlavně v průzkumníku a u jedné `Attachments/` na složku nedohledá, co ke kterému článku patří. Přílohy teď smějí ležet ve složce vedle článku pojmenované jako on (`Obsidian Co je/` pro `Obsidian Co je 🌐.md`).
 
@@ -365,7 +365,13 @@ Sdílený obrázek se do `Attachments/` nevrací, autor ho chce raději u každ�
 
 Ověřeno: PKVault i ProjektKrizik jsou proti předchozí verzi shodné bajt za bajtem, liší se jen `.vygenerovano`.
 
-Zbývá: zálohovat oba vaulty do `C:\_zaloha`, skriptem přestěhovat přílohy z `Attachments/` do složek článků (nejdřív na zkoušku), porovnat weby a sepsat nastavení pluginu.
+Vaulty přestěhované 2026-09-28, zálohy před zásahem v `C:\_zaloha`. PKVault: 82 příloh do 39 složek článků, ProjektKrizik: 2. Přiřazovalo se podle odkazu, náhled podle jména článku (K60) a příloha bez odkazu podle předpony jména (`dns_pro_kostky_a_ssrs_02` k `DNS pro Kostky a SSRS`, delší jméno vyhrává). Dva soubory `power_query_typ_*` nemají majitele a zůstaly v `10.PowerBI/Attachments`. Složky se jmenují přesně jako článek, i s globusem a emoji. Odkazy s cestou `Attachments/...` přepsané na holé jméno.
+
+Slepá ulička při stěhování: odkaz v bloku kódu se počítal jako skutečný. Ukázka v `Obsidian Markdown` se přepsala a vznikla kvůli ní zbytečná kopie přílohy, obojí vráceno. Skript, který čte odkazy z poznámek, musí bloky kódu vynechat, stejně jako to dělá `outside_code()` v generátoru.
+
+Ověřeno: obrázky na webu mají proti stavu před stěhováním stejné obsahy (59 a 3), stránky se liší jen cestou `img/<slug>/` a razítkem Z85.
+
+Zbývá: nastavení pluginu Custom Attachment Location.
 
 Testy 142.
 
