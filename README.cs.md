@@ -3,26 +3,15 @@
 > **Toto je zdroj, `README.md` je z něj odvozený překlad.** Změna se dělá tady a teprve pak se propíše do README. README se vymaže a pak vytvoří překladem z tohoto.  
 > Přesná pravidla a jejich zdůvodnění jsou v [SPEC.cs.md](SPEC.cs.md), kódy K a Z v závorkách odkazují tam.
 
-## Co to je
+## Co je obsidian2html 
 
 Toto je **generátor md->html**.  
 Je to **python script**, který se zavolá na **vstupní adresář s md soubory** (typicky vault Obsidian, ale není to podmínkou) a on vytvoří do **výstupního adresáře html soubory**.  
 Výstupní web běží samostatně, nepotřebuje databázi.  Jsou to **statické stránky s Javascriptem**.
 
-Používám ho dvěma způsoby:
-* **VŠE S VÝJIMKOU** - publikuje se všechno kromě toho, co nechci.  
-	To pojmenuji tak, aby adresář nebo soubor začínal podtržítkem.  
-	Cokoli s podtržítkem nebo v adresáři s podtržítkem se ignoruje.  
-	Neboli ze všech `*.md` mimo `_*.md` udělej `*.html`.
-* **JEN S MARKEREM** - publikuje se jen to, co chci publikovat.  
-	Takový soubor pojmenuji tak, že mu dám na konec znak 🌐.  
-	Ze všech `*🌐.md` udělej `*.html`, všechny ostatní `*.md` ignoruj.
-
-Vše s výjimkou používám pro dokumentaci a lepší zobrazení md souborů.  
-Marker používám u svého soukromého webu.  
-Mám v Obsidianu svoje know-how: obecné články, postupy, návody apod.  
-Některé z těch článků jsou obecné, a tak je chci zveřejnit.  
-Tak jim prostě na konec dám 🌐.
+Dva režimy pubikování:
+* **VŠE MIMO PODTRŽÍTKA** - publikuje se všechno kromě souborů začínající podtržítkem a adresářů začínajících podtržítkem. Takže `_*.md` se nepublikuje. `_adresář\*.md`  se taky nepublikuje.
+* **JEN S MARKEREM** - Marker je znak 🌐, který musí být na konci názvu článku. Takže se publikuje jen `*🌐.md`.  Pokud název začíná podtržítkem, např. `_Poznámka 🌐.md`, ignoruje se i s markerem (K20).
 
 ## Instalace a spuštění
 

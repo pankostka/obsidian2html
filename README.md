@@ -16,7 +16,8 @@ I use it in two ways:
 	In other words: turn every `*.md` except `_*.md` into `*.html`.
 * **ONLY WITH THE MARKER** - only what I want published is published.  
 	I name such a file so that it ends with the character 🌐.  
-	Turn every `*🌐.md` into `*.html` and ignore all other `*.md`.
+	Turn every `*🌐.md` into `*.html` and ignore all other `*.md`.  
+	If the name starts with an underscore, e.g. `_Note 🌐.md`, it is ignored even with the marker (K20).
 
 I use everything-except for documentation and for a nicer view of md files.  
 I use the marker for my personal site.  
