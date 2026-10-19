@@ -1,92 +1,74 @@
-# obsidian2html - zdrojový text
+# obsidian2html - readme
 
 > **Toto je zdroj, `README.md` je z něj odvozený překlad.** Změna se dělá tady a teprve pak se propíše do README. README se vymaže a pak vytvoří překladem z tohoto.  
-> Přesná pravidla a jejich zdůvodnění jsou v [SPEC.cs.md](SPEC.cs.md), kódy K a Z v závorkách odkazují tam.
 
-## Co je obsidian2html 
+## TODO
+Poznámky pro mě co je třeba udělat
+* Datum u článků by mělo jít nastavit na jiný formát než YYYY-MM-DD
+* Hlavní a vedlejší menu předělat
+
+## Co je obsidian2html
 
 Toto je **generátor md->html**.  
-Je to **python script**, který se zavolá na **vstupní adresář s md soubory** (typicky vault Obsidian, ale není to podmínkou) a on vytvoří do **výstupního adresáře html soubory**.  
+**Python script**, který se zavolá na **vstupní adresář s md soubory** (typicky vault Obsidian, ale není to podmínkou) a on vytvoří do **výstupního adresáře html soubory**.  
 Výstupní web běží samostatně, nepotřebuje databázi.  Jsou to **statické stránky s Javascriptem**.
 
-Dva režimy pubikování:
-* **VŠE MIMO PODTRŽÍTKA** - publikuje se všechno kromě souborů začínající podtržítkem a adresářů začínajících podtržítkem. Takže `_*.md` se nepublikuje. `_adresář\*.md`  se taky nepublikuje.
-* **JEN S MARKEREM** - Marker je znak 🌐, který musí být na konci názvu článku. Takže se publikuje jen `*🌐.md`.  Pokud název začíná podtržítkem, např. `_Poznámka 🌐.md`, ignoruje se i s markerem (K20).
+Dva režimy publikování:
+* **VŠE MIMO PODTRŽÍTKA a TEČKY** - publikuje se všechno kromě souborů a adresářů začínajících `_` nebo `.`.  
+	Takže `_*.md` nebo `.*.md` se nepublikuje.  
+	Cokoli v `_adresář\*.md`  nebo `.adresář\*.md` se taky nepublikuje. Tečka adresář v Obsidianu skryje a podtržítko ne.
+* **JEN S MARKEREM** - Marker je znak 🌐, který musí být na konci názvu článku.  
+	Takže se publikuje jen `*🌐.md`.  
+	Pokud název začíná podtržítkem, např. `_Poznámka 🌐.md`, ignoruje se i s markerem (K20).
+
+## Jak vypadá výsledek
+
+Výsledný web zobrazuje perexy článků s náhledovým obrázkem. Dále se zobrazuje datum článku (ve formátu )
+Kliknutím na článek se zobrazí detail článku.
+Vlevo nahoře je logo, kliknutím na něj se zobrazí úvodní strana.
+Vpravo nahoře je fulltextové filtrování článků a počet článků.
+Nahoře je menu tvořené ze dvou částí. Hlavní menu a Vedlejší menu.
+	* Hlavní menu - adresáře nebo tagy _
+	* Vedlejší menu - všechny ostatní tagy mimo?
+
+![Ukázka titulní stránky](Example1-MainPagePK.jpg)
+
+
+Tagy slouží jako filtr a lišta.  
+Je možno filtrovat.  
+S přepínačem `--edit-links` se u nadpisu článku zobrazí ikona tužky, která otevře zdrojovou poznámku v Obsidianu.  
 
 ## Instalace a spuštění
 
 Vyžaduje nainstalovaný python 3.11 nebo novější a v něm doinstalovaný markdown (`pip install markdown`).  
-Volání (na pořadí přepínačů nezáleží):
+Příklady volání (na pořadí přepínačů nezáleží) z příkazové řádky:
 
 ```
-python md2html.py --source C:\vault --dest C:\web --publish "*🌐.md"
-python md2html.py --source C:\docs --dest C:\web-docs --publish "*.md"
+python md2html.py --source C:\vault --dest C:\web1 --publish "*🌐.md"
+python md2html.py --source C:\vault --dest C:\web2 --publish "*.md"
 ```
 
-Ze zdrojového adresáře vznikne web: sdílený `styl.css`, obrázky ve složce `img/`, titulka s kartami a filtrem podle tagů, stránky tagů, hledání, lišta, logo, RSS.  
-`--source`, `--dest` a `--publish` jsou povinné, jen s `--check` se `--dest` nezadává.  
-`--publish` říká, které články jdou ven, a volí tím jeden ze dvou režimů z úvodu (K10).  
-Údaje o webu samotném - název, jazyk a adresa - nejsou přepínače, ale leží ve vaultu v `config.toml` (K70).
+## Co se jak převádí
 
-| Přepínač            | K čemu                                                                |
-| ------------------- | --------------------------------------------------------------------- |
-| `--source`          | zdrojový adresář s `.md` soubory                                      |
-| `--dest`            | cílový adresář, kam se web postaví (Z50, Z55)                         |
-| `--keep-archives N` | kolik posledních archivů předchozího výstupu nechat, výchozí 10 (Z55) |
-| `--publish "vzor"`  | co se publikuje: `"*🌐.md"` jen s markerem, `"*.md"` všechno (K10)    |
-| `--check`           | jen ověří, že se web postaví, nikam nezapisuje. Pro git hook          |
-| `--if-changed`      | postaví web, jen když se od minula něco změnilo. Pro plánovač (Z57)   |
-| `--edit-links`      | článek dostane odkaz, který jeho zdroj otevře v Obsidianu (Z90)       |
-
-`--check` postaví celý web do dočasného adresáře, výsledek zahodí a dočasný adresář smaže.  
-Vrátí `0`, když build prošel, a `1`, když ne, a vypíše stejná upozornění jako normální build.  
-Je určený pro git hook ve vaultu, který před commitem ověří, že web jde postavit, a když ne, commit zastaví.  
-Cílového adresáře se nedotkne, takže nic nemaže ani nearchivuje (Z55).  
-**`--check` spolu s `--dest` nebo `--keep-archives` je chyba** - člověk by si jinak mohl myslet, že se do cíle něco zapsalo.
-
-`--if-changed` je pro build pouštěný pravidelně, třeba každých pět minut z plánovače.  
-Když se ve zdroji od posledního buildu nic nezměnilo, skončí hned a na cíl nesáhne, takže se web zbytečně nepřepisuje.  
-Nová verze `md2html.py` se počítá jako změna.
-
-`--edit-links` je pro web, který čte jen jeho autor.  
-Vpravo od nadpisu článku i jeho karty v přehledu přibude tužka a klik na ni otevře poznámku, ze které článek vznikl.  
-Prohlížeč se napoprvé zeptá, jestli smí Obsidian spustit.  
-Na veřejný web nepatří, prozradil by název vaultu a jeho složky.  
-`--source` musí ležet ve vaultu Obsidianu, tedy ve složce se `.obsidian/` nebo pod ní, jinak build skončí chybou.
-
-Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
-
-## Jak připravit vault
-
-- **Co jde ven** určuje `--publish`: buď jen články s markerem na konci názvu, nebo všechny (K10).
-- **Podtržítko nebo tečka** na začátku názvu vyřadí složku i soubor, v obou režimech (K20).
-- **Šablony** se přeskočí samy, složka se zjistí z nastavení Obsidianu (K15).
-- **Titulek** článku je název souboru bez markeru, přebije ho klíč `title` ve frontmatteru (K25).
-- **Adresa** článku je název souboru bez diakritiky, malými písmeny a s pomlčkami, třeba `obsidian-nastaveni.html` (K30).
-- **Perex** na kartě je první odstavec článku (K40).
-- **Přílohy** se hledají vedle článku, ve složce pojmenované jako článek, v jeho složce `Attachments/` a nakonec v celém vaultu (K50).
-- **Náhledový obrázek** karty se jmenuje jako článek a leží ve složce článku nebo v `Attachments/`, doporučený rozměr je 630x290 (K60).
+- **Titulek** článku je název souboru bez markeru, takže `Obsidian Co je 🌐.md` má titulek `Obsidian Co je`.  
+	Přebít ho jde klíčem `title` ve frontmatteru, třeba když je název souboru technický (K25).
+- **Adresa** článku je název souboru bez markeru, bez diakritiky, malými písmeny a s pomlčkami, takže `Obsidian Co je 🌐.md` je `obsidian-co-je.html` (K30).
 - **Datum** patří do frontmatteru jako `date: RRRR-MM-DD`, jinak se vezme datum souboru (K80).
-- **Tag** `Obsidian/Video` jsou dva tagy, `Obsidian` a `Video` (K95).
+- **Přílohy** se hledají nejprve vedle článku, pak ve složce pojmenované jako článek (název bez markeru stačí), pak v `Attachments/` a nakonec v celém vaultu (K50).
 - **Hlavní tag** se označí podtržítkem, `_Obsidian`, a ve filtru na titulce pak vede (K97).
-- **Hlavní tag z adresáře**: s `lead_tags = "folders"` vede i adresář první úrovně, `02.Předměty` je tag `Předměty` a číslo určuje pořadí (K96).
-- **Článek bez tagu** v jedné z řad filtru najde prázdná pilulka na konci té řady (K98).
 
-Klíče frontmatteru jsou anglicky: `date`, `title`, `excerpt`, `slug`, `tags` (K90).
+## Konfigurační soubory
 
-## Nastavení webu
+Web se vygeneruje i bez dalších souborů, s nimi ale bude vypadat lépe.  
+Žádný z nich není povinný.  
+Patří do složky `.obsidian2html` nebo `_obsidian2html` ve vaultu. Tečka složku v Obsidianu skryje a podtržítko ne.
 
-Nastavení webu leží ve vaultu ve složce `_obsidian2html/`, nebo `.obsidian2html/`, když má být v Obsidianu skrytá (K70).  
-Obě naráz jsou chyba.  
-Všechno v ní je nepovinné:
-
-- `config.toml` - název, jazyk a adresa webu, filtr na období a hlavní tagy.
-- `index.md` - ruční úvod na titulce.
-- `logo.svg` - logo vlevo nahoře, odkaz na titulku.
-- `menu.md` - lišta v hlavičce, určuje pořadí tagů. Bez ní je abecední.
-- `styl.css` - vlastní styly, připojí se za vygenerované (Z40).
-
-`config.toml` je textový soubor ve formátu [TOML](https://toml.io): na každém řádku `klíč = hodnota`, text v uvozovkách, komentář za `#`.
+Soubory:
+* `logo.svg` - logo webu. Změní logo webu vlevo nahoře na tento obrázek.
+* `styl.css` - vlastní styl webu pro přepsání vzhledu - šířka, barvy, písmo apod.
+* `menu.md` - určuje pořadí hlavních tagů, bez něj jsou abecedně.
+* `index.md` - ruční úvod na titulce webu. Vykreslí se na úvodní stránce mezi filtrem a obsahem.
+* `config.toml` - název, jazyk a adresa webu, filtr na období a hlavní tagy. Je to textový soubor ve formátu [TOML](https://toml.io):
 
 ```toml
 name = "Pan Kostka"                 # název webu
@@ -96,33 +78,9 @@ date_filter = true                  # posuvník s histogramem na titulce
 lead_tags = "folders"               # hlavní tag i z adresáře
 ```
 
-- `name` - název webu vlevo nahoře, v titulku každé stránky a v RSS. Výchozí je jméno složky vaultu.
-- `lang` - jazyk tlačítek a popisků webu, ne článků (K100). Výchozí je `cs`.
-- `base_url` - adresa, na které web poběží. Bez ní nevznikne `rss.xml`.
-- `date_filter` - `true` přidá na titulku pod štítky posuvník na období s histogramem článků (Z75). Po dnech, měsících nebo rocích podle toho, jak dlouhé období web pokrývá. Výchozí je `false`, píše se bez uvozovek.
-- `lead_tags` - `"folders"` udělá hlavním tagem i adresář první úrovně, ve kterém článek leží, a podtržítko pak přidá další (K96). Výchozí `"underscore"` bere jen podtržítko.
-
-Chybějící klíč má výchozí hodnotu, neznámý klíč nebo neplatná hodnota build zastaví.
-
-## Co nástroj slibuje
-
-- Mrtvý odkaz nevznikne: když cíl na webu není, zbyde z odkazu text a build řekne kolik (Z10).
-- Ukázky v blocích kódu zůstanou, jak jsou napsané (Z20).
-- Chybějící obrázek build zastaví, web s dírou nevznikne (Z30).
-- Do vaultu se jen čte, nikdy nezapisuje (Z45).
-- Kam se zapisuje, určuje jen `--dest` (Z50).
-- Cíl se před buildem vyprázdní, položky s tečkou zůstanou, předchozí obsah jde do archivu a cizí adresář se nesmaže (Z55).
-- S `--if-changed` se web, u kterého se nic nezměnilo, nestaví znovu (Z57).
-- Přílohy mají adresu malými písmeny v ASCII, takže odkaz funguje i na linuxovém serveru (Z60).
-- Filtr podle tagů přežije kliknutí do článku (Z70) a když zbude jediný článek, otevře se (Z80).
-- Volitelný filtr na období se spojuje s tagy a jeho histogram ukazuje i dny, měsíce nebo roky bez článku (Z75).
-- Pod patičkou každé stránky je datum a čas poslední změny obsahu webu, ne čas buildu (Z85).
-- S `--edit-links` otevře tužka u nadpisu článku a jeho karty zdroj v Obsidianu, bez přepínače na webu po vaultu nic nezůstane (Z90).
-
 ## Pro vývoj
 
-Pravidla, jejich zdůvodnění a hraniční případy jsou v [SPEC.cs.md](SPEC.cs.md), ten je autoritou pro kód i testy.  
-Testy se pouštějí `python test_md2html.py`, je jich 125 a běží pod sekundu.
+Podrobný popis je v [SPEC.cs.md](SPEC.cs.md).
 
 ## Licence
 
