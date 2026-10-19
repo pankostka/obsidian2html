@@ -135,14 +135,12 @@ Protože `_Obsidian` a `Obsidian` je jeden tag, stačí značka u jednoho výsky
 Kurátorovaný `menu.md` řídí lištu v hlavičce, do filtru nemluví; značku v něm psát netřeba, a když se tam zkopíruje, přeskočí se.
 
 **K98. Každou řadu filtru uzavírá prázdná pilulka pro články, které v ní žádný tag nemají.**  
-Bez ní by se k článku bez hlavního tagu nedalo dostat přes první řadu a k článku bez běžného tagu přes druhou, a článek bez tagů vůbec by nebyl vidět ani v jedné.  
-Hlavní je tag podle celého webu, ne podle zápisu v článku (K97): článek s `Obsidian` bez podtržítka má hlavní tag, když ho jinde někdo označil.  
+Bez ní by se k článku bez hlavního tagu nedalo dostat přes první řadu a k článku bez běžného tagu přes druhou.  
+Hlavní je tag podle celého webu, ne podle zápisu v článku (K97).  
 Obě pilulky naráz dávají články bez jediného tagu, takže třetí pilulka není potřeba.  
-Pilulka nemá jméno, nese jen počet, a čtečce obrazovky říká, co znamená, vlastním `aria-label`.  
+Pilulka nemá jméno, nese počet a čtečce obrazovky říká, co znamená, vlastním popiskem.  
 Kreslí se, jen když zužuje: sedí na ni aspoň jeden článek a ne všechny.  
-Na webu bez hlavního tagu by pilulka první řady nesla všechno, a klik, který nic nezmění, do lišty nepatří.  
-Stránku nemá, žije jen ve filtru; v adrese je jako `?tag=bez-hlavniho-tagu` a `?tag=bez-bezneho-tagu`, anglicky `no-lead-tag` a `no-plain-tag`.  
-Dřívější pseudo-tag `#` se stránkou `tag-bez-tagu.html` zmizel, a když ho `menu.md` pořád jmenuje, build řádek přeskočí a ohlásí to.
+Stránku nemá, v adrese je `?tag=bez-hlavniho-tagu` a `?tag=bez-bezneho-tagu` (anglicky `no-lead-tag`, `no-plain-tag`).
 
 **K100. Jazyk webu určuje klíč `lang` v `config.toml`, výchozí je `cs`.** Lokalizuje se jen to, co vidí **návštěvník** - hlášky při buildu čte ten, kdo build spouští, a ty jsou anglicky vždycky.  
 Součástí jazyka jsou i **názvy v adrese**: prázdná pilulka z K98 je na českém webu `?tag=bez-bezneho-tagu`, na anglickém `?tag=no-plain-tag`.  
@@ -207,31 +205,19 @@ Stránky tagů zůstávají statické: jejich výpis se v prohlížeči nepřekr
 **Z75. S `date_filter = true` má titulka pod štítky posuvník na období s histogramem.**  
 Je to třetí osa filtru vedle tagů a textu a spojuje se s nimi přes AND.  
 Osa jde od prvního článku po poslední a má **všechny dny, měsíce nebo roky** mezi nimi, i ty, ve kterých žádný článek není.  
-Díra v psaní je informace a histogram nad posuvníkem ji má ukázat, ne zavřít.  
-Každý sloupec je proto podbarvené políčko na celou výšku a počet v něm roste odspodu, takže i prázdný den je vidět.  
-**Jednotku vybere build sám**: nejjemnější, se kterou vyjde nejvýš 60 sloupců.  
-Po dnech je tedy osa zhruba do dvou měsíců, po měsících do pěti let, nad pět let po rocích.  
-Šedesát sloupců nechá na telefonu na každý asi pět pixelů, takže se na něj úchyt ještě trefí.  
-Úchyty se posouvají po stejných krocích, jaké mají sloupce, a stojí nad jejich středem.  
-Pod osou jsou u osy po dnech měsíce a čísla dní - každý den, každý druhý, nebo 1., 8., 15., 22. a 29., podle toho, co se vejde.  
-Bez čísel dní by krátká osa vypadala jako osa po měsících.  
-Sobota a neděle mají číslo červeně (token `--vikend`, Z40) a dnešek je v pilulce barvy textu, takže se od víkendu odliší i na webu s červenými odkazy.  
-Dnešek je očíslovaný vždycky, když do osy patří, a sousední číslo, které by se s ním srazilo, ustoupí.  
-Je to dnešek čtenáře, spočítaný v prohlížeči: web může stát beze změny dny po buildu.  
-U ostatních os jsou pod ní roky; co se nevejde, vynechá se.  
-Jak web roste, jednotka se sama zhrubne - web z jednoho měsíce dostane dny, za půl roku měsíce.  
-Histogram počítá celý web a nemění se, takže neuhýbá pod posuvníkem, kterým se v něm vybírá.  
-Čísla na štítcích období započítávají - štítek, který slíbí pět, zatímco výpis pod ním drží dva, by lhal.  
-Období jde do adresy v jednotce osy, třeba `?from=2023-01&to=2024-06` nebo `?from=2026-09-08`, a přežije kliknutí do článku stejně jako tagy (Z70).  
-Článek posuvník nekreslí, ale čísla v jeho liště počítají se stejným obdobím a klik ho vrátí na titulku.  
-Celé období se do adresy nepíše, takže adresa bez něj zůstává, jaká byla.  
-Na webu bez `date_filter` se `?from=` a `?to=` ignorují - filtr, který nejde vidět ani zrušit, by jen tiše ubíral články.  
-Hodnota mimo osu se ignoruje taky, protože konce osy už jsou otevřené konce.  
-Stejně dopadne odkaz z doby, kdy osa měla jinou jednotku: přestane zužovat, ale výpis se neztratí.  
-Článek s datem, které datem není (K80), na osu nepatří a při zúženém období vypadne.  
-Když mají všechny články stejné datum, není kam jet: posuvník se nekreslí a build to ohlásí.  
-Bez JavaScriptu se posuvník nekreslí, zbyde statický výpis jako dosud.  
-Web bez `date_filter` nedostane ani ovladač, ani jeho styly.
+Díra v psaní je informace a histogram ji má ukázat, ne zavřít.  
+**Jednotku vybere build sám**: nejjemnější, se kterou vyjde nejvýš 60 sloupců, takže po dnech je osa zhruba do dvou měsíců, po měsících do pěti let, výš po rocích.  
+Víc sloupců by se na telefonu nedalo trefit.  
+Jak web roste, jednotka se sama zhrubne.  
+U osy po dnech jsou víkendy a dnešek odlišené (token `--vikend`, Z40).  
+Histogram počítá celý web a nemění se při výběru, čísla na štítcích období ale započítávají - štítek, který slíbí pět, zatímco výpis drží dva, by lhal.  
+Období jde do adresy v jednotce osy (`?from=2023-01&to=2024-06`) a přežije kliknutí do článku stejně jako tagy (Z70).  
+Článek posuvník nekreslí, ale čísla v jeho liště počítají se stejným obdobím.  
+Bez `date_filter` se `?from=` a `?to=` ignorují, protože filtr, který nejde vidět ani zrušit, by tiše ubíral články.  
+Hodnota mimo osu nebo z doby s jinou jednotkou se ignoruje, výpis se neztratí.  
+Článek s datem, které datem není (K80), na osu nepatří.  
+Když mají všechny články stejné datum, posuvník se nekreslí a build to ohlásí.  
+Bez JavaScriptu zbyde statický výpis.
 
 **Z80. Když klik na štítek nechá jedinou stránku, otevře ji.**  
 Je to kliknutí na kartu udělané za čtenáře, takže vede na tutéž adresu, jakou nese karta, i s filtrem.  
@@ -269,3 +255,33 @@ Název vaultu a jeho složky jsou soukromé, na veřejný web nepatří.
 Z jednoho vaultu přitom může vzniknout veřejný web i lokální náhled a odkaz patří jen do náhledu - rozhoduje tedy, kdo tenhle build čte, ne vlastnost webu (K70).  
 Přepínač se počítá do otisku, takže jeho zapnutí `--if-changed` pozná jako změnu (Z57).  
 Odkaz má třídu `upravit` a s nadpisem ho drží blok `titulek`, takže ho jde ve `styl.css` přestylovat nebo schovat (Z40).
+
+## Příkazová řádka
+
+| Přepínač            | K čemu                                                                |
+| ------------------- | --------------------------------------------------------------------- |
+| `--source`          | zdrojový adresář s `.md` soubory                                      |
+| `--dest`            | cílový adresář, kam se web postaví (Z50, Z55)                         |
+| `--keep-archives N` | kolik posledních archivů předchozího výstupu nechat, výchozí 10 (Z55) |
+| `--publish "vzor"`  | co se publikuje: `"*🌐.md"` jen s markerem, `"*.md"` všechno (K10)    |
+| `--check`           | jen ověří, že se web postaví, nikam nezapisuje. Pro git hook          |
+| `--if-changed`      | postaví web, jen když se od minula něco změnilo. Pro plánovač (Z57)   |
+| `--edit-links`      | článek dostane odkaz, který jeho zdroj otevře v Obsidianu (Z90)       |
+
+`--check` postaví celý web do dočasného adresáře, výsledek zahodí a dočasný adresář smaže.  
+Vrátí `0`, když build prošel, a `1`, když ne, a vypíše stejná upozornění jako normální build.  
+Je určený pro git hook ve vaultu, který před commitem ověří, že web jde postavit, a když ne, commit zastaví.  
+Cílového adresáře se nedotkne, takže nic nemaže ani nearchivuje (Z55).  
+**`--check` spolu s `--dest` nebo `--keep-archives` je chyba** - člověk by si jinak mohl myslet, že se do cíle něco zapsalo.
+
+`--if-changed` je pro build pouštěný pravidelně, třeba každých pět minut z plánovače.  
+Když se ve zdroji od posledního buildu nic nezměnilo, skončí hned a na cíl nesáhne, takže se web zbytečně nepřepisuje.  
+Nová verze `md2html.py` se počítá jako změna.
+
+`--edit-links` je pro web, který čte jen jeho autor.  
+Vpravo od nadpisu článku i jeho karty v přehledu přibude tužka a klik na ni otevře poznámku, ze které článek vznikl.  
+Prohlížeč se napoprvé zeptá, jestli smí Obsidian spustit.  
+Na veřejný web nepatří, prozradil by název vaultu a jeho složky.  
+`--source` musí ležet ve vaultu Obsidianu, tedy ve složce se `.obsidian/` nebo pod ní, jinak build skončí chybou.
+
+Návratový kód: `0` hotovo, `1` chyba při převodu, `2` špatné parametry.
