@@ -8,7 +8,7 @@ Pracovní dokument. Co se dělá, co zbývá, co se už zkusilo. Důležité nah
 
 Repozitář je **publikovaný** na GitHubu jako veřejný `pankostka/obsidian2html`, licence MIT, držitel práv `pankostka.cz`. Historie je tím veřejná, proto jsou kód i commit zprávy anglicky.
 
-Skript přišel z `_JDStandards`, kde nepatřil - to repo drží pravidla, tohle je nástroj. Do cílových rep se nekopíroval, takže přesunem se nic nerozbilo. **V `_JDStandards` zatím pořád leží** (`md2html.py`) a měl by se odtamtud smazat, když tenhle repozitář už běží.
+Skript přišel z `_JDStandards`, kde nepatřil - to repo drží pravidla, tohle je nástroj. Do cílových rep se nekopíroval, takže přesunem se nic nerozbilo. Z `_JDStandards` je smazaný (commit `073de17`) a `_JDStandards` je od 2026-10-27 archivované.
 
 Historie se nepřenášela, začalo se od aktuálního stavu.
 

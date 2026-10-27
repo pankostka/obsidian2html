@@ -25,4 +25,4 @@ Generátor statického webu z Obsidian vaultu. Jeden skript, jedna závislost.
 
 **Testy ale nestačí.** U zásahu, který nemá měnit výstup, postav navíc PKVault starou i novou verzí a porovnej - testy pokrývají konvence, ne každý detail vzhledu.
 
-Pravidla pocházejí z `_JDStandards` (`dokumentace_JD.md`, `git_JD.md`). Tenhle repozitář není jejich cílem, takže se sem nekopírují a jsou tu opsaná jen ta, která se ho týkají.
+Pravidla pocházejí ze skillů `pankostka-md` a `pankostka-git` z marketplace `pankostka` ([PanKostkaSkills](https://github.com/pankostka/PanKostkaSkills)). Tady jsou opsaná jen ta, která se tohoto repozitáře týkají.
