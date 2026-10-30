@@ -1634,7 +1634,8 @@ def outside_code(text, substitute):
 
 
 def article_folder(article_path):
-    """The article's own attachment folder: next to it, named like it.
+    """The article's own attachment folder, named like the article: either the
+    folder the article itself lies in, or a folder next to it.
 
     Matching goes through slug() with the marker stripped, so the folder may
     carry the marker or not, the same as the article it belongs to.
@@ -1647,6 +1648,8 @@ def article_folder(article_path):
     found = [os.path.join(base, d) for d in sorted(os.listdir(base))
              if slug(strip_marker(d)) == wanted
              and os.path.isdir(os.path.join(base, d))]
+    if slug(strip_marker(os.path.basename(base))) == wanted:
+        found.insert(0, base)
     if len(found) > 1:
         raise Error('Article %s has two attachment folders: %s'
                     % (article_path, ', '.join(os.path.basename(d) for d in found)))
@@ -1658,15 +1661,16 @@ def folder_owner(source):
 
     Such an attachment goes to img/<slug>/ on the site. Each article folder may
     have its own schema.png, and one flat img/ would make them clash.
+    The article lies next to its folder, or inside it.
     """
     folder = os.path.dirname(os.path.abspath(source))
     wanted = slug(strip_marker(os.path.basename(folder)))
-    parent = os.path.dirname(folder)
-    for s in os.listdir(parent):
-        stem, ext = os.path.splitext(s)
-        if ext.lower() == '.md' and slug(strip_marker(stem)) == wanted \
-                and os.path.isfile(os.path.join(parent, s)):
-            return wanted
+    for directory in (os.path.dirname(folder), folder):
+        for s in os.listdir(directory):
+            stem, ext = os.path.splitext(s)
+            if ext.lower() == '.md' and slug(strip_marker(stem)) == wanted \
+                    and os.path.isfile(os.path.join(directory, s)):
+                return wanted
     return None
 
 

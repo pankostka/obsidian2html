@@ -6,7 +6,8 @@
 ## Pravidla
 
 **K50. Přílohy leží ve složce článku nebo v `Attachments/`.**  
-Složka článku leží vedle něj a jmenuje se jako on: `Obsidian Co je 🌐.md` má přílohy v `Obsidian Co je/`.  
+Složka článku se jmenuje jako on a článek leží buď vedle ní, nebo v ní: `Obsidian Co je 🌐.md` má přílohy v `Obsidian Co je/` vedle sebe, nebo leží v `Obsidian Co je 🌐/` a přílohy má přímo vedle sebe.  
+Článek ve vlastní složce je uspořádání podle skillu `pankostka-md`, kde má každý článek adresář svého jména.  
 Je pro autora, který pracuje v průzkumníku - u jedné společné `Attachments/` se špatně dohledává, co ke kterému článku patří.  
 Porovnává se přes slug bez markeru, takže sedne složka s globusem i bez něj a při zveřejnění ji přejmenovat jde, ale nemusí se.  
 Obě naráz jsou chyba, protože vybrat jednu by tu druhou tiše schovalo.  
@@ -25,4 +26,5 @@ Jiný rozměr se nepředělává - ořez a vycentrování obstará CSS v prohlí
 Na Linuxu je `Foo.png` a `foo.png` rozdíl, takže špatně napsaný odkaz funguje na Windows a na serveru vrátí 404.  
 Velikost písmen v odkazech se navíc ověřuje proti skutečným souborům a kolize adres je chyba.  
 Přílohy leží v jedné složce `img/`, protože web je plochý: články jsou v kořeni a složky vaultu se do adres nepropisují, takže přeskupení vaultu žádnou adresu nezmění.  
-Přílohy ze složky článku (K50) dostanou podsložku `img/<slug článku>/`, takže dva články smějí mít každý svou `schema.png`.
+Přílohy ze složky článku (K50) dostanou podsložku `img/<slug článku>/`, takže dva články smějí mít každý svou `schema.png`.  
+Platí to i pro článek ve vlastní složce: obrázek vedle něj je příloha ze složky článku.

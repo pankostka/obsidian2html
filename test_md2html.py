@@ -837,6 +837,28 @@ class Konvence(Zaklad):
         self.assertEqual(kod, 0, vypis)
         self.assertIn('src="img/prvni/schema.png"', self.vystupni('prvni.html'))
 
+    def test_K50_clanek_uvnitr_sve_slozky(self):
+        """Clanek lezi ve slozce sveho jmena, prilohy primo vedle nej."""
+        self.clanek('Prvni', 'Obrazek: ![schema](schema.png)\n',
+                    slozka='Prvni %s' % MARKER)
+        self.clanek('Druhy', 'Obrazek: ![schema](schema.png)\n',
+                    slozka='Druhy %s' % MARKER)
+        self.obrazek('Prvni %s/schema.png' % MARKER)
+        with open(self.obrazek('Druhy %s/schema.png' % MARKER), 'ab') as f:
+            f.write(b'jiny obsah')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('src="img/prvni/schema.png"', self.vystupni('prvni.html'))
+        self.assertIn('src="img/druhy/schema.png"', self.vystupni('druhy.html'))
+
+    def test_K60_nahled_v_clanku_uvnitr_slozky(self):
+        self.clanek('Obsidian Co je', 'Text.', slozka='Obsidian Co je')
+        self.obrazek('Obsidian Co je/Obsidian Co je.png')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+        self.assertIn('"image": "img/obsidian-co-je/obsidian-co-je.png"',
+                      self.vystupni('index.html'))
+
     def test_K60_nahled_ve_slozce_clanku(self):
         self.clanek('Obsidian Co je', 'Text.')
         self.obrazek('Obsidian Co je/Obsidian Co je.png')
