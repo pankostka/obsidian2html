@@ -1608,6 +1608,43 @@ RE_WIKILINK = re.compile(
     r'(?<!!)\[\[([^\]|#]+?)(?:#([^\]|]*))?(?:\\?\|([^\]]*))?\]\]')
 IMAGE_EXTS = ('.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp')
 
+# A standard Markdown link to another note: [text](Folder/Note.md#Heading).
+# Obsidian writes it with useMarkdownLinks on, and so does every other editor,
+# so the vault may hold no wikilinks at all. The path is percent-encoded
+# (Note%20name.md) or wrapped in <...> when it has spaces. Only the file name
+# matters on the site: every article lands flat as <slug>.html, the same as
+# the target of a wikilink.
+RE_MDLINK = re.compile(
+    r'(?<!!)\[([^\]\n]*)\]\(\s*'
+    r'(?:<([^>\n]+?\.md)(#[^>\n]*)?>|([^)\s]+?\.md)(#[^)\s]*)?)'
+    r'(\s+"[^"\n]*")?\s*\)', re.I)
+RE_SCHEME = re.compile(r'[a-z][a-z0-9+.-]*:', re.I)
+
+
+def resolve_md_links(text, batch, flattened):
+    """Point [text](Note.md) at the note's page, or leave only the text.
+
+    The browser would follow Note.md literally and find nothing - there is no
+    .md on the site. A target outside the batch stays plain text and goes to
+    `flattened`, the same as a wikilink (Z10). An address with a scheme
+    (https://.../file.md) is not a note and stays as it is.
+    """
+    def replace(m):
+        label = m.group(1)
+        target = m.group(2) or m.group(4)
+        anchor = m.group(3) or m.group(5)
+        if RE_SCHEME.match(target):
+            return m.group(0)
+        name = os.path.basename(unquote(target).replace('\\', '/'))
+        href = batch.get(slug(strip_marker(os.path.splitext(name)[0])))
+        if not href:
+            flattened.append(unquote(target))
+            return label
+        if anchor and len(anchor) > 1:
+            href += '#' + slug(unquote(anchor[1:]))
+        return '[%s](%s)' % (label, href)
+    return outside_code(text, lambda t: RE_MDLINK.sub(replace, t))
+
 # A fenced code block and inline code. Nothing is substituted inside.
 RE_CODE = re.compile(
     r'^(?P<f>```+|~~~+)[^\n]*\n.*?^(?P=f)[ \t]*$'   # ```...```
@@ -1769,7 +1806,8 @@ class Conversion(object):
                 return '[%s](%s)' % (link_text, href)
             self.flattened.append(target)
             return link_text
-        return outside_code(text, lambda t: RE_WIKILINK.sub(replace, t))
+        text = outside_code(text, lambda t: RE_WIKILINK.sub(replace, t))
+        return resolve_md_links(text, self.batch, self.flattened)
 
 
 # ==============================================================================
@@ -2177,7 +2215,8 @@ def menu_items(text, tags):
 
 
 def wikilinks_in_intro(text, batch):
-    """In the front-page intro, turn [[Note]] and [[Note|label]] into links.
+    """In the front-page intro, turn [[Note]], [[Note|label]] and
+    [label](Note.md) into links.
 
     The intro in `.obsidian2html/index.md` is the only hand-written text on the
     front page, so a set of pointers belongs there - and those point at
@@ -2197,8 +2236,9 @@ def wikilinks_in_intro(text, batch):
         link_text = label or strip_marker(target)
         return '[%s](%s)' % (link_text, fpath) if fpath else link_text
 
-    return outside_code(text, lambda t: re.sub(
+    text = outside_code(text, lambda t: re.sub(
         r'\[\[([^\]|]+?)(?:\\?\|([^\]]*))?\]\]', replace, t))
+    return resolve_md_links(text, batch, [])
 
 
 def config_name(vault):

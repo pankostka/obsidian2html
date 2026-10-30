@@ -1848,6 +1848,35 @@ class Syntaxe(Zaklad):
         self.assertIn('<a href="druha.html">jinou notu</a>',
                       self.vystupni('prvni.html'))
 
+    def test_markdown_odkaz_na_clanek(self):
+        """Standardni odkaz na .md vede na stranku clanku, ne na soubor .md."""
+        self.clanek('Prvni',
+                    'Viz [druhou](../Slozka/Druha%20Nota%20' + MARKER + '.md),'
+                    ' [sekci](<Druha Nota ' + MARKER + '.md#Moje Sekce>)'
+                    ' a [web](https://example.com/navod.md).\n')
+        self.clanek('Druha Nota', '## Moje Sekce\n\nText.\n', slozka='Slozka')
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('prvni.html')
+        self.assertIn('<a href="druha-nota.html">druhou</a>', html)
+        self.assertIn('<a href="druha-nota.html#moje-sekce">sekci</a>', html)
+        self.assertIn('href="https://example.com/navod.md"', html)
+        self.assertNotIn('Flattened', vypis)
+
+    def test_markdown_odkaz_mimo_davku_zbyde_textem(self):
+        """Z10: cil, ktery na web nejde, nesmi vest na mrtvou adresu."""
+        self.clanek('Prvni', 'Viz [interni](Interni.md) a `[kod](Kod.md)`.\n')
+        self.clanek('Interni', 'Text.', publikovany=False)
+        kod, vypis = self.web()
+        self.assertEqual(kod, 0, vypis)
+
+        html = self.vystupni('prvni.html')
+        self.assertNotIn('href="Interni.md"', html)
+        self.assertIn('interni', html)
+        self.assertIn('[kod](Kod.md)', html)
+        self.assertIn('Interni.md', vypis)
+
     def test_embed_obrazku_se_sirkou(self):
         self.clanek('Prvni', 'Obrazek: ![[schema.png|300]]\n')
         self.obrazek('Attachments/schema.png')
