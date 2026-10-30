@@ -75,6 +75,7 @@ Exit code: `0` done, `1` conversion error, `2` bad arguments.
 - **Templates** are skipped on their own; the folder is read from Obsidian's settings (K15).
 - **The title** of an article is its file name without the marker; the frontmatter key `title` overrides it (K25).
 - **The address** of an article is its file name without diacritics, in lower case and with hyphens, e.g. `obsidian-nastaveni.html` (K30).
+- **A link** to another article works as a wikilink `[[Article]]` and as a standard link `[Text](Folder/Article.md)`, which Obsidian writes with `useMarkdownLinks` on and every other editor writes anyway. Both lead to the target article's address; when the target does not go out, only the text is left (Z10).
 - **The excerpt** on a card is the first paragraph of the article (K40).
 - **Attachments** are looked up next to the article, in its `Attachments/` folder and finally anywhere in the vault (K50).
 - **The thumbnail** of a card lies in `Attachments/` and is named like the article; the recommended size is 630x290 (K60).

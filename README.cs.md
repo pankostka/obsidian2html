@@ -53,6 +53,7 @@ python md2html.py --source C:\vault --dest C:\web2 --publish "*.md"
 - **Titulek** článku je název souboru bez markeru, takže `Obsidian Co je 🌐.md` má titulek `Obsidian Co je`.  
 	Přebít ho jde klíčem `title` ve frontmatteru, třeba když je název souboru technický (K25).
 - **Adresa** článku je název souboru bez markeru, bez diakritiky, malými písmeny a s pomlčkami, takže `Obsidian Co je 🌐.md` je `obsidian-co-je.html` (K30).
+- **Odkaz** na jiný článek funguje jako wikilink `[[Článek]]` i jako standardní odkaz `[Text](Složka/Článek.md)`, který píše Obsidian s volbou `useMarkdownLinks` a každý jiný editor. Obojí vede na adresu cílového článku, a když cíl na web nejde, zbyde z odkazu holý text (Z10).
 - **Datum** patří do frontmatteru jako `date: RRRR-MM-DD`, jinak se vezme datum souboru (K80).
 - **Přílohy** se hledají nejprve vedle článku, pak ve složce pojmenované jako článek (název bez markeru stačí), pak v `Attachments/` a nakonec v celém vaultu (K50).
 - **Hlavní tag** se označí podtržítkem, `_Obsidian`, a ve filtru na titulce pak vede (K97).
